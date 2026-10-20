@@ -76,7 +76,7 @@ const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className
 const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.onclick = () => { sfx.click(); fn(); }; return b; };
 const T = { honest: 'صادق', liar: 'كاذب' };
 const label = f => f.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
-let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', boxOpen = false, holding = false, tl = null, lastSeq = -1;
+let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', boxOpen = false, boxOpenedManually = false, inactivityTimer = null, tl = null, lastSeq = -1;
 
 // ===== القواعد =====
 const holderOf = r => (r - 1) % 2;                       // المضيف يحمل الصندوق في الجولات الفردية
@@ -141,20 +141,62 @@ function burst() {
       duration: .9 + Math.random() * .5, ease: 'power2.out', onComplete: () => p.remove() });
   }
 }
+
 const canHold = () => st && me === holderOf(st.round) && ['choose', 'ask', 'judge'].includes(st.phase);
+
+// مؤقت إعادة الصندوق تلقائياً إن لم يلمسه اللاعب لمدة 5 ثوانٍ
+function resetInactivityTimer() {
+  clearTimeout(inactivityTimer);
+  if (boxOpen && canHold()) {
+    inactivityTimer = setTimeout(() => {
+      boxOpenedManually = false;
+      syncBox();
+    }, 5000);
+  }
+}
+
 function syncBox() {
   if (!st) return;
-  const want = st.phase === 'reveal' || (holding && canHold());
+  const want = st.phase === 'reveal' || (boxOpenedManually && canHold());
   if (want && !boxOpen) {
     const f = prod(st);
     $('#m3d').src = 'images/' + encodeURIComponent(f); 
     $('#iname').textContent = label(f);
-    openBox(); if (st.phase === 'reveal') { burst(); sfx.win(); }
-  } else if (!want && boxOpen) closeBox();
+    openBox(); 
+    if (st.phase === 'reveal') { 
+      burst(); 
+      sfx.win(); 
+    } else {
+      resetInactivityTimer();
+    }
+  } else if (!want && boxOpen) {
+    closeBox();
+    clearTimeout(inactivityTimer);
+  }
 }
+
 const scene = $('#scene');
-scene.addEventListener('pointerdown', e => { if (!canHold() || e.target.closest('model-viewer')) return; e.preventDefault(); holding = true; syncBox(); });
-['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => scene.addEventListener(ev, () => { if (holding) { holding = false; syncBox(); } }));
+// النقر أو اللمس لفتح/إغلاق الصندوق
+scene.addEventListener('pointerdown', e => {
+  if (!canHold()) return;
+  // إذا كان التفاعل على المنتج نفسه، نقوم بإعادة ضبط مؤقت الخمول فقط
+  if (e.target.closest('#item')) {
+    resetInactivityTimer();
+    return;
+  }
+  e.preventDefault();
+  boxOpenedManually = !boxOpenedManually;
+  syncBox();
+});
+
+// إعادة ضبط مؤقت الخمول عند تفاعل اللاعب مع المجسم ثلاثي الأبعاد
+const itemEl = $('#item');
+['pointerdown', 'pointermove', 'wheel', 'touchstart'].forEach(ev => {
+  itemEl.addEventListener(ev, () => {
+    resetInactivityTimer();
+  });
+});
+
 scene.addEventListener('contextmenu', e => e.preventDefault());
 
 // ===== الواجهة =====
@@ -172,7 +214,7 @@ function renderPanel() {
   const two = (a, b) => { const r = h('div', 'two'); r.append(a, b); return r; };
   p.replaceChildren();
   if (st.phase === 'choose') {
-    if (isH) p.append(h('div', 'msg', 'اختر دورك في هذه الجولة'), h('div', 'sm', 'اضغط مطولاً على الصندوق لترى المنتج، ثم قرّر: ستجيب بصدق في كل أجوبتك أم تكذب في كلها'), timer,
+    if (isH) p.append(h('div', 'msg', 'اختر دورك في هذه الجولة'), h('div', 'sm', 'اضغط على الصندوق لترى المنتج، ثم قرّر: ستجيب بصدق في كل أجوبتك أم تكذب في كلها'), timer,
       two(btn('سأكون صادقاً 😇', 'yes', () => choose('honest')), btn('سأكذب 😈', 'no', () => choose('liar'))));
     else p.append(h('div', 'msg', `${nm(hh)} ينظر إلى المنتج…`), h('div', 'sm', 'يختار الآن أن يكون صادقاً أو كاذباً، ولن تعرف اختياره'), timer);
   } else if (st.phase === 'ask') {
@@ -198,8 +240,8 @@ function render() {
   if (!st) return;
   $('#round').textContent = st.phase === 'done' ? 'انتهت اللعبة' : st.round > ROUNDS ? 'الجولة الفاصلة' : `الجولة ${st.round} من ${ROUNDS}`;
   $('#pts').textContent = `${nm(0)} ${st.pts[0]} – ${st.pts[1]} ${nm(1)}`;
-  $('#hold').textContent = canHold() ? 'اضغط مطولاً على الصندوق لترى المنتج' : '';
-  if (!canHold() && holding) holding = false;
+  $('#hold').textContent = canHold() ? 'اضغط على الصندوق لفتح وإظهار المنتج' : '';
+  if (!canHold() && boxOpenedManually) { boxOpenedManually = false; }
   if (st.seq !== lastSeq) { lastSeq = st.seq; if (st.phase === 'choose' || st.phase === 'judge') sfx.turn(); }
   syncBox(); renderPanel();
   if (st.phase === 'done' && !ended) {
