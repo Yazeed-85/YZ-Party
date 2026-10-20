@@ -1,0 +1,25 @@
+# يولّد games/truth-lie/images/list.json تلقائياً كلما أضفت أو حذفت صوراً في المجلد
+name: Build images list
+on:
+  push:
+    paths: ['games/truth-lie/images/**']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate list.json
+        run: |
+          node -e "
+          const fs=require('fs');const d='games/truth-lie/images';
+          const f=fs.readdirSync(d).filter(n=>/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(n)).sort();
+          fs.writeFileSync(d+'/list.json',JSON.stringify(f,null,1)+'\n');"
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add games/truth-lie/images/list.json
+          git diff --cached --quiet || (git commit -m "update images list" && git push)
