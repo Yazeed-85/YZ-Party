@@ -7,6 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../shared/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<!-- مكتبة Google لعرض وتدوير مجسمات الـ 3D (GLB) -->
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
 <style>
 main{justify-content:flex-start;padding-top:14px;gap:10px}
 .info{display:flex;justify-content:space-between;align-items:center;padding:0 6px;color:var(--mute);font-size:.9rem}
@@ -28,8 +30,8 @@ main{justify-content:flex-start;padding-top:14px;gap:10px}
 .lid{position:absolute;left:-85px;top:0;width:170px;height:0;transform-style:preserve-3d}
 .lidp{position:absolute;left:0;top:0;width:170px;height:170px;transform-origin:50% 0;transform:rotateX(90deg);background:linear-gradient(160deg,#34416a,#1d2543);border:1px solid rgba(255,255,255,.2);box-shadow:inset 0 0 30px rgba(0,0,0,.35)}
 .shadow{position:absolute;left:50%;top:372px;width:210px;height:38px;margin-left:-105px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent)}
-.item{position:absolute;left:50%;top:300px;width:156px;padding:12px;border-radius:20px;background:rgba(16,20,38,.94);border:1px solid rgba(255,180,84,.65);box-shadow:0 0 56px rgba(255,180,84,.5);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:2;opacity:0;pointer-events:none}
-.item img{width:130px;height:130px;object-fit:contain;border-radius:12px;background:rgba(255,255,255,.05)}
+.item{position:absolute;left:50%;top:300px;width:160px;padding:12px;border-radius:20px;background:rgba(16,20,38,.94);border:1px solid rgba(255,180,84,.65);box-shadow:0 0 56px rgba(255,180,84,.5);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:2;opacity:0;pointer-events:auto}
+.item model-viewer{width:136px;height:136px;border-radius:12px;background:rgba(255,255,255,.05);--postfix:none}
 .item b{font:700 1.3rem 'Reem Kufi',sans-serif;color:var(--amber)}
 .spark{position:absolute;left:50%;top:120px;width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber);z-index:5;pointer-events:none}
 .hold{text-align:center;color:var(--mute);font-size:.85rem;min-height:1.2em}
@@ -51,7 +53,10 @@ main{justify-content:flex-start;padding-top:14px;gap:10px}
       <div class="f back"></div><div class="f left"></div><div class="f right"></div><div class="f bottom"></div>
       <div class="hinge"><div id="lid" class="lid"><div class="lidp"></div></div></div>
     </div>
-    <div id="item" class="item"><img id="iimg" alt=""><b id="iname"></b></div>
+    <div id="item" class="item">
+      <model-viewer id="m3d" src="" camera-controls auto-rotate shadow-intensity="1" ar-status="not-presenting"></model-viewer>
+      <b id="iname"></b>
+    </div>
     <div class="rot front"><div class="f front"></div></div>
   </div>
   <div id="hold" class="hold"></div>
@@ -142,16 +147,15 @@ function syncBox() {
   const want = st.phase === 'reveal' || (holding && canHold());
   if (want && !boxOpen) {
     const f = prod(st);
-    $('#iimg').src = 'images/' + encodeURIComponent(f); $('#iname').textContent = label(f);
+    $('#m3d').src = 'images/' + encodeURIComponent(f); 
+    $('#iname').textContent = label(f);
     openBox(); if (st.phase === 'reveal') { burst(); sfx.win(); }
   } else if (!want && boxOpen) closeBox();
 }
 const scene = $('#scene');
-scene.addEventListener('pointerdown', e => { if (!canHold()) return; e.preventDefault(); holding = true; syncBox(); });
+scene.addEventListener('pointerdown', e => { if (!canHold() || e.target.closest('model-viewer')) return; e.preventDefault(); holding = true; syncBox(); });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => scene.addEventListener(ev, () => { if (holding) { holding = false; syncBox(); } }));
 scene.addEventListener('contextmenu', e => e.preventDefault());
-$('#iimg').onerror = () => { $('#iimg').style.visibility = 'hidden'; };
-$('#iimg').onload = () => { $('#iimg').style.visibility = 'visible'; };
 
 // ===== الواجهة =====
 const nm = i => players[st.order[i]]?.name || '؟';
@@ -217,7 +221,7 @@ else if (ctx.isHost) {
     const deck = [...list].sort(() => Math.random() - .5).slice(0, DECK), other = ids.find(i => i !== ctx.meta.host);
     runTransaction(gameRef(ctx.code), cur => cur || { order: [ctx.meta.host, other], deck, round: 1, phase: 'choose', pts: [0, 0],
       viol: 0, endAt: deadline(CHOOSE_S), seq: 0 });
-  } catch { toast('لا توجد صور في games/truth-lie/images', 'error'); setTimeout(backToLobby, 2500); }
+  } catch { toast('لا توجد صور أو مجسمات في games/truth-lie/images', 'error'); setTimeout(backToLobby, 2500); }
 }
 players = ctx.players;
 onValue(gameRef(ctx.code), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
