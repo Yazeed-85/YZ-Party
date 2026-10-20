@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>أربعة في صف</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+main{justify-content:flex-start;padding-top:14px}
+.status{display:flex;align-items:center;justify-content:center;gap:10px;font:700 1.3rem 'Reem Kufi',sans-serif;min-height:44px}
+.chip{width:20px;height:20px;border-radius:50%}
+.board{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:10px;direction:ltr;overflow:hidden}
+.cell{aspect-ratio:1;border-radius:50%;background:rgba(0,0,0,.45);position:relative;cursor:pointer}
+.disc{position:absolute;inset:3px;border-radius:50%}
+.p1 .disc,.chip.p1{background:radial-gradient(circle at 35% 30%,#ffb3be,var(--rose))}
+.p2 .disc,.chip.p2{background:radial-gradient(circle at 35% 30%,#ffe3b0,var(--amber))}
+.win .disc{box-shadow:0 0 0 3px #fff,0 0 22px #fff;animation:glow .6s infinite alternate}
+@keyframes glow{to{box-shadow:0 0 0 3px #fff,0 0 4px #fff}}
+</style>
+</head>
+<body>
+<main>
+  <div id="sb" class="glass scorebar"></div>
+  <div id="status" class="status">جارٍ التحميل…</div>
+  <div id="board" class="glass board" role="grid" aria-label="لوح أربعة في صف"></div>
+</main>
+<script type="module">
+import { runTransaction, onValue } from '../../shared/firebase.js';
+import { enterRoom, watchRoom, gameRef, goLobby } from '../../shared/room.js';
+import { finishGame, makeResult } from '../../shared/result.js';
+import { toast, sfx, scoreBar } from '../../shared/ui.js';
+
+const R = 6, C = 7, $ = s => document.querySelector(s);
+let ctx, st = null, prev = null, busy = false, ended = false, players = {}, scores = {};
+
+// ===== قوانين اللعبة =====
+const dropRow = (b, col) => { for (let r = R - 1; r >= 0; r--) if (b[r * C + col] === '0') return r; return -1; };
+function findLine(b, i) {
+  const p = b[i], r0 = Math.floor(i / C), c0 = i % C;
+  for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+    const cells = [i];
+    for (const s of [1, -1]) for (let k = 1; ; k++) {
+      const r = r0 + dr * k * s, c = c0 + dc * k * s;
+      if (r < 0 || r >= R || c < 0 || c >= C || b[r * C + c] !== p) break;
+      cells.push(r * C + c);
+    }
+    if (cells.length >= 4) return cells;
+  }
+  return null;
+}
+
+async function play(col) {
+  if (busy || !st || st.status !== 'playing' || st.order[st.turn] !== ctx.uid) return;
+  busy = true;
+  await runTransaction(gameRef(ctx.code), cur => {
+    if (!cur || cur.status !== 'playing' || cur.order[cur.turn] !== ctx.uid) return;
+    const b = [...cur.board], r = dropRow(b, col);
+    if (r < 0) return;
+    const i = r * C + col;
+    b[i] = String(cur.turn + 1);
+    const line = findLine(b, i), full = !b.includes('0');
+    return { ...cur, board: b.join(''), last: i, turn: 1 - cur.turn,
+      status: line || full ? 'done' : 'playing', winner: line ? cur.turn : full ? 'draw' : null, line };
+  }).catch(() => {});
+  busy = false;
+}
+
+// ===== العرض =====
+const cells = [];
+function buildBoard() {
+  for (let i = 0; i < R * C; i++) {
+    const c = document.createElement('div');
+    c.className = 'cell'; c.append(Object.assign(document.createElement('div'), { className: 'disc' }));
+    c.onclick = () => play(i % C);
+    cells.push(c);
+  }
+  $('#board').append(...cells);
+}
+
+function render() {
+  if (!st) return;
+  const mine = st.order.indexOf(ctx.uid), name = i => players[st.order[i]]?.name || '؟';
+  [...st.board].forEach((v, i) => {
+    cells[i].className = 'cell' + (v !== '0' ? ' p' + v : '') + (st.line?.includes(i) ? ' win' : '');
+    if (prev && prev[i] === '0' && v !== '0' && window.gsap) {
+      const h = cells[i].offsetHeight + 6;
+      gsap.from(cells[i].firstChild, { y: -(Math.floor(i / C) + 1) * h - 20, duration: .18 + .06 * Math.floor(i / C), ease: 'bounce.out' });
+      sfx.click();
+    }
+  });
+  prev = st.board;
+  const s = $('#status');
+  if (st.status === 'done') {
+    const w = st.winner;
+    s.textContent = w === 'draw' ? 'تعادل' : w === mine ? 'فزت! 🎉' : `فاز ${name(w)}`;
+    if (!ended) {
+      ended = true;
+      w === 'draw' ? sfx.turn() : w === mine ? sfx.win() : sfx.lose();
+      if (ctx.isHost) setTimeout(() => finishGame(ctx, w === 'draw'
+        ? makeResult('draw', st.order) : makeResult('win', [st.order[w], st.order[1 - w]])), 3500);
+    }
+  } else {
+    const myTurn = st.turn === mine;
+    s.replaceChildren(Object.assign(document.createElement('i'), { className: 'chip p' + (st.turn + 1) }),
+      myTurn ? 'دورك' : `دور ${name(st.turn)}`);
+    if (myTurn && prev && st.last !== undefined) sfx.turn();
+  }
+}
+
+// ===== التشغيل =====
+try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
+buildBoard();
+const ids = Object.keys(ctx.players);
+if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); setTimeout(() => goLobby(ctx.code), 1800); }
+else if (ctx.isHost) {
+  const other = ids.find(i => i !== ctx.meta.host);
+  runTransaction(gameRef(ctx.code), cur => cur || { board: '0'.repeat(R * C), order: [ctx.meta.host, other], turn: 0, status: 'playing' });
+}
+players = ctx.players;
+onValue(gameRef(ctx.code), s => { st = s.val(); render(); });
+watchRoom(ctx.code, {
+  meta: m => { if (!m || m.status !== 'playing') goLobby(ctx.code); },
+  players: p => { players = p || players; render(); scoreBar($('#sb'), players, scores, ctx.uid); },
+  scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
+});
+</script>
+</body>
+</html>
