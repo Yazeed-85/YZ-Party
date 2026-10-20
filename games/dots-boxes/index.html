@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>نقاط ومربعات</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+main{justify-content:flex-start;padding-top:14px}
+.status{display:flex;align-items:center;justify-content:center;gap:10px;font:700 1.3rem 'Reem Kufi',sans-serif;min-height:44px}
+.counts{display:flex;justify-content:center;gap:22px;font:700 1.1rem 'Reem Kufi',sans-serif;direction:ltr}
+.counts span{display:flex;align-items:center;gap:8px}
+.chip{width:20px;height:20px;border-radius:50%;display:inline-block}
+.p1.chip{background:var(--rose)}.p2.chip{background:var(--amber)}
+.wrap{padding:10px}
+svg{display:block;width:100%;height:auto}
+.vis{stroke:rgba(255,255,255,.08);stroke-width:5;stroke-linecap:round}
+.vis.p1{stroke:var(--rose)}.vis.p2{stroke:var(--amber)}.vis.last{stroke:#fff}
+svg.my .hit.free:hover+.vis{stroke:rgba(255,255,255,.4)}
+.hit{stroke:transparent;stroke-width:30;stroke-linecap:round;cursor:default}
+svg.my .hit.free{cursor:pointer}
+.bx.p1{fill:rgba(255,107,129,.28)}.bx.p2{fill:rgba(255,180,84,.28)}.bx{fill:transparent}
+.dot{fill:var(--text)}
+</style>
+</head>
+<body>
+<main>
+  <div id="sb" class="glass scorebar"></div>
+  <div id="status" class="status">جارٍ التحميل…</div>
+  <div class="glass wrap"><svg id="svg" viewBox="0 0 340 340" aria-label="لوح نقاط ومربعات"></svg></div>
+  <div id="counts" class="counts"></div>
+</main>
+<script type="module">
+import { runTransaction, onValue } from '../../shared/firebase.js';
+import { enterRoom, watchRoom, gameRef, goLobby } from '../../shared/room.js';
+import { finishGame, makeResult } from '../../shared/result.js';
+import { toast, sfx, scoreBar } from '../../shared/ui.js';
+
+const B = 5, H = B + 1, SP = 60, M = 20, NS = 'http://www.w3.org/2000/svg', $ = s => document.querySelector(s);
+let ctx, st = null, prev = null, busy = false, ended = false, players = {}, scores = {};
+
+// ===== هندسة اللوح: الأضلاع 0-29 أفقية، 30-59 عمودية، والمربعات 25 =====
+const hE = (r, c) => r * B + c, vE = (r, c) => 30 + r * H + c;
+const boxEdges = (r, c) => [hE(r, c), hE(r + 1, c), vE(r, c), vE(r, c + 1)];
+const adj = e => {
+  if (e < 30) { const r = Math.floor(e / B), c = e % B; return [[r - 1, c], [r, c]]; }
+  const k = e - 30, r = Math.floor(k / H), c = k % H; return [[r, c - 1], [r, c]];
+};
+const ends = e => e < 30
+  ? (r => [r, e % B, r, e % B + 1])(Math.floor(e / B))
+  : (k => [Math.floor(k / H), k % H, Math.floor(k / H) + 1, k % H])(e - 30);
+const P = (r, c) => [M + c * SP, M + r * SP];
+
+// الضلع الأخير في المربع يمنح صاحبه المربع ودوراً إضافياً
+async function play(e) {
+  if (busy || !st || st.status !== 'playing' || st.order[st.turn] !== ctx.uid || st.lines[e] !== '0') return;
+  busy = true;
+  await runTransaction(gameRef(ctx.code), cur => {
+    if (!cur || cur.status !== 'playing' || cur.order[cur.turn] !== ctx.uid || cur.lines[e] !== '0') return;
+    const p = String(cur.turn + 1), L = [...cur.lines], bx = [...cur.boxes];
+    L[e] = p;
+    let got = 0;
+    for (const [r, c] of adj(e)) {
+      if (r < 0 || r >= B || c < 0 || c >= B) continue;
+      if (bx[r * B + c] === '0' && boxEdges(r, c).every(x => L[x] !== '0')) { bx[r * B + c] = p; got++; }
+    }
+    const done = !bx.includes('0');
+    let winner = null;
+    if (done) { const a = bx.filter(x => x === '1').length, b = bx.filter(x => x === '2').length; winner = a === b ? 'draw' : a > b ? 0 : 1; }
+    return { ...cur, lines: L.join(''), boxes: bx.join(''), last: e, turn: got ? cur.turn : 1 - cur.turn,
+      status: done ? 'done' : 'playing', winner };
+  }).catch(() => {});
+  busy = false;
+}
+
+// ===== العرض =====
+const svg = $('#svg'), el = (t, a) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+const boxes = [], visEdges = [], hits = [];
+for (let r = 0; r < B; r++) for (let c = 0; c < B; c++) {
+  const [x, y] = P(r, c); const b = el('rect', { x: x + 4, y: y + 4, width: SP - 8, height: SP - 8, rx: 8, class: 'bx' });
+  boxes.push(b); svg.append(b);
+}
+for (let e = 0; e < 60; e++) {
+  const [r1, c1, r2, c2] = ends(e), [x1, y1] = P(r1, c1), [x2, y2] = P(r2, c2);
+  const hit = el('line', { x1, y1, x2, y2, class: 'hit free' }), vis = el('line', { x1, y1, x2, y2, class: 'vis' });
+  hit.onclick = () => play(e);
+  hits.push(hit); visEdges.push(vis); svg.append(hit, vis);
+}
+for (let r = 0; r < H; r++) for (let c = 0; c < H; c++) { const [x, y] = P(r, c); svg.append(el('circle', { cx: x, cy: y, r: 5, class: 'dot' })); }
+
+function render() {
+  if (!st) return;
+  const mine = st.order.indexOf(ctx.uid), name = i => players[st.order[i]]?.name || '؟';
+  svg.classList.toggle('my', st.status === 'playing' && st.turn === mine);
+  [...st.lines].forEach((v, e) => {
+    visEdges[e].setAttribute('class', 'vis' + (v !== '0' ? ' p' + v : '') + (st.last === e ? ' last' : ''));
+    hits[e].setAttribute('class', 'hit' + (v === '0' ? ' free' : ''));
+    if (prev && prev.lines[e] === '0' && v !== '0' && window.gsap) gsap.from(visEdges[e], { strokeWidth: 0, duration: .2 });
+  });
+  [...st.boxes].forEach((v, k) => {
+    boxes[k].setAttribute('class', 'bx' + (v !== '0' ? ' p' + v : ''));
+    if (prev && prev.boxes[k] === '0' && v !== '0') { window.gsap && gsap.from(boxes[k], { opacity: 0, duration: .4 }); sfx.win(); }
+  });
+  if (prev && prev.lines !== st.lines && prev.boxes === st.boxes) sfx.click();
+  prev = { lines: st.lines, boxes: st.boxes };
+  const c = p => [...st.boxes].filter(x => x === p).length;
+  $('#counts').replaceChildren(...['1', '2'].map(p => {
+    const s = document.createElement('span');
+    s.append(Object.assign(document.createElement('i'), { className: 'chip p' + p }), c(p));
+    return s;
+  }));
+  const s = $('#status');
+  if (st.status === 'done') {
+    const w = st.winner;
+    s.textContent = w === 'draw' ? 'تعادل' : w === mine ? 'فزت! 🎉' : `فاز ${name(w)}`;
+    if (!ended) {
+      ended = true;
+      w === 'draw' ? sfx.turn() : w === mine ? sfx.win() : sfx.lose();
+      const d = { boxes: [c('1'), c('2')] };
+      if (ctx.isHost) setTimeout(() => finishGame(ctx, w === 'draw'
+        ? makeResult('draw', st.order, d) : makeResult('win', [st.order[w], st.order[1 - w]], d)), 3500);
+    }
+  } else {
+    s.replaceChildren(Object.assign(document.createElement('i'), { className: 'chip p' + (st.turn + 1) }),
+      st.turn === mine ? 'دورك' : `دور ${name(st.turn)}`);
+  }
+}
+
+// ===== التشغيل =====
+try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
+const ids = Object.keys(ctx.players);
+if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); setTimeout(() => goLobby(ctx.code), 1800); }
+else if (ctx.isHost) {
+  const other = ids.find(i => i !== ctx.meta.host);
+  runTransaction(gameRef(ctx.code), cur => cur || { lines: '0'.repeat(60), boxes: '0'.repeat(25), order: [ctx.meta.host, other], turn: 0, status: 'playing' });
+}
+players = ctx.players;
+onValue(gameRef(ctx.code), s => { st = s.val(); render(); });
+watchRoom(ctx.code, {
+  meta: m => { if (!m || m.status !== 'playing') goLobby(ctx.code); },
+  players: p => { players = p || players; render(); scoreBar($('#sb'), players, scores, ctx.uid); },
+  scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
+});
+</script>
+</body>
+</html>
