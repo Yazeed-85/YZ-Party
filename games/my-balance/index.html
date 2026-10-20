@@ -41,11 +41,11 @@ import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 
 // إعدادات قابلة للتعديل (10 أسئلة و15 ثانية للسؤال)
-const MIN = 100, MAX = 1000000, QUESTIONS = 10, TOL = 0.05, ASK_S = 15, ANS_S = 10, FINAL_S = 30;
+const MIN = 100, MAX = 1000000, QUESTIONS = 10, TOL = 0.05, ASK_S = 15, ANS_S = 10, FINAL_S = 30, GUESS_S = 30;
 const $ = s => document.querySelector(s);
 const fmt = n => Math.round(Number(n)).toLocaleString('en-US') + ' ر.س';
 const rand = () => Math.round(Math.exp(Math.log(MIN) + Math.random() * Math.log(MAX / MIN))); 
-let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', guessing = false, submitted = false;
+let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', submitted = false;
 
 // ===== القواعد =====
 const act = fn => runTransaction(gameRef(ctx.code), cur => (cur ? fn(cur) : undefined)).catch(() => {});
@@ -63,18 +63,25 @@ function evalFinal(c) {
   c.phase = 'done'; c.winner = e0 === e1 ? 'draw' : e0 < e1 ? 0 : 1; c.seq++; return c;
 }
 
-// تحديث حالة التخمين في Firebase لتجميد العداد وعرض الإشعار للخصم
-const setGuessingState = isG => act(c => {
-  if (c.phase !== 'ask' || c.order[c.turn] !== ctx.uid) return;
-  return { ...c, isGuessing: isG, seq: c.seq + 1 };
+// التخمين: يوقف وقت السؤال مؤقتاً (يُحفظ المتبقي) ويمنح مهلة GUESS_S، والرجوع يستعيد المتبقي
+const startGuess = () => act(c => {
+  if (c.phase !== 'ask' || c.isGuessing || c.order[c.turn] !== ctx.uid) return;
+  return { ...c, isGuessing: true, left: Math.max(0, c.endAt - serverNow()), endAt: deadline(GUESS_S), seq: c.seq + 1 };
+});
+const cancelGuess = () => act(c => {
+  if (c.phase !== 'ask' || !c.isGuessing || c.order[c.turn] !== ctx.uid) return;
+  return { ...c, isGuessing: false, endAt: serverNow() + (c.left || 0), seq: c.seq + 1 };
 });
 
+// يستطيع الخصم الإجابة فور سماع السؤال (ويُحتسب السؤال حينها)، أو بعد انتهاء وقت السائل
 const answer = a => act(c => {
-  if (c.phase !== 'answer' || c.order[1 - c.turn] !== ctx.uid) return;
-  return next({ ...c, log: push(c, { t: 'q', by: c.turn, n: QUESTIONS - c.q[c.turn], a }) }, serverNow());
+  const early = c.phase === 'ask' && !c.isGuessing;
+  if (!(early || c.phase === 'answer') || c.order[1 - c.turn] !== ctx.uid) return;
+  const q = [...c.q]; if (early) q[c.turn]--;
+  return next({ ...c, q, log: push(c, { t: 'q', by: c.turn, n: QUESTIONS - q[c.turn], a }) }, serverNow());
 });
 const guess = v => act(c => {
-  if (c.phase !== 'ask' || c.order[c.turn] !== ctx.uid) return;
+  if (c.phase !== 'ask' || !c.isGuessing || c.order[c.turn] !== ctx.uid) return;
   const s = c.secrets[1 - c.turn], ok = Math.abs(v - s) / s <= TOL;
   const o = { ...c, isGuessing: false, log: push(c, { t: 'g', by: c.turn, v, ok }) };
   if (ok) return { ...o, phase: 'done', winner: c.turn, seq: c.seq + 1 };
@@ -89,8 +96,9 @@ const finalGuess = v => act(c => {
 const timeout = seq => act(c => {
   if (c.seq !== seq || serverNow() < c.endAt - 500) return;
   if (c.phase === 'ask') { 
-    if (c.isGuessing) return; // عدم إنهاء الوقت تلقائياً أثناء كتابة التخمين
-    const q = [...c.q]; q[c.turn]--; 
+    const q = [...c.q]; q[c.turn]--;
+    if (c.isGuessing) return next({ ...c, q, isGuessing: false, log: push(c, { t: 'x', by: c.turn }) }, serverNow()); // انتهت مهلة التخمين
+
     return { ...c, q, phase: 'answer', endAt: deadline(ANS_S), seq: c.seq + 1 }; 
   }
   if (c.phase === 'answer') return next({ ...c, log: push(c, { t: 'q', by: c.turn, n: QUESTIONS - c.q[c.turn], a: 'none' }) }, serverNow());
@@ -119,14 +127,14 @@ function numpad(label, onOk, onCancel) {
 }
 
 function startTimer() {
-  stopT?.(); const t = $('#t'); if (!t || st.status === 'done' || st.phase === 'done' || st.isGuessing) return;
+  stopT?.(); const t = $('#t'); if (!t || st.phase === 'done') return;
   const seq = st.seq;
   stopT = countdown(st.endAt, (l, s) => { t.textContent = s; if (s <= 3 && s > 0 && l % 1000 < 100) sfx.tick(); }, () => timeout(seq));
 }
 
 function renderPanel() {
   const p = $('#panel'), done = st.phase === 'done', mine = st.turn === me;
-  const key = [st.seq, st.phase, guessing, submitted, st.isGuessing].join('|');
+  const key = [st.seq, st.phase, submitted, st.isGuessing].join('|');
   if (key === panelKey) return; panelKey = key;
   p.replaceChildren();
   const T = () => h('div', 'big', '…'); const timer = T(); timer.id = 't';
@@ -142,18 +150,19 @@ function renderPanel() {
     else p.append(h('div', 'msg', 'التخمين النهائي: كم رصيد خصمك؟'), h('div', 'sm', 'الأقرب للرقم يفوز'), timer,
       ...numpad('أرسل التخمين', v => { submitted = true; finalGuess(v); }));
   } else if (st.phase === 'ask') {
-    if (mine && (guessing || st.isGuessing)) {
-      p.append(h('div', 'msg', 'خمّن رصيد خصمك'), h('div', 'sm', 'ضمن ±5% تفوز فوراً، والخطأ يخصم سؤالين'),
-        ...numpad('أخمّن', v => { guessing = false; guess(v); }, () => { guessing = false; setGuessingState(false); }));
+    if (mine && st.isGuessing) {
+      p.append(h('div', 'msg', 'خمّن رصيد خصمك'), h('div', 'sm', 'ضمن ±5% تفوز فوراً، والخطأ يخصم سؤالين'), timer,
+        ...numpad('أخمّن', v => guess(v), cancelGuess));
     } else if (mine) { 
       const r = h('div', 'two'); 
-      r.append(btn('أخمّن الرصيد', 'primary', () => { guessing = true; setGuessingState(true); }));
-      p.append(h('div', 'msg', 'دورك اسأل خصمك أو خمّن رصيده'), h('div', 'sm', 'اسأل بصوتك (نعم/لا). بنهاية الـ15 ثانية سينتقل الدور للإجابة تلقائياً'), timer, r); 
+      r.append(btn('أخمّن الرصيد', 'primary', startGuess));
+      p.append(h('div', 'msg', 'دورك اسأل خصمك أو خمّن رصيده'), h('div', 'sm', 'اسأل بصوتك (نعم/لا). يجيب خصمك فور سماعه، أو ينتقل الدور له بانتهاء الوقت'), timer, r); 
     } else {
       if (st.isGuessing) {
-        p.append(h('div', 'msg', `${nm(st.turn)} يخمن الآن…`), h('div', 'sm', 'تم تجميد العداد أثناء التخمين'));
+        p.append(h('div', 'msg', `${nm(st.turn)} يخمّن الآن…`), h('div', 'sm', 'توقف وقت السؤال مؤقتاً'), timer);
       } else {
-        p.append(h('div', 'msg', `${nm(st.turn)} يسأل الآن…`), timer);
+        const r = h('div', 'two'); r.append(btn('نعم', 'yes', () => answer('yes')), btn('لا', 'no', () => answer('no')));
+        p.append(h('div', 'msg', `${nm(st.turn)} يسأل الآن…`), h('div', 'sm', 'أجب فور سماع السؤال'), timer, r);
       }
     }
   } else if (st.phase === 'answer') {
@@ -169,7 +178,7 @@ function renderLog() {
   L.replaceChildren(...(st.log || []).slice(-8).reverse().map(e => h('li', '',
     e.t === 'q' ? `${nm(e.by)} · سؤال ${e.n}: ${A[e.a]}`
     : e.t === 'g' ? `${nm(e.by)} خمّن ${fmt(e.v)} ${e.ok ? '✅' : '❌ (خُصم سؤالان)'}`
-    : `انتهى وقت ${nm(e.by)} (انتقل للإجابة)`)));
+    : `انتهى وقت تخمين ${nm(e.by)} (خُصم سؤال)`)));
 }
 
 let lastSeq = -1;
