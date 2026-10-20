@@ -9,9 +9,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
 main{justify-content:flex-start;padding-top:14px}
-.harm{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
-.harm .top{display:flex;justify-content:space-between;color:var(--mute);font-size:.9rem}.harm b{color:var(--text)}
-.track{direction:ltr;height:16px;border-radius:999px;background:rgba(0,0,0,.4);overflow:hidden;position:relative}
+.harm{width:min(94vw,820px);align-self:center;display:flex;flex-direction:column;gap:6px}
+.harm .top{display:flex;justify-content:space-between;color:var(--mute);font-size:.8rem}.harm b{color:var(--text)}
+.track{direction:ltr;height:7px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;position:relative}
 .fill{height:100%;width:50%;border-radius:999px;transition:width .9s cubic-bezier(.2,.8,.2,1),background .9s}
 .track::after{content:'';position:absolute;inset:0 auto 0 50%;width:2px;background:rgba(255,255,255,.25)}
 .stage{padding:16px;display:flex;flex-direction:column;gap:12px;align-items:stretch;text-align:center}
@@ -32,7 +32,7 @@ main{justify-content:flex-start;padding-top:14px}
 <body>
 <main>
   <div id="sb" class="glass scorebar"></div>
-  <div class="glass harm">
+  <div class="harm">
     <div class="top"><span>التناغم</span><b id="pct">50%</b></div>
     <div class="track"><div id="fill" class="fill"></div></div>
   </div>
@@ -47,19 +47,26 @@ import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import { WORDS } from './words.js';
 
 // إعدادات قابلة للتعديل
-const START = 50, UP = 20, DOWN = 15, WRITE_S = 20, REVEAL_S = 5, DECK = 40;
+const START = 50, UP = 15, DOWN = 15, WRITE_S = 20, REVEAL_S = 5, DECK = 40;
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 // توحيد الكتابة: التشكيل والتطويل، الهمزات، ة/ه، ى/ي، الرموز والمسافات، "ال" التعريف
 const norm = s => (s || '').replace(/[\u064B-\u065F\u0670\u0640]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
   .replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').replace(/^ال(?=.{2,})/, '');
+// التقارب: جمع/مفرد ومشتقات قريبة. نُسقط لواحق الجمع والتأنيث، ثم نقارن "هيكل" الحروف بلا حروف العلة (ا و ي)
+const strip = s => { for (const x of ['ات', 'ون', 'ين', 'ان', 'ه']) if (s.endsWith(x) && s.length - x.length >= 3) return s.slice(0, -x.length); return s; };
+const skel = s => { if (s[0] === 'ا' && s.length > 3) s = s.slice(1); return s[0] + s.slice(1).replace(/[اوي]/g, ''); };
+const variants = n => { const a = strip(n), v = new Set([n, a]); for (const x of [n, a]) { const k = skel(x); if (k.length >= 3) v.add(k); } return v; };
+const same = (a, b) => { if (!a || !b) return false; const vb = variants(b); return [...variants(a)].some(x => vb.has(x)); };
+
 let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, stageKey = '', draft = '', lastSeq = -1;
 
 // ===== القواعد =====
 const act = fn => runTransaction(gameRef(ctx.code), cur => (cur ? fn(cur) : undefined)).catch(() => {});
 const wordOf = (c, r) => c.words[(r - 1) % c.words.length];
 function evalRound(o, now) {          // الكلمة الناقصة (انتهى وقتها) تُحتسب عدم تطابق
-  const na = o.s0 != null ? norm(o.s0) : null, nb = o.s1 != null ? norm(o.s1) : null, ok = !!na && na === nb;
+  const na = o.s0 != null ? norm(o.s0) : null, nb = o.s1 != null ? norm(o.s1) : null, ok = same(na, nb);
+  o.exact = !!na && na === nb;
   o.bar = Math.max(0, Math.min(100, o.bar + (ok ? UP : -DOWN)));
   o.used = [...(o.used || []), ...[na, nb].filter(Boolean)];
   o.hist = [...(o.hist || []), { w: o.word, a: o.s0 ?? '—', b: o.s1 ?? '—', ok }];
@@ -71,7 +78,7 @@ function evalRound(o, now) {          // الكلمة الناقصة (انتهى
 const submit = text => act(c => {
   if (c.phase !== 'write' || c['s' + me] != null) return;
   const n = norm(text);
-  if (n.length < 2 || n === norm(c.word) || (c.used || []).includes(n)) return;
+  if (n.length < 2 || same(n, norm(c.word)) || (c.used || []).some(u => same(n, u))) return;
   const o = { ...c, ['s' + me]: text.trim().slice(0, 20) };
   return o.s0 != null && o.s1 != null ? evalRound(o, serverNow()) : o;
 });
@@ -95,8 +102,8 @@ function startTimer() {
 function tryAdd(inp) {
   const n = norm(inp.value);
   if (n.length < 2) return toast('اكتب كلمة من حرفين على الأقل', 'error'), sfx.error();
-  if (n === norm(st.word)) return toast('ممنوع كتابة الكلمة الظاهرة', 'error'), sfx.error();
-  if ((st.used || []).includes(n)) return toast('هذه الكلمة استُخدمت من قبل', 'error'), sfx.error();
+  if (same(n, norm(st.word))) return toast('ممنوع كتابة الكلمة الظاهرة أو قريب منها', 'error'), sfx.error();
+  if ((st.used || []).some(u => same(n, u))) return toast('هذه الكلمة (أو قريبة منها) استُخدمت من قبل', 'error'), sfx.error();
   sfx.click(); submit(inp.value); draft = '';
 }
 
@@ -121,7 +128,7 @@ function renderStage() {
   const S = $('#stage'), show = st.phase !== 'write';
   S.replaceChildren(h('div', 'rd', `الجولة ${st.round}`), card(0, show), h('div', 'mid', st.word), card(1, show));
   if (st.phase === 'write') { const t = h('div', 't', '…'); t.id = 't'; S.append(t, h('div', 'sm', 'اكتبا الكلمة المناسبة للكلمة التي في المنتصف، وتطابقا دون كلام')); }
-  else if (st.phase === 'reveal') { const t = h('div', 't', '…'); t.id = 't'; S.append(h('div', 'verdict', st.ok ? `تطابقتا! +${UP} 🔥` : `اختلفتا −${DOWN}`), t); }
+  else if (st.phase === 'reveal') { const t = h('div', 't', '…'); t.id = 't'; S.append(h('div', 'verdict', st.ok ? (st.exact ? `تطابقتا! +${UP} 🔥` : `متقاربتان ✨ +${UP}`) : `اختلفتا −${DOWN}`), t); }
   else S.append(h('div', 'verdict', st.win ? 'ربحتما! تناغم كامل 🎉' : 'انهار التناغم 💔'), h('div', 'sm', `عدد الجولات: ${(st.hist || []).length}`));
   if (window.gsap && st.phase !== 'write') gsap.from(S.querySelectorAll('.pcard'), { y: 14, opacity: 0, duration: .4, stagger: .12 });
   startTimer();
@@ -138,7 +145,7 @@ function render() {
   renderStage();
   if (st.phase === 'done' && !ended) {
     ended = true; st.win ? sfx.win() : sfx.lose();
-    const rounds = (st.hist || []).length, bonus = rounds <= 4 ? 2 : rounds <= 6 ? 1 : 0;
+    const rounds = (st.hist || []).length, bonus = rounds <= 5 ? 2 : rounds <= 8 ? 1 : 0;
     if (ctx.isHost) setTimeout(() => finishGame(ctx, st.win ? makeResult('coop-win', st.order, { rounds, bonus })
       : makeResult('coop-lose', st.order, { rounds })), 6000);
   }
