@@ -23,7 +23,7 @@ export function pointsFor(result, uids) {
     pts[ranking[0]] = POINTS.win;
     if (uids.length > 2 && ranking[1]) pts[ranking[1]] = POINTS.second;
   } else if (outcome === "draw") uids.forEach(u => (pts[u] = POINTS.draw));
-  else if (outcome === "coop-win") uids.forEach(u => (pts[u] = POINTS.coop));
+  else if (outcome === "coop-win") uids.forEach(u => (pts[u] = POINTS.coop + (result.details?.bonus || 0)));
   return pts;
 }
 

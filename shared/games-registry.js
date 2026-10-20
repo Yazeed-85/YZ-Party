@@ -5,6 +5,6 @@ export const GAMES = [
   { id: "reversi",     name: "ريفيرسي",       icon: "⚫", desc: "اقلب قطع خصمك واملك اللوح",   min: 2, max: 2, ready: true },
   { id: "dots-boxes",  name: "نقاط ومربعات",  icon: "🔲", desc: "أغلق المربعات قبل خصمك",      min: 2, max: 2, ready: true },
   { id: "my-balance",  name: "كم رصيدي؟",     icon: "💰", desc: "خمّن رصيد خصمك بنعم ولا",     min: 2, max: 2, ready: true },
-  { id: "shared-word", name: "الكلمة المشتركة", icon: "🧠", desc: "فكّرا بنفس الكلمة",          min: 2, max: 2, ready: false },
+  { id: "shared-word", name: "الكلمة المشتركة", icon: "🧠", desc: "فكّرا بنفس الكلمة",          min: 2, max: 2, ready: true },
   { id: "truth-lie",   name: "صادق أم كاذب",  icon: "📦", desc: "اكشف من يكذب في الصندوق",    min: 2, max: 2, ready: false }
 ];
