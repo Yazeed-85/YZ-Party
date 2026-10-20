@@ -28,7 +28,7 @@ main{justify-content:flex-start;padding-top:14px}
   <div id="sb" class="glass scorebar"></div>
   <div class="glass card">
     <div id="secret" class="secret" role="button" aria-label="اضغط مطولاً لإظهار رصيدك">••••••<small>اضغط مطولاً لتعرف رصيدك</small></div>
-    <div class="qs"><span>أسئلتك: <b id="qm">20</b></span><span>أسئلة الخصم: <b id="qo">20</b></span></div>
+    <div class="qs"><span>أسئلتك: <b id="qm">10</b></span><span>أسئلة الخصم: <b id="qo">10</b></span></div>
   </div>
   <div id="panel" class="glass card">جارٍ التحميل…</div>
   <div class="glass card"><ul id="log"></ul></div>
@@ -40,14 +40,14 @@ import { finishGame, makeResult } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 
-// إعدادات قابلة للتعديل (أرقام صحيحة بلا كسور)
-const MIN = 100, MAX = 1000000, QUESTIONS = 20, TOL = 0.05, ASK_S = 20, ANS_S = 10, FINAL_S = 30;
+// إعدادات قابلة للتعديل (10 أسئلة و15 ثانية للسؤال)
+const MIN = 100, MAX = 1000000, QUESTIONS = 10, TOL = 0.05, ASK_S = 15, ANS_S = 10, FINAL_S = 30;
 const $ = s => document.querySelector(s);
 const fmt = n => Math.round(Number(n)).toLocaleString('en-US') + ' ر.س';
-const rand = () => Math.round(Math.exp(Math.log(MIN) + Math.random() * Math.log(MAX / MIN))); // توزيع لوغاريتمي صحيح
+const rand = () => Math.round(Math.exp(Math.log(MIN) + Math.random() * Math.log(MAX / MIN))); 
 let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', guessing = false, submitted = false;
 
-// ===== القواعد (كلها داخل معاملات Firebase) =====
+// ===== القواعد =====
 const act = fn => runTransaction(gameRef(ctx.code), cur => (cur ? fn(cur) : undefined)).catch(() => {});
 const push = (c, e) => [...(c.log || []), e];
 function next(c, now) {            
@@ -63,6 +63,12 @@ function evalFinal(c) {
   c.phase = 'done'; c.winner = e0 === e1 ? 'draw' : e0 < e1 ? 0 : 1; c.seq++; return c;
 }
 
+// تحديث حالة التخمين في Firebase لتجميد العداد وعرض الإشعار للخصم
+const setGuessingState = isG => act(c => {
+  if (c.phase !== 'ask' || c.order[c.turn] !== ctx.uid) return;
+  return { ...c, isGuessing: isG, seq: c.seq + 1 };
+});
+
 const answer = a => act(c => {
   if (c.phase !== 'answer' || c.order[1 - c.turn] !== ctx.uid) return;
   return next({ ...c, log: push(c, { t: 'q', by: c.turn, n: QUESTIONS - c.q[c.turn], a }) }, serverNow());
@@ -70,7 +76,7 @@ const answer = a => act(c => {
 const guess = v => act(c => {
   if (c.phase !== 'ask' || c.order[c.turn] !== ctx.uid) return;
   const s = c.secrets[1 - c.turn], ok = Math.abs(v - s) / s <= TOL;
-  const o = { ...c, log: push(c, { t: 'g', by: c.turn, v, ok }) };
+  const o = { ...c, isGuessing: false, log: push(c, { t: 'g', by: c.turn, v, ok }) };
   if (ok) return { ...o, phase: 'done', winner: c.turn, seq: c.seq + 1 };
   o.q = [...c.q]; o.q[c.turn] = Math.max(0, o.q[c.turn] - 2);
   return next(o, serverNow());
@@ -83,7 +89,7 @@ const finalGuess = v => act(c => {
 const timeout = seq => act(c => {
   if (c.seq !== seq || serverNow() < c.endAt - 500) return;
   if (c.phase === 'ask') { 
-    // عند انتهاء وقت السؤال (20 ثانية)، يُعتبر سأل سؤالاً ويُنقل الدور للخصم للإجابة بنعم/لا
+    if (c.isGuessing) return; // عدم إنهاء الوقت تلقائياً أثناء كتابة التخمين
     const q = [...c.q]; q[c.turn]--; 
     return { ...c, q, phase: 'answer', endAt: deadline(ANS_S), seq: c.seq + 1 }; 
   }
@@ -113,14 +119,14 @@ function numpad(label, onOk, onCancel) {
 }
 
 function startTimer() {
-  stopT?.(); const t = $('#t'); if (!t || st.status === 'done' || st.phase === 'done') return;
+  stopT?.(); const t = $('#t'); if (!t || st.status === 'done' || st.phase === 'done' || st.isGuessing) return;
   const seq = st.seq;
   stopT = countdown(st.endAt, (l, s) => { t.textContent = s; if (s <= 3 && s > 0 && l % 1000 < 100) sfx.tick(); }, () => timeout(seq));
 }
 
 function renderPanel() {
   const p = $('#panel'), done = st.phase === 'done', mine = st.turn === me;
-  const key = [st.seq, st.phase, guessing, submitted].join('|');
+  const key = [st.seq, st.phase, guessing, submitted, st.isGuessing].join('|');
   if (key === panelKey) return; panelKey = key;
   p.replaceChildren();
   const T = () => h('div', 'big', '…'); const timer = T(); timer.id = 't';
@@ -136,14 +142,20 @@ function renderPanel() {
     else p.append(h('div', 'msg', 'التخمين النهائي: كم رصيد خصمك؟'), h('div', 'sm', 'الأقرب للرقم يفوز'), timer,
       ...numpad('أرسل التخمين', v => { submitted = true; finalGuess(v); }));
   } else if (st.phase === 'ask') {
-    if (mine && guessing) p.append(h('div', 'msg', 'خمّن رصيد خصمك'), h('div', 'sm', 'ضمن ±5% تفوز فوراً، والخطأ يخصم سؤالين'), timer,
-      ...numpad('أخمّن', v => { guessing = false; guess(v); }, () => { guessing = false; render(); }));
-    else if (mine) { 
+    if (mine && (guessing || st.isGuessing)) {
+      p.append(h('div', 'msg', 'خمّن رصيد خصمك'), h('div', 'sm', 'ضمن ±5% تفوز فوراً، والخطأ يخصم سؤالين'),
+        ...numpad('أخمّن', v => { guessing = false; guess(v); }, () => { guessing = false; setGuessingState(false); }));
+    } else if (mine) { 
       const r = h('div', 'two'); 
-      r.append(btn('أخمّن الرصيد', 'primary', () => { guessing = true; render(); }));
-      p.append(h('div', 'msg', 'دورك اسأل خصمك أو خمّن رصيده'), h('div', 'sm', 'اسأل بصوتك (نعم/لا). بنهاية الـ20 ثانية سينتقل الدور للإجابة تلقائياً'), timer, r); 
+      r.append(btn('أخمّن الرصيد', 'primary', () => { guessing = true; setGuessingState(true); }));
+      p.append(h('div', 'msg', 'دورك اسأل خصمك أو خمّن رصيده'), h('div', 'sm', 'اسأل بصوتك (نعم/لا). بنهاية الـ15 ثانية سينتقل الدور للإجابة تلقائياً'), timer, r); 
+    } else {
+      if (st.isGuessing) {
+        p.append(h('div', 'msg', `${nm(st.turn)} يخمن الآن…`), h('div', 'sm', 'تم تجميد العداد أثناء التخمين'));
+      } else {
+        p.append(h('div', 'msg', `${nm(st.turn)} يسأل الآن…`), timer);
+      }
     }
-    else p.append(h('div', 'msg', `${nm(st.turn)} يسأل الآن…`), timer);
   } else if (st.phase === 'answer') {
     if (!mine) { const r = h('div', 'two'); r.append(btn('نعم', 'yes', () => answer('yes')), btn('لا', 'no', () => answer('no')));
       p.append(h('div', 'msg', `أجب عن سؤال ${nm(st.turn)}`), timer, r); }
@@ -163,7 +175,7 @@ function renderLog() {
 let lastSeq = -1;
 function render() {
   if (!st) return;
-  if (st.seq !== lastSeq) { lastSeq = st.seq; guessing = false; if (st.phase === 'ask' && st.turn === me && st.seq > 0) sfx.turn(); }
+  if (st.seq !== lastSeq) { lastSeq = st.seq; if (st.phase === 'ask' && st.turn === me && st.seq > 0) sfx.turn(); }
   $('#qm').textContent = st.q[me]; $('#qo').textContent = st.q[1 - me];
   renderPanel(); renderLog();
   if (st.phase === 'done' && !ended) {
@@ -181,7 +193,7 @@ if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين',
 else if (ctx.isHost) {
   const other = ids.find(i => i !== ctx.meta.host);
   runTransaction(gameRef(ctx.code), cur => cur || { order: [ctx.meta.host, other], secrets: [rand(), rand()], q: [QUESTIONS, QUESTIONS],
-    turn: 0, phase: 'ask', endAt: deadline(ASK_S), seq: 0 });
+    turn: 0, phase: 'ask', isGuessing: false, endAt: deadline(ASK_S), seq: 0 });
 }
 players = ctx.players;
 
