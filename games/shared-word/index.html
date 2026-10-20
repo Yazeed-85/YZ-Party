@@ -128,7 +128,7 @@ function renderStage() {
   const S = $('#stage'), show = st.phase !== 'write';
   S.replaceChildren(h('div', 'rd', `الجولة ${st.round}`), card(0, show), h('div', 'mid', st.word), card(1, show));
   if (st.phase === 'write') { const t = h('div', 't', '…'); t.id = 't'; S.append(t, h('div', 'sm', 'اكتبا الكلمة المناسبة للكلمة التي في المنتصف، وتطابقا دون كلام')); }
-  else if (st.phase === 'reveal') { const t = h('div', 't', '…'); t.id = 't'; S.append(h('div', 'verdict', st.ok ? (st.exact ? `تطابقتا! +${UP} 🔥` : `متقاربتان ✨ +${UP}`) : `اختلفتا −${DOWN}`), t); }
+  else if (st.phase === 'reveal') { const t = h('div', 't', '…'); t.id = 't'; S.append(h('div', 'verdict', st.ok ? (st.exact ? `متطابقة! +${UP} 🔥` : `متقاربة ✨ +${UP}`) : `مختلفة −${DOWN}`), t); }
   else S.append(h('div', 'verdict', st.win ? 'ربحتما! تناغم كامل 🎉' : 'انهار التناغم 💔'), h('div', 'sm', `عدد الجولات: ${(st.hist || []).length}`));
   if (window.gsap && st.phase !== 'write') gsap.from(S.querySelectorAll('.pcard'), { y: 14, opacity: 0, duration: .4, stagger: .12 });
   startTimer();
