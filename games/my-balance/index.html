@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>كم رصيدي؟</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+main{justify-content:flex-start;padding-top:14px}
+.card{padding:16px;display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
+.secret{width:100%;padding:16px;border-radius:16px;border:1px dashed rgba(255,180,84,.5);background:rgba(255,180,84,.07);color:var(--amber);font:700 1.5rem 'Reem Kufi',sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+.secret small{display:block;color:var(--mute);font:400 .8rem 'Cairo',sans-serif;margin-top:2px}
+.qs{display:flex;justify-content:space-between;width:100%;color:var(--mute);font-size:.9rem}.qs b{color:var(--text)}
+.big{font:700 2.6rem 'Reem Kufi',sans-serif;color:var(--lagoon)}
+.msg{font-size:1.1rem;font-weight:700}.sm{color:var(--mute);font-size:.9rem}
+.two{display:flex;gap:10px;width:100%}.two .btn{flex:1}
+.btn.yes{background:var(--lagoon);color:#06231f}.btn.no{background:var(--rose);color:#2a0710}
+.disp{width:100%;padding:12px;border-radius:14px;background:rgba(0,0,0,.3);font:700 1.6rem 'Reem Kufi',sans-serif;direction:ltr;min-height:56px}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;direction:ltr}
+.pad .btn{padding:12px;font-size:1.3rem}
+#log{list-style:none;display:flex;flex-direction:column;gap:6px;width:100%;font-size:.9rem;color:var(--mute);text-align:right}
+</style>
+</head>
+<body>
+<main>
+  <div id="sb" class="glass scorebar"></div>
+  <div class="glass card">
+    <div id="secret" class="secret" role="button" aria-label="اضغط مطولاً لإظهار رصيدك">••••••<small>اضغط مطولاً لتعرف رصيدك</small></div>
+    <div class="qs"><span>أسئلتك: <b id="qm">20</b></span><span>أسئلة الخصم: <b id="qo">20</b></span></div>
+  </div>
+  <div id="panel" class="glass card">جارٍ التحميل…</div>
+  <div class="glass card"><ul id="log"></ul></div>
+</main>
+<script type="module">
+import { runTransaction, onValue, serverNow } from '../../shared/firebase.js';
+import { enterRoom, watchRoom, gameRef, goLobby } from '../../shared/room.js';
+import { finishGame, makeResult } from '../../shared/result.js';
+import { countdown, deadline } from '../../shared/timer.js';
+import { toast, sfx, scoreBar } from '../../shared/ui.js';
+
+// إعدادات قابلة للتعديل
+const MIN = 100, MAX = 1000000, QUESTIONS = 20, TOL = 0.05, ASK_S = 20, ANS_S = 10, FINAL_S = 30;
+const $ = s => document.querySelector(s);
+const fmt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ر.س';
+const rand = () => Math.round(Math.exp(Math.log(MIN) + Math.random() * Math.log(MAX / MIN)) * 100) / 100; // توزيع لوغاريتمي
+let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', guessing = false, submitted = false, shownSeq = -1;
+
+// ===== القواعد (كلها داخل معاملات Firebase) =====
+const act = fn => runTransaction(gameRef(ctx.code), cur => (cur ? fn(cur) : undefined)).catch(() => {});
+const push = (c, e) => [...(c.log || []), e];
+function next(c, now) {            // الدور التالي، أو التخمين النهائي إذا نفدت الأسئلة
+  const t = 1 - c.turn;
+  if (c.q[t] > 0) { c.turn = t; c.phase = 'ask'; c.endAt = now + ASK_S * 1000; }
+  else if (c.q[c.turn] > 0) { c.phase = 'ask'; c.endAt = now + ASK_S * 1000; }
+  else { c.phase = 'final'; c.endAt = now + FINAL_S * 1000; }
+  c.seq++; return c;
+}
+function evalFinal(c) {            // الأقرب نسبياً لرقم خصمه يفوز مهما كان الفارق
+  const err = i => c['f' + i] == null ? Infinity : Math.abs(c['f' + i] - c.secrets[1 - i]) / c.secrets[1 - i];
+  const e0 = err(0), e1 = err(1);
+  c.phase = 'done'; c.winner = e0 === e1 ? 'draw' : e0 < e1 ? 0 : 1; c.seq++; return c;
+}
+const doneAsking = () => act(c => {
+  if (c.phase !== 'ask' || c.order[c.turn] !== ctx.uid) return;
+  const q = [...c.q]; q[c.turn]--;
+  return { ...c, q, phase: 'answer', endAt: deadline(ANS_S), seq: c.seq + 1 };
+});
+const answer = a => act(c => {
+  if (c.phase !== 'answer' || c.order[1 - c.turn] !== ctx.uid) return;
+  return next({ ...c, log: push(c, { t: 'q', by: c.turn, n: QUESTIONS - c.q[c.turn], a }) }, serverNow());
+});
+const guess = v => act(c => {
+  if (c.phase !== 'ask' || c.order[c.turn] !== ctx.uid) return;
+  const s = c.secrets[1 - c.turn], ok = Math.abs(v - s) / s <= TOL;
+  const o = { ...c, log: push(c, { t: 'g', by: c.turn, v, ok }) };
+  if (ok) return { ...o, phase: 'done', winner: c.turn, seq: c.seq + 1 };
+  o.q = [...c.q]; o.q[c.turn] = Math.max(0, o.q[c.turn] - 2);
+  return next(o, serverNow());
+});
+const finalGuess = v => act(c => {
+  if (c.phase !== 'final') return;
+  const o = { ...c, ['f' + me]: v };
+  return o.f0 != null && o.f1 != null ? evalFinal(o) : o;
+});
+const timeout = seq => act(c => {
+  if (c.seq !== seq || serverNow() < c.endAt - 500) return;
+  if (c.phase === 'ask') { const q = [...c.q]; q[c.turn]--; return next({ ...c, q, log: push(c, { t: 'x', by: c.turn }) }, serverNow()); }
+  if (c.phase === 'answer') return next({ ...c, log: push(c, { t: 'q', by: c.turn, n: QUESTIONS - c.q[c.turn], a: 'none' }) }, serverNow());
+  if (c.phase === 'final') return evalFinal({ ...c });
+});
+
+// ===== الواجهة =====
+const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.onclick = () => { sfx.click(); fn(); }; return b; };
+const nm = i => players[st.order[i]]?.name || '؟';
+
+function numpad(label, onOk, onCancel) {
+  let v = '';
+  const disp = h('div', 'disp', '0.00'), pad = h('div', 'pad');
+  const upd = () => { disp.textContent = v ? (v.includes('.') ? Number(v.split('.')[0] || 0).toLocaleString('en-US') + '.' + v.split('.')[1] : Number(v).toLocaleString('en-US')) : '0'; };
+  const key = k => {
+    sfx.tick();
+    if (k === '⌫') v = v.slice(0, -1);
+    else if (k === '.') { if (!v.includes('.')) v = (v || '0') + '.'; }
+    else if (!(v.includes('.') ? v.split('.')[1].length >= 2 : v.length >= 7)) v += k;
+    upd();
+  };
+  ['1','2','3','4','5','6','7','8','9','.','0','⌫'].forEach(k => { const b = btn(k, '', () => key(k)); pad.append(b); });
+  const ok = btn(label, 'primary', () => { const n = parseFloat(v); if (!n) return toast('اكتب رقماً', 'error'); onOk(n); });
+  const row = h('div', 'two'); row.append(ok); if (onCancel) row.append(btn('رجوع', 'ghost', onCancel));
+  return [disp, pad, row];
+}
+
+function startTimer() {
+  stopT?.(); const t = $('#t'); if (!t || st.status === 'done' || st.phase === 'done') return;
+  const seq = st.seq;
+  stopT = countdown(st.endAt, (l, s) => { t.textContent = s; if (s <= 3 && s > 0 && l % 1000 < 100) sfx.tick(); }, () => timeout(seq));
+}
+
+function renderPanel() {
+  const p = $('#panel'), done = st.phase === 'done', mine = st.turn === me;
+  const key = [st.seq, st.phase, guessing, submitted].join('|');
+  if (key === panelKey) return; panelKey = key;
+  p.replaceChildren();
+  const T = () => h('div', 'big', '…'); const timer = T(); timer.id = 't';
+  if (done) {
+    const w = st.winner;
+    p.append(h('div', 'msg', w === 'draw' ? 'تعادل' : w === me ? 'فزت! 🎉' : `فاز ${nm(w)}`),
+      h('div', 'sm', `رصيد ${nm(0)}: ${fmt(st.secrets[0])}`), h('div', 'sm', `رصيد ${nm(1)}: ${fmt(st.secrets[1])}`));
+    if (st.f0 != null || st.f1 != null) [0, 1].forEach(i => st['f' + i] != null && p.append(h('div', 'sm', `تخمين ${nm(i)}: ${fmt(st['f' + i])}`)));
+    return;
+  }
+  if (st.phase === 'final') {
+    if (submitted || st['f' + me] != null) { p.append(h('div', 'msg', 'أرسلت تخمينك'), h('div', 'sm', 'بانتظار الخصم…'), timer); }
+    else p.append(h('div', 'msg', 'التخمين النهائي: كم رصيد خصمك؟'), h('div', 'sm', 'الأقرب للرقم يفوز'), timer,
+      ...numpad('أرسل التخمين', v => { submitted = true; finalGuess(v); }));
+  } else if (st.phase === 'ask') {
+    if (mine && guessing) p.append(h('div', 'msg', 'خمّن رصيد خصمك'), h('div', 'sm', 'ضمن ±5% تفوز فوراً، والخطأ يخصم سؤالين'), timer,
+      ...numpad('أخمّن', v => { guessing = false; guess(v); }, () => { guessing = false; render(); }));
+    else if (mine) { const r = h('div', 'two'); r.append(btn('تم السؤال', 'primary', doneAsking), btn('أخمّن', '', () => { guessing = true; render(); }));
+      p.append(h('div', 'msg', 'دورك: اسأل خصمك بصوتك'), h('div', 'sm', 'سؤال نعم أو لا عن رصيده، ثم اضغط «تم السؤال»'), timer, r); }
+    else p.append(h('div', 'msg', `${nm(st.turn)} يسأل الآن…`), timer);
+  } else if (st.phase === 'answer') {
+    if (!mine) { const r = h('div', 'two'); r.append(btn('نعم', 'yes', () => answer('yes')), btn('لا', 'no', () => answer('no')));
+      p.append(h('div', 'msg', `أجب عن سؤال ${nm(st.turn)}`), timer, r); }
+    else p.append(h('div', 'msg', `بانتظار جواب ${nm(1 - st.turn)}…`), timer);
+  }
+  startTimer();
+}
+
+function renderLog() {
+  const L = $('#log'), A = { yes: 'نعم', no: 'لا', none: 'لم يُجب' };
+  L.replaceChildren(...(st.log || []).slice(-8).reverse().map(e => h('li', '',
+    e.t === 'q' ? `${nm(e.by)} · سؤال ${e.n}: ${A[e.a]}`
+    : e.t === 'g' ? `${nm(e.by)} خمّن ${fmt(e.v)} ${e.ok ? '✅' : '❌ (خُصم سؤالان)'}`
+    : `انتهى وقت ${nm(e.by)} (خُصم سؤال)`)));
+}
+
+let lastSeq = -1;
+function render() {
+  if (!st) return;
+  if (st.seq !== lastSeq) { lastSeq = st.seq; guessing = false; if (st.phase === 'ask' && st.turn === me && st.seq > 0) sfx.turn(); }
+  $('#qm').textContent = st.q[me]; $('#qo').textContent = st.q[1 - me];
+  renderPanel(); renderLog();
+  if (st.phase === 'done' && !ended) {
+    ended = true; const w = st.winner;
+    w === 'draw' ? sfx.turn() : w === me ? sfx.win() : sfx.lose();
+    if (ctx.isHost) setTimeout(() => finishGame(ctx, w === 'draw' ? makeResult('draw', st.order, { secrets: st.secrets })
+      : makeResult('win', [st.order[w], st.order[1 - w]], { secrets: st.secrets })), 6000);
+  }
+}
+
+// ===== التشغيل =====
+try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
+const ids = Object.keys(ctx.players);
+if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); setTimeout(() => goLobby(ctx.code), 1800); }
+else if (ctx.isHost) {
+  const other = ids.find(i => i !== ctx.meta.host);
+  runTransaction(gameRef(ctx.code), cur => cur || { order: [ctx.meta.host, other], secrets: [rand(), rand()], q: [QUESTIONS, QUESTIONS],
+    turn: 0, phase: 'ask', endAt: deadline(ASK_S), seq: 0 });
+}
+players = ctx.players;
+
+// الضغط المطوّل لإظهار رصيدك (لأن اللاعبين قد يجلسون جنباً إلى جنب)
+const sec = $('#secret'), hide = () => { sec.firstChild.textContent = '••••••'; sec.lastChild.hidden = false; };
+const showSecret = e => { e.preventDefault(); if (!st) return; sec.firstChild.textContent = fmt(st.secrets[me]); sec.lastChild.hidden = true; };
+sec.addEventListener('pointerdown', showSecret);
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => sec.addEventListener(ev, hide));
+sec.addEventListener('contextmenu', e => e.preventDefault());
+
+onValue(gameRef(ctx.code), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
+watchRoom(ctx.code, {
+  meta: m => { if (!m || m.status !== 'playing') goLobby(ctx.code); },
+  players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) { panelKey = ''; render(); } },
+  scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
+});
+</script>
+</body>
+</html>
