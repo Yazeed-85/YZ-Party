@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ريفيرسي</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+main{justify-content:flex-start;padding-top:14px}
+.status{display:flex;align-items:center;justify-content:center;gap:10px;font:700 1.3rem 'Reem Kufi',sans-serif;min-height:44px}
+.counts{display:flex;justify-content:center;gap:22px;font:700 1.1rem 'Reem Kufi',sans-serif;direction:ltr}
+.counts span{display:flex;align-items:center;gap:8px}
+.chip{width:20px;height:20px;border-radius:50%;border:1px solid rgba(255,255,255,.35)}
+.board{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;padding:8px;direction:ltr}
+.cell{aspect-ratio:1;border-radius:8px;background:rgba(79,209,197,.09);position:relative;cursor:pointer}
+.disc{position:absolute;inset:8%;border-radius:50%;display:none;border:1px solid rgba(255,255,255,.3)}
+.p1 .disc,.chip.p1{display:block;background:radial-gradient(circle at 35% 30%,#4a4f66,#0d0f18)}
+.p2 .disc,.chip.p2{display:block;background:radial-gradient(circle at 35% 30%,#fff,#c9cfe6)}
+.chip{display:inline-block}
+.hint::after{content:'';position:absolute;inset:38%;border-radius:50%;background:rgba(255,255,255,.3)}
+.last{box-shadow:inset 0 0 0 2px var(--amber)}
+</style>
+</head>
+<body>
+<main>
+  <div id="sb" class="glass scorebar"></div>
+  <div id="status" class="status">جارٍ التحميل…</div>
+  <div id="board" class="glass board" role="grid" aria-label="لوح ريفيرسي"></div>
+  <div id="counts" class="counts"></div>
+</main>
+<script type="module">
+import { runTransaction, onValue } from '../../shared/firebase.js';
+import { enterRoom, watchRoom, gameRef, goLobby } from '../../shared/room.js';
+import { finishGame, makeResult } from '../../shared/result.js';
+import { toast, sfx, scoreBar } from '../../shared/ui.js';
+
+const N = 8, $ = s => document.querySelector(s);
+const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+let ctx, st = null, prev = null, prevPass = 0, busy = false, ended = false, players = {}, scores = {};
+
+// ===== قوانين اللعبة: النقلة صحيحة إن قلبت قطعة واحدة على الأقل =====
+function flips(b, i, p) {
+  const o = p === '1' ? '2' : '1', r0 = Math.floor(i / N), c0 = i % N, out = [];
+  for (const [dr, dc] of DIRS) {
+    const run = [];
+    for (let r = r0 + dr, c = c0 + dc; r >= 0 && r < N && c >= 0 && c < N; r += dr, c += dc) {
+      const v = b[r * N + c];
+      if (v === o) run.push(r * N + c);
+      else { if (v === p) out.push(...run); break; }
+    }
+  }
+  return out;
+}
+const moves = (b, p) => b.map((v, i) => (v === '0' && flips(b, i, p).length ? i : -1)).filter(i => i >= 0);
+
+async function play(i) {
+  if (busy || !st || st.status !== 'playing' || st.order[st.turn] !== ctx.uid) return;
+  busy = true;
+  await runTransaction(gameRef(ctx.code), cur => {
+    if (!cur || cur.status !== 'playing' || cur.order[cur.turn] !== ctx.uid) return;
+    const b = [...cur.board], p = String(cur.turn + 1), n = String(2 - cur.turn);
+    if (b[i] !== '0') return;
+    const f = flips(b, i, p);
+    if (!f.length) return;
+    b[i] = p; f.forEach(j => (b[j] = p));
+    let turn = 1 - cur.turn, status = 'playing', winner = null, passes = cur.passes || 0;
+    if (!moves(b, n).length) {
+      if (moves(b, p).length) { turn = cur.turn; passes++; }   // الخصم لا يملك نقلة فيُتجاوز دوره
+      else status = 'done';
+    }
+    if (status === 'done') {
+      const c1 = b.filter(x => x === '1').length, c2 = b.filter(x => x === '2').length;
+      winner = c1 === c2 ? 'draw' : c1 > c2 ? 0 : 1;
+    }
+    return { ...cur, board: b.join(''), last: i, turn, status, winner, passes };
+  }).catch(() => {});
+  busy = false;
+}
+
+// ===== العرض =====
+const cells = [];
+for (let i = 0; i < N * N; i++) {
+  const c = document.createElement('div');
+  c.className = 'cell'; c.append(Object.assign(document.createElement('div'), { className: 'disc' }));
+  c.onclick = () => play(i);
+  cells.push(c);
+}
+$('#board').append(...cells);
+
+function render() {
+  if (!st) return;
+  const mine = st.order.indexOf(ctx.uid), name = i => players[st.order[i]]?.name || '؟';
+  const legal = st.status === 'playing' && st.turn === mine ? new Set(moves([...st.board], String(mine + 1))) : new Set();
+  let k = 0;
+  [...st.board].forEach((v, i) => {
+    cells[i].className = 'cell' + (v !== '0' ? ' p' + v : '') + (legal.has(i) ? ' hint' : '') + (st.last === i ? ' last' : '');
+    if (prev && prev[i] !== v && window.gsap) {
+      const d = cells[i].firstChild;
+      prev[i] === '0' ? gsap.from(d, { scale: 0, duration: .25, ease: 'back.out(2)' })
+                      : gsap.fromTo(d, { scaleX: 0 }, { scaleX: 1, duration: .3, delay: .06 * ++k });
+    }
+  });
+  if (prev && prev !== st.board) sfx.click();
+  prev = st.board;
+  if ((st.passes || 0) > prevPass) toast(`لا يملك ${name(1 - st.turn)} نقلة، تم تجاوز دوره`);
+  prevPass = st.passes || 0;
+  const c = p => [...st.board].filter(x => x === p).length;
+  $('#counts').replaceChildren(...['1', '2'].map(p => {
+    const s = document.createElement('span');
+    s.append(Object.assign(document.createElement('i'), { className: 'chip p' + p }), c(p));
+    return s;
+  }));
+  const s = $('#status');
+  if (st.status === 'done') {
+    const w = st.winner;
+    s.textContent = w === 'draw' ? 'تعادل' : w === mine ? 'فزت! 🎉' : `فاز ${name(w)}`;
+    if (!ended) {
+      ended = true;
+      w === 'draw' ? sfx.turn() : w === mine ? sfx.win() : sfx.lose();
+      if (ctx.isHost) setTimeout(() => finishGame(ctx, w === 'draw'
+        ? makeResult('draw', st.order, { counts: [c('1'), c('2')] })
+        : makeResult('win', [st.order[w], st.order[1 - w]], { counts: [c('1'), c('2')] })), 3500);
+    }
+  } else {
+    s.replaceChildren(Object.assign(document.createElement('i'), { className: 'chip p' + (st.turn + 1) }),
+      st.turn === mine ? 'دورك' : `دور ${name(st.turn)}`);
+  }
+}
+
+// ===== التشغيل =====
+try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
+const ids = Object.keys(ctx.players);
+if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); setTimeout(() => goLobby(ctx.code), 1800); }
+else if (ctx.isHost) {
+  const other = ids.find(i => i !== ctx.meta.host), b = Array(64).fill('0');
+  b[27] = '2'; b[36] = '2'; b[28] = '1'; b[35] = '1';   // d4,e5 أبيض — e4,d5 أسود
+  runTransaction(gameRef(ctx.code), cur => cur || { board: b.join(''), order: [ctx.meta.host, other], turn: 0, status: 'playing', passes: 0 });
+}
+players = ctx.players;
+onValue(gameRef(ctx.code), s => { st = s.val(); render(); });
+watchRoom(ctx.code, {
+  meta: m => { if (!m || m.status !== 'playing') goLobby(ctx.code); },
+  players: p => { players = p || players; render(); scoreBar($('#sb'), players, scores, ctx.uid); },
+  scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
+});
+</script>
+</body>
+</html>
