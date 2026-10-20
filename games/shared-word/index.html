@@ -47,7 +47,7 @@ import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import { WORDS } from './words.js';
 
 // إعدادات قابلة للتعديل
-const START = 50, UP = 15, DOWN = 15, WRITE_S = 20, REVEAL_S = 5, DECK = 40;
+const START = 50, UP = 15, DOWN = 20, WRITE_S = 20, REVEAL_S = 5, DECK = 40;
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 // توحيد الكتابة: التشكيل والتطويل، الهمزات، ة/ه، ى/ي، الرموز والمسافات، "ال" التعريف
