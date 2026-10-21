@@ -10,12 +10,20 @@
 <!-- مكتبة Google لعرض وتدوير مجسمات الـ 3D (GLB) -->
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
 <style>
-main{justify-content:flex-start;padding-top:14px;gap:10px}
-.info{display:flex;justify-content:space-between;align-items:center;padding:0 6px;color:var(--mute);font-size:.9rem}
-.info b{color:var(--amber);font:700 1.2rem 'Reem Kufi',sans-serif}
-/* ===== الصندوق ثلاثي الأبعاد ===== */
-.scene{position:relative;height:500px;perspective:900px;touch-action:none;user-select:none;-webkit-user-select:none;overflow:visible}
-.rot{position:absolute;left:50%;top:380px;width:0;height:0;transform-style:preserve-3d}
+html,body{height:100%;overflow:hidden}
+main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:8px;padding:10px 14px 14px}
+@media (pointer:coarse){main{padding-bottom:58px}}
+.scorebar{padding:6px 10px;flex:none}.sb{padding:5px 12px}
+.info{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}
+.dots{display:flex;gap:6px}.dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.16)}
+.dots i.on{background:var(--amber)}.dots i.cur{background:var(--text);box-shadow:0 0 0 3px rgba(255,255,255,.18)}
+.gp{display:flex;gap:6px}
+.pill{display:flex;gap:8px;align-items:center;padding:3px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:.85rem}
+.pill b{color:var(--amber);font:700 1.05rem 'Reem Kufi',sans-serif}
+/* ===== المشهد: يُصغَّر تلقائياً ليتسع في الشاشة بلا تمرير ===== */
+.scene{position:relative;flex:1 1 0;min-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
+.stage{position:absolute;left:50%;top:0;width:340px;height:520px;margin-left:-170px;transform-origin:50% 0;perspective:900px}
+.rot{position:absolute;left:50%;top:410px;width:0;height:0;transform-style:preserve-3d}
 .rot.back{z-index:1}.rot.front{z-index:3}
 .f{position:absolute;border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 0 34px rgba(0,0,0,.4)}
 .f.front,.f.back{width:170px;height:120px;left:-85px;top:-60px}
@@ -29,41 +37,47 @@ main{justify-content:flex-start;padding-top:14px;gap:10px}
 .hinge{position:absolute;left:0;top:0;width:0;height:0;transform:translate3d(0,-60px,-85px);transform-style:preserve-3d}
 .lid{position:absolute;left:-85px;top:0;width:170px;height:0;transform-style:preserve-3d}
 .lidp{position:absolute;left:0;top:0;width:170px;height:170px;transform-origin:50% 0;transform:rotateX(90deg);background:linear-gradient(160deg,#34416a,#1d2543);border:1px solid rgba(255,255,255,.2);box-shadow:inset 0 0 30px rgba(0,0,0,.35)}
-.shadow{position:absolute;left:50%;top:452px;width:210px;height:38px;margin-left:-105px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent)}
-.item{position:absolute;left:50%;top:380px;width:280px;display:flex;flex-direction:column;align-items:center;gap:2px;z-index:2;opacity:0;pointer-events:none}
-.item::before{content:'';position:absolute;left:50%;top:46%;width:310px;height:310px;margin:-155px 0 0 -155px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,180,84,.36),rgba(255,180,84,.09) 62%,transparent);z-index:-1;pointer-events:none}
-.item model-viewer{width:260px;height:260px;background:transparent;--poster-color:transparent;--progress-bar-color:#ffb454;outline:none}
-.item img{width:240px;height:240px;object-fit:contain;filter:drop-shadow(0 14px 18px rgba(0,0,0,.55))}
-.item b{font:700 1.25rem 'Reem Kufi',sans-serif;color:var(--amber);text-shadow:0 2px 12px rgba(0,0,0,.8)}
-.hold{text-align:center;color:var(--mute);font-size:.85rem;min-height:1.2em}
-/* ===== اللوحة ===== */
-.card{padding:16px;display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
-.big{font:700 2.4rem 'Reem Kufi',sans-serif;color:var(--lagoon)}
-.msg{font-size:1.15rem;font-weight:700}.sm{color:var(--mute);font-size:.9rem}
-.two{display:flex;gap:10px;width:100%}.two .btn{flex:1}
-.btn.yes{background:var(--lagoon);color:#06231f}.btn.no{background:var(--rose);color:#2a0710}
-</style>
+.shadow{position:absolute;left:50%;top:482px;width:210px;height:38px;margin-left:-105px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent)}
+.item{position:absolute;left:50%;top:410px;width:300px;display:flex;justify-content:center;z-index:2;opacity:0;pointer-events:none}
+.item::before{content:'';position:absolute;left:50%;top:50%;width:340px;height:340px;margin:-170px 0 0 -170px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,180,84,.34),rgba(255,180,84,.08) 62%,transparent);z-index:-1;pointer-events:none}
+.item model-viewer{width:290px;height:290px;background:transparent;--poster-color:transparent;--progress-bar-color:#ffb454;outline:none}
+.item img{width:270px;height:270px;object-fit:contain;filter:drop-shadow(0 14px 18px rgba(0,0,0,.55))}
+.spark{position:absolute;left:50%;top:190px;width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber);z-index:5;pointer-events:none}
+/* ===== اللوحة السفلية المدمجة ===== */
+.pn{flex:none;padding:12px 14px 10px;display:flex;flex-direction:column;gap:9px;border-radius:22px}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:30px}
+.ttl{font-size:1.1rem;font-weight:700}
+.tm{font:700 1.4rem 'Reem Kufi',sans-serif;color:var(--mute);min-width:2ch;text-align:left}
+.sub2{color:var(--mute);font-size:.9rem;margin-top:-4px}
+.ok{color:#34d399}.no2{color:#ff6b81}.mu{color:var(--mute)}
+.acts{display:flex;gap:10px}.acts .btn{flex:1;padding:12px}
+.btn.good{background:#34d399;color:#04241a;border-color:transparent}.btn.bad{background:#ff6b81;color:#2a0710;border-color:transparent}
+.tb{height:3px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+.tb i{display:block;height:100%;background:var(--lagoon);transform-origin:right}
+.res{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:2px 0}
+.res .l1{font:700 1.55rem 'Reem Kufi',sans-serif}.res .l2{font-size:1.05rem}
+</style></style>
 </head>
 <body>
 <main>
   <div id="sb" class="glass scorebar"></div>
-  <div class="info"><span id="round">…</span><b id="pts">0 – 0</b></div>
+  <div class="info"><div id="dots" class="dots"></div><div id="gp" class="gp"></div></div>
   <div id="scene" class="scene" aria-label="الصندوق">
-    <div class="shadow"></div>
-    <div class="rot back">
-      <div class="f back"></div><div class="f left"></div><div class="f right"></div><div class="f bottom"></div>
-      <div class="hinge"><div id="lid" class="lid"><div class="lidp"></div></div></div>
+    <div id="stage" class="stage">
+      <div class="shadow"></div>
+      <div class="rot back">
+        <div class="f back"></div><div class="f left"></div><div class="f right"></div><div class="f bottom"></div>
+        <div class="hinge"><div id="lid" class="lid"><div class="lidp"></div></div></div>
+      </div>
+      <div id="item" class="item">
+        <model-viewer id="m3d" camera-controls auto-rotate auto-rotate-delay="2500" rotation-per-second="28deg" disable-zoom disable-pan
+          interaction-prompt="none" touch-action="none" shadow-intensity="1.1" exposure="1.1" environment-image="neutral"></model-viewer>
+        <img id="iimg" alt="" hidden>
+      </div>
+      <div class="rot front"><div class="f front"></div></div>
     </div>
-    <div id="item" class="item">
-      <model-viewer id="m3d" camera-controls auto-rotate auto-rotate-delay="2500" rotation-per-second="28deg" disable-zoom disable-pan
-        interaction-prompt="none" touch-action="none" shadow-intensity="1.1" exposure="1.1" environment-image="neutral"></model-viewer>
-      <img id="iimg" alt="" hidden>
-      <b id="iname"></b>
-    </div>
-    <div class="rot front"><div class="f front"></div></div>
   </div>
-  <div id="hold" class="hold"></div>
-  <div id="panel" class="glass card">جارٍ التحميل…</div>
+  <div id="panel" class="glass pn">جارٍ التحميل…</div>
 </main>
 <script type="module">
 import { runTransaction, onValue, serverNow, update } from '../../shared/firebase.js';
@@ -78,8 +92,8 @@ const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.onclick = () => { sfx.click(); fn(); }; return b; };
 const T = { honest: 'صادق', liar: 'كاذب' };
-const label = f => f.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
-let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', boxOpen = false, boxOpenedManually = false, inactivityTimer = null, tl = null, bob = null, preKey = '', lastSeq = -1;
+const TOT = { choose: CHOOSE_S, ask: ASK_S, judge: JUDGE_S, reveal: REVEAL_S };
+let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', boxOpen = false, boxOpenedManually = false, inactivityTimer = null, tl = null, bob = null, preKey = '', lastSeq = -1, seen = false, seenRound = -1, prevPts = null;
 
 // ===== القواعد =====
 const holderOf = r => (r - 1) % 2;                       // المضيف يحمل الصندوق في الجولات الفردية
@@ -124,7 +138,7 @@ function openBox() {
     .fromTo('.rot', { x: -4 }, { x: 4, duration: .05, repeat: 5, yoyo: true, ease: 'none' })
     .to('.rot', { x: 0, duration: .05 })
     .to('#lid', { rotationX: 115, duration: .6, ease: 'back.out(1.7)' })
-    .fromTo('#item', { y: 40, scale: .4, opacity: 0, rotation: -10 }, { y: -230, scale: 1, opacity: 1, rotation: 0, duration: .95, ease: 'elastic.out(1,.6)',
+    .fromTo('#item', { y: 40, scale: .4, opacity: 0, rotation: -10 }, { y: -225, scale: 1, opacity: 1, rotation: 0, duration: .95, ease: 'elastic.out(1,.6)',
       onStart: () => gsap.set('#item', { pointerEvents: 'auto' }),
       onComplete: () => { bob = gsap.to('#item', { y: '-=12', duration: 1.7, ease: 'sine.inOut', yoyo: true, repeat: -1 }); resetIdle(); } }, '-=.25');
 }
@@ -137,7 +151,7 @@ function closeBox() {
 function burst() {
   for (let i = 0; i < 22; i++) {
     const p = h('i', 'spark'), a = Math.random() * Math.PI * 2, d = 90 + Math.random() * 130;
-    $('#scene').append(p);
+    $('#stage').append(p);
     gsap.fromTo(p, { x: 0, y: 0, scale: 1, opacity: 1 }, { x: Math.cos(a) * d, y: Math.sin(a) * d - 60, scale: 0, opacity: 0, delay: .5,
       duration: .9 + Math.random() * .5, ease: 'power2.out', onComplete: () => p.remove() });
   }
@@ -150,7 +164,6 @@ function setProduct(f) {                                    // .glb/.gltf يُع
   const url = 'images/' + encodeURIComponent(f), m = $('#m3d'), im = $('#iimg');
   m.hidden = !is3d(f); im.hidden = is3d(f);
   if (is3d(f)) { if (m.getAttribute('src') !== url) m.src = url; } else im.src = url;
-  $('#iname').textContent = label(f);
 }
 // يعود المجسم إلى الصندوق إذا تركه اللاعب IDLE_MS دون لمس
 function resetIdle() {
@@ -169,52 +182,84 @@ const scene = $('#scene');
 // لمسة على الصندوق تفتحه أو تغلقه، أما لمس المجسم نفسه فيدوّره ويؤخّر عودته للصندوق
 scene.addEventListener('pointerdown', e => {
   if (!canHold() || e.target.closest('#item')) return;
-  e.preventDefault(); boxOpenedManually = !boxOpenedManually; syncBox();
+  e.preventDefault(); boxOpenedManually = !boxOpenedManually;
+  if (boxOpenedManually && !seen) { seen = true; panelKey = ''; }
+  syncBox(); renderPanel();
 });
+// تصغير المشهد تلقائياً ليبقى الصندوق والمنتج واللوحة كلها داخل الشاشة
+function fit() {
+  const r = scene.getBoundingClientRect();
+  $('#stage').style.transform = `scale(${Math.max(.3, Math.min(1.2, r.height / 520, r.width / 340))})`;
+}
+new ResizeObserver(fit).observe(scene); addEventListener('resize', fit); fit();
 ['pointerdown', 'pointermove', 'wheel', 'touchstart'].forEach(ev => $('#item').addEventListener(ev, resetIdle, { passive: true }));
 scene.addEventListener('contextmenu', e => e.preventDefault());
 
 // ===== الواجهة =====
 const nm = i => players[st.order[i]]?.name || '؟';
 function startTimer() {
-  stopT?.(); const t = $('#t'); if (!t || st.phase === 'done') return;
-  const seq = st.seq;
-  stopT = countdown(st.endAt, (l, s) => { t.textContent = s; if (s <= 3 && s > 0 && l % 1000 < 100) sfx.tick(); }, () => timeout(seq));
+  stopT?.(); if (st.phase === 'done') return;
+  const t = $('#t'), b = $('#tb i'), seq = st.seq, tot = (TOT[st.phase] || 10) * 1000;
+  stopT = countdown(st.endAt, (l, s) => {
+    if (t) t.textContent = s;
+    if (b) b.style.transform = `scaleX(${Math.min(1, l / tot)})`;
+    if (t && s <= 3 && s > 0 && l % 1000 < 100) sfx.tick();
+  }, () => timeout(seq));
 }
+const sp = (txt, cls) => h('span', cls, txt);
+const hd = (title, timer = true) => {                       // سطر العنوان: نص حيّ + العدّاد
+  const r = h('div', 'hd'), t = h('div', 'ttl');
+  t.append(...[].concat(title).map(x => (typeof x === 'string' ? document.createTextNode(x) : x))); r.append(t);
+  if (timer) { const m = h('div', 'tm', '…'); m.id = 't'; r.append(m); }
+  return r;
+};
+const acts = (...els) => { const r = h('div', 'acts'); r.append(...els); return r; };
+const bar = () => { const b = h('div', 'tb'); b.id = 'tb'; b.append(h('i')); return b; };
+function openFromPanel() { seen = true; boxOpenedManually = true; syncBox(); panelKey = ''; renderPanel(); }
 function renderPanel() {
-  const key = [st.seq, st.phase, st.endAt].join('|');
+  if (!st) return;
+  const key = [st.seq, st.phase, st.endAt, seen].join('|');
   if (key === panelKey) return; panelKey = key;
-  const p = $('#panel'), hh = holderOf(st.round), g = 1 - hh, isH = me === hh;
-  const timer = h('div', 'big', '…'); timer.id = 't';
-  const two = (a, b) => { const r = h('div', 'two'); r.append(a, b); return r; };
+  const p = $('#panel'), hh = holderOf(st.round), g = 1 - hh, isH = me === hh, ph = st.phase;
   p.replaceChildren();
-  if (st.phase === 'choose') {
-    if (isH) p.append(h('div', 'msg', 'اختر دورك في هذه الجولة'), h('div', 'sm', 'اضغط على الصندوق لترى المنتج، ثم قرّر: ستجيب بصدق في كل أجوبتك أم تكذب في كلها'), timer,
-      two(btn('سأكون صادقاً 😇', 'yes', () => choose('honest')), btn('سأكذب 😈', 'no', () => choose('liar'))));
-    else p.append(h('div', 'msg', `${nm(hh)} ينظر إلى المنتج…`), h('div', 'sm', 'يختار الآن أن يكون صادقاً أو كاذباً، ولن تعرف اختياره'), timer);
-  } else if (st.phase === 'ask') {
-    if (isH) {
-      p.append(h('div', 'msg', `${nm(g)} يسألك الآن`), h('div', 'sm', `اختيارك: ${st.pick === 'honest' ? 'صادق 😇' : 'كاذب 😈'} في كل أجوبتك. أجب عن الأسئلة المتعلقة بالمنتج فقط`), timer);
-    } else p.append(h('div', 'msg', `اسأل ${nm(hh)} عن المنتج!`), h('div', 'sm', 'أسئلة عن المنتج فقط، ثم احكم: صادق أم كاذب؟'), timer, btn('انتهيت، سأحكم', 'primary', ready));
-  } else if (st.phase === 'judge') {
-    if (isH) p.append(h('div', 'msg', `${nm(g)} يحكم الآن…`), timer);
-    else p.append(h('div', 'msg', `هل ${nm(hh)} صادق أم كاذب؟`), timer, two(btn('صادق', 'yes', () => judge('honest')), btn('كاذب', 'no', () => judge('liar'))));
-  } else if (st.phase === 'reveal') {
-    p.append(h('div', 'msg', st.ok ? `أصاب ${nm(g)}! 🎯` : `انخدع ${nm(g)}! 🎭`),
-      h('div', 'sm', `${nm(hh)} كان ${T[st.pick]}`), h('div', 'sm', `حكم ${nm(g)}: ${T[st.verdict] || 'لم يحكم'}`),
-      h('div', 'sm', `+1 لـ${nm(st.ok ? g : hh)}`), timer);
+  if (ph === 'choose') {
+    if (!isH) p.append(hd([sp(`${nm(hh)} يستعد…`, 'mu')]));
+    else if (!seen) p.append(hd('صندوقك جاهز'), acts(btn('افتح الصندوق', 'primary', openFromPanel)));
+    else {
+      const eye = btn('👁', 'ghost', () => { boxOpenedManually = true; syncBox(); }); eye.style.flex = '0 0 56px';
+      p.append(hd('ستكون…؟'), acts(btn('صادق 😇', 'good', () => choose('honest')), btn('كاذب 😈', 'bad', () => choose('liar')), eye));
+    }
+  } else if (ph === 'ask') {
+    if (isH) p.append(hd([sp(st.pick === 'honest' ? 'اخترت الصدق 😇' : 'اخترت الكذب 😈', st.pick === 'honest' ? 'ok' : 'no2')]), h('div', 'sub2', `يسألك ${nm(g)}`));
+    else p.append(hd(`اسأل ${nm(hh)} عن المنتج`), acts(btn('انتهيت، سأحكم', 'primary', ready)));
+  } else if (ph === 'judge') {
+    if (isH) p.append(hd([sp(`${nm(g)} يحكم الآن…`, 'mu')]));
+    else p.append(hd(`هل ${nm(hh)} صادق؟`), acts(btn('صادق', 'good', () => judge('honest')), btn('كاذب', 'bad', () => judge('liar'))));
+  } else if (ph === 'reveal') {
+    const good = st.ok ? me === g : me === hh, r = h('div', 'res');
+    r.append(sp(st.ok ? (me === g ? 'أصبت! 🎯' : `أصاب ${nm(g)} 🎯`) : (me === g ? 'أخطأت ✗' : `أخطأ ${nm(g)} ✗`), 'l1 ' + (good ? 'ok' : 'no2')));
+    const l2 = h('div', 'l2'); l2.append(document.createTextNode(`${nm(hh)} كان `), sp(T[st.pick], st.pick === 'honest' ? 'ok' : 'no2'));
+    r.append(l2); p.append(r);
   } else {
-    const w = st.winner;
-    p.append(h('div', 'msg', w === me ? 'فزت! 🎉' : `فاز ${nm(w)}`), h('div', 'sm', `النتيجة النهائية ${st.pts[0]} – ${st.pts[1]}`));
+    const w = st.winner, r = h('div', 'res');
+    r.append(sp(w === me ? 'فزت! 🎉' : `فاز ${nm(w)}`, 'l1 ' + (w === me ? 'ok' : 'no2')), h('div', 'l2', `${st.pts[w]} – ${st.pts[1 - w]}`));
+    p.append(r);
   }
-  if (!reduce) gsap.from(p.children, { y: 14, opacity: 0, duration: .4, stagger: .07, ease: 'power2.out' });
+  if (ph !== 'done') p.append(bar());
+  if (!reduce) gsap.from(p.children, { y: 12, opacity: 0, duration: .35, stagger: .06, ease: 'power2.out' });
   startTimer();
 }
 function render() {
   if (!st) return;
-  $('#round').textContent = st.phase === 'done' ? 'انتهت اللعبة' : st.round > ROUNDS ? 'الجولة الفاصلة' : `الجولة ${st.round} من ${ROUNDS}`;
-  $('#pts').textContent = `${nm(0)} ${st.pts[0]} – ${st.pts[1]} ${nm(1)}`;
-  $('#hold').textContent = canHold() ? 'اضغط على الصندوق ليفتح، ثم قلّب المنتج بإصبعك' : '';
+  if (st.round !== seenRound) { seenRound = st.round; seen = false; }
+  const done = st.phase === 'done', maxR = Math.max(ROUNDS, st.round), hh = holderOf(st.round);
+  $('#dots').replaceChildren(...Array.from({ length: maxR }, (_, i) => h('i', (i + 1 < st.round || done ? 'on' : '') + (i + 1 === st.round && !done ? ' cur' : ''))));
+  $('#gp').replaceChildren(...[0, 1].map(i => {
+    const pl = h('div', 'pill'); pl.append(sp(nm(i) + (!done && i === hh ? ' 📦' : '')), h('b', '', st.pts[i]));
+    if (prevPts && prevPts[i] !== st.pts[i] && !reduce) gsap.fromTo(pl, { scale: 1.25 }, { scale: 1, duration: .6, ease: 'elastic.out(1,.5)' });
+    return pl;
+  }));
+  prevPts = [...st.pts];
   if (!canHold() && boxOpenedManually) { boxOpenedManually = false; }
   if (st.seq !== lastSeq) { lastSeq = st.seq; if (st.phase === 'choose' || st.phase === 'judge') sfx.turn(); }
   const pk = st.round + (canHold() ? 'h' : st.phase === 'judge' ? 'g' : '');
