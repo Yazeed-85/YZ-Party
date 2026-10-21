@@ -14,8 +14,8 @@ main{justify-content:flex-start;padding-top:14px;gap:10px}
 .info{display:flex;justify-content:space-between;align-items:center;padding:0 6px;color:var(--mute);font-size:.9rem}
 .info b{color:var(--amber);font:700 1.2rem 'Reem Kufi',sans-serif}
 /* ===== الصندوق ثلاثي الأبعاد ===== */
-.scene{position:relative;height:420px;perspective:900px;touch-action:none;user-select:none;-webkit-user-select:none;overflow:visible}
-.rot{position:absolute;left:50%;top:300px;width:0;height:0;transform-style:preserve-3d}
+.scene{position:relative;height:500px;perspective:900px;touch-action:none;user-select:none;-webkit-user-select:none;overflow:visible}
+.rot{position:absolute;left:50%;top:380px;width:0;height:0;transform-style:preserve-3d}
 .rot.back{z-index:1}.rot.front{z-index:3}
 .f{position:absolute;border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 0 34px rgba(0,0,0,.4)}
 .f.front,.f.back{width:170px;height:120px;left:-85px;top:-60px}
@@ -29,11 +29,12 @@ main{justify-content:flex-start;padding-top:14px;gap:10px}
 .hinge{position:absolute;left:0;top:0;width:0;height:0;transform:translate3d(0,-60px,-85px);transform-style:preserve-3d}
 .lid{position:absolute;left:-85px;top:0;width:170px;height:0;transform-style:preserve-3d}
 .lidp{position:absolute;left:0;top:0;width:170px;height:170px;transform-origin:50% 0;transform:rotateX(90deg);background:linear-gradient(160deg,#34416a,#1d2543);border:1px solid rgba(255,255,255,.2);box-shadow:inset 0 0 30px rgba(0,0,0,.35)}
-.shadow{position:absolute;left:50%;top:372px;width:210px;height:38px;margin-left:-105px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent)}
-.item{position:absolute;left:50%;top:300px;width:160px;padding:12px;border-radius:20px;background:rgba(16,20,38,.94);border:1px solid rgba(255,180,84,.65);box-shadow:0 0 56px rgba(255,180,84,.5);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:2;opacity:0;pointer-events:auto}
-.item model-viewer{width:136px;height:136px;border-radius:12px;background:rgba(255,255,255,.05);--postfix:none}
-.item b{font:700 1.3rem 'Reem Kufi',sans-serif;color:var(--amber)}
-.spark{position:absolute;left:50%;top:120px;width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber);z-index:5;pointer-events:none}
+.shadow{position:absolute;left:50%;top:452px;width:210px;height:38px;margin-left:-105px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent)}
+.item{position:absolute;left:50%;top:380px;width:280px;display:flex;flex-direction:column;align-items:center;gap:2px;z-index:2;opacity:0;pointer-events:none}
+.item::before{content:'';position:absolute;left:50%;top:46%;width:310px;height:310px;margin:-155px 0 0 -155px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,180,84,.36),rgba(255,180,84,.09) 62%,transparent);z-index:-1;pointer-events:none}
+.item model-viewer{width:260px;height:260px;background:transparent;--poster-color:transparent;--progress-bar-color:#ffb454;outline:none}
+.item img{width:240px;height:240px;object-fit:contain;filter:drop-shadow(0 14px 18px rgba(0,0,0,.55))}
+.item b{font:700 1.25rem 'Reem Kufi',sans-serif;color:var(--amber);text-shadow:0 2px 12px rgba(0,0,0,.8)}
 .hold{text-align:center;color:var(--mute);font-size:.85rem;min-height:1.2em}
 /* ===== اللوحة ===== */
 .card{padding:16px;display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
@@ -54,7 +55,9 @@ main{justify-content:flex-start;padding-top:14px;gap:10px}
       <div class="hinge"><div id="lid" class="lid"><div class="lidp"></div></div></div>
     </div>
     <div id="item" class="item">
-      <model-viewer id="m3d" src="" camera-controls auto-rotate shadow-intensity="1" ar-status="not-presenting"></model-viewer>
+      <model-viewer id="m3d" camera-controls auto-rotate auto-rotate-delay="2500" rotation-per-second="28deg" disable-zoom disable-pan
+        interaction-prompt="none" touch-action="none" shadow-intensity="1.1" exposure="1.1" environment-image="neutral"></model-viewer>
+      <img id="iimg" alt="" hidden>
       <b id="iname"></b>
     </div>
     <div class="rot front"><div class="f front"></div></div>
@@ -70,25 +73,20 @@ import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 
 // إعدادات قابلة للتعديل
-const ROUNDS = 6, CHOOSE_S = 20, ASK_S = 30, JUDGE_S = 10, REVEAL_S = 7, VIOL_S = 5, MAX_VIOL = 2, DECK = 14;
+const ROUNDS = 6, CHOOSE_S = 20, ASK_S = 30, JUDGE_S = 10, REVEAL_S = 7, DECK = 14, IDLE_MS = 3000; // IDLE_MS: يعود المجسم للصندوق بعد هذا الخمول
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.onclick = () => { sfx.click(); fn(); }; return b; };
 const T = { honest: 'صادق', liar: 'كاذب' };
 const label = f => f.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
-let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', boxOpen = false, boxOpenedManually = false, inactivityTimer = null, tl = null, lastSeq = -1;
+let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', boxOpen = false, boxOpenedManually = false, inactivityTimer = null, tl = null, bob = null, preKey = '', lastSeq = -1;
 
 // ===== القواعد =====
 const holderOf = r => (r - 1) % 2;                       // المضيف يحمل الصندوق في الجولات الفردية
 const prod = c => c.deck[(c.round - 1) % c.deck.length];
 const act = fn => runTransaction(gameRef(ctx.code), cur => (cur ? fn(cur) : undefined)).catch(() => {});
-const toAsk = (c, pick) => ({ ...c, pick, phase: 'ask', endAt: deadline(ASK_S), viol: 0, seq: c.seq + 1 });
+const toAsk = (c, pick) => ({ ...c, pick, phase: 'ask', endAt: deadline(ASK_S), seq: c.seq + 1 });
 const choose = p => act(c => (c.phase === 'choose' && c.order[holderOf(c.round)] === ctx.uid) ? toAsk(c, p) : undefined);
-const violation = () => act(c => {                        // سؤال مخالف: يخصم 5 ثوانٍ من وقت السائل (حد أقصى MAX_VIOL)
-  if (c.phase !== 'ask' || c.order[holderOf(c.round)] !== ctx.uid || (c.viol || 0) >= MAX_VIOL) return;
-  const left = c.endAt - serverNow();
-  return { ...c, viol: (c.viol || 0) + 1, endAt: serverNow() + Math.max(500, left - VIOL_S * 1000), seq: c.seq + 1 };
-});
 const toJudge = c => ({ ...c, phase: 'judge', endAt: deadline(JUDGE_S), seq: c.seq + 1 });
 const ready = () => act(c => (c.phase === 'ask' && c.order[1 - holderOf(c.round)] === ctx.uid) ? toJudge(c) : undefined);
 function reveal(c, v) {                                   // نقطة للمخمّن إن أصاب وإلا لصاحب الصندوق
@@ -105,7 +103,7 @@ const timeout = seq => act(c => {
   if (c.phase === 'reveal') {
     const r = c.round, tie = c.pts[0] === c.pts[1];
     if (r < ROUNDS || (r === ROUNDS && tie))             // التعادل بعد الجولات الست يُحسم بجولة فاصلة
-      return { ...c, round: r + 1, phase: 'choose', pick: null, verdict: null, ok: null, endAt: deadline(CHOOSE_S), viol: 0, seq: c.seq + 1 };
+      return { ...c, round: r + 1, phase: 'choose', pick: null, verdict: null, ok: null, endAt: deadline(CHOOSE_S), seq: c.seq + 1 };
     return { ...c, phase: 'done', winner: c.pts[0] > c.pts[1] ? 0 : 1, seq: c.seq + 1 };
   }
 });
@@ -115,22 +113,25 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (reduce) gsap.globalTimeline.timeScale(10);
 gsap.set('.rot', { rotationX: -18, rotationY: -26 });
 gsap.set('#lid', { transformOrigin: '50% 0', rotationX: 0 });
-gsap.set('#item', { xPercent: -50, yPercent: -50, opacity: 0, scale: .45, y: 40 });
+gsap.set('#item', { xPercent: -50, yPercent: -50, opacity: 0, scale: .4, y: 40, pointerEvents: 'none' });
 gsap.from('.rot', { y: -320, opacity: 0, duration: 1, ease: 'bounce.out', delay: .15 });
 gsap.from('.shadow', { opacity: 0, scale: .4, duration: .8, delay: .5 });
 gsap.to('.rot', { y: -8, duration: 1.8, ease: 'sine.inOut', yoyo: true, repeat: -1, delay: 1.3 });
 
 function openBox() {
-  boxOpen = true; tl?.kill();
+  boxOpen = true; tl?.kill(); bob?.kill();
   tl = gsap.timeline()
     .fromTo('.rot', { x: -4 }, { x: 4, duration: .05, repeat: 5, yoyo: true, ease: 'none' })
     .to('.rot', { x: 0, duration: .05 })
     .to('#lid', { rotationX: 115, duration: .6, ease: 'back.out(1.7)' })
-    .fromTo('#item', { y: 40, scale: .45, opacity: 0, rotation: -10 }, { y: -190, scale: 1, opacity: 1, rotation: 0, duration: .9, ease: 'elastic.out(1,.6)' }, '-=.25');
+    .fromTo('#item', { y: 40, scale: .4, opacity: 0, rotation: -10 }, { y: -230, scale: 1, opacity: 1, rotation: 0, duration: .95, ease: 'elastic.out(1,.6)',
+      onStart: () => gsap.set('#item', { pointerEvents: 'auto' }),
+      onComplete: () => { bob = gsap.to('#item', { y: '-=12', duration: 1.7, ease: 'sine.inOut', yoyo: true, repeat: -1 }); resetIdle(); } }, '-=.25');
 }
 function closeBox() {
-  boxOpen = false; tl?.kill();
-  tl = gsap.timeline().to('#item', { y: 40, scale: .45, opacity: 0, duration: .35, ease: 'power2.in' })
+  boxOpen = false; tl?.kill(); bob?.kill(); clearTimeout(inactivityTimer);
+  gsap.set('#item', { pointerEvents: 'none' });
+  tl = gsap.timeline().to('#item', { y: 40, scale: .4, opacity: 0, duration: .4, ease: 'power2.in' })
     .to('#lid', { rotationX: 0, duration: .5, ease: 'bounce.out' }, '-=.1');
 }
 function burst() {
@@ -144,59 +145,33 @@ function burst() {
 
 const canHold = () => st && me === holderOf(st.round) && ['choose', 'ask', 'judge'].includes(st.phase);
 
-// مؤقت إعادة الصندوق تلقائياً إن لم يلمسه اللاعب لمدة 5 ثوانٍ
-function resetInactivityTimer() {
-  clearTimeout(inactivityTimer);
-  if (boxOpen && canHold()) {
-    inactivityTimer = setTimeout(() => {
-      boxOpenedManually = false;
-      syncBox();
-    }, 5000);
-  }
+const is3d = f => /\.(glb|gltf)$/i.test(f);
+function setProduct(f) {                                    // .glb/.gltf يُعرض مجسماً، وغيره صورة عادية
+  const url = 'images/' + encodeURIComponent(f), m = $('#m3d'), im = $('#iimg');
+  m.hidden = !is3d(f); im.hidden = is3d(f);
+  if (is3d(f)) { if (m.getAttribute('src') !== url) m.src = url; } else im.src = url;
+  $('#iname').textContent = label(f);
 }
-
+// يعود المجسم إلى الصندوق إذا تركه اللاعب IDLE_MS دون لمس
+function resetIdle() {
+  clearTimeout(inactivityTimer);
+  if (boxOpen && canHold()) inactivityTimer = setTimeout(() => { boxOpenedManually = false; syncBox(); }, IDLE_MS);
+}
 function syncBox() {
   if (!st) return;
   const want = st.phase === 'reveal' || (boxOpenedManually && canHold());
   if (want && !boxOpen) {
-    const f = prod(st);
-    $('#m3d').src = 'images/' + encodeURIComponent(f); 
-    $('#iname').textContent = label(f);
-    openBox(); 
-    if (st.phase === 'reveal') { 
-      burst(); 
-      sfx.win(); 
-    } else {
-      resetInactivityTimer();
-    }
-  } else if (!want && boxOpen) {
-    closeBox();
-    clearTimeout(inactivityTimer);
-  }
+    setProduct(prod(st)); openBox();
+    if (st.phase === 'reveal') { burst(); sfx.win(); } else sfx.turn();
+  } else if (!want && boxOpen) closeBox();
 }
-
 const scene = $('#scene');
-// النقر أو اللمس لفتح/إغلاق الصندوق
+// لمسة على الصندوق تفتحه أو تغلقه، أما لمس المجسم نفسه فيدوّره ويؤخّر عودته للصندوق
 scene.addEventListener('pointerdown', e => {
-  if (!canHold()) return;
-  // إذا كان التفاعل على المنتج نفسه، نقوم بإعادة ضبط مؤقت الخمول فقط
-  if (e.target.closest('#item')) {
-    resetInactivityTimer();
-    return;
-  }
-  e.preventDefault();
-  boxOpenedManually = !boxOpenedManually;
-  syncBox();
+  if (!canHold() || e.target.closest('#item')) return;
+  e.preventDefault(); boxOpenedManually = !boxOpenedManually; syncBox();
 });
-
-// إعادة ضبط مؤقت الخمول عند تفاعل اللاعب مع المجسم ثلاثي الأبعاد
-const itemEl = $('#item');
-['pointerdown', 'pointermove', 'wheel', 'touchstart'].forEach(ev => {
-  itemEl.addEventListener(ev, () => {
-    resetInactivityTimer();
-  });
-});
-
+['pointerdown', 'pointermove', 'wheel', 'touchstart'].forEach(ev => $('#item').addEventListener(ev, resetIdle, { passive: true }));
 scene.addEventListener('contextmenu', e => e.preventDefault());
 
 // ===== الواجهة =====
@@ -219,8 +194,7 @@ function renderPanel() {
     else p.append(h('div', 'msg', `${nm(hh)} ينظر إلى المنتج…`), h('div', 'sm', 'يختار الآن أن يكون صادقاً أو كاذباً، ولن تعرف اختياره'), timer);
   } else if (st.phase === 'ask') {
     if (isH) {
-      const left = MAX_VIOL - (st.viol || 0), v = btn(`سؤال مخالف (−${VIOL_S}ث) · ${left}`, 'ghost', violation); v.disabled = left <= 0;
-      p.append(h('div', 'msg', `${nm(g)} يسألك الآن`), h('div', 'sm', `اختيارك: ${st.pick === 'honest' ? 'صادق 😇' : 'كاذب 😈'} في كل أجوبتك. الأسئلة عن المنتج فقط`), timer, v);
+      p.append(h('div', 'msg', `${nm(g)} يسألك الآن`), h('div', 'sm', `اختيارك: ${st.pick === 'honest' ? 'صادق 😇' : 'كاذب 😈'} في كل أجوبتك. أجب عن الأسئلة المتعلقة بالمنتج فقط`), timer);
     } else p.append(h('div', 'msg', `اسأل ${nm(hh)} عن المنتج!`), h('div', 'sm', 'أسئلة عن المنتج فقط، ثم احكم: صادق أم كاذب؟'), timer, btn('انتهيت، سأحكم', 'primary', ready));
   } else if (st.phase === 'judge') {
     if (isH) p.append(h('div', 'msg', `${nm(g)} يحكم الآن…`), timer);
@@ -240,9 +214,11 @@ function render() {
   if (!st) return;
   $('#round').textContent = st.phase === 'done' ? 'انتهت اللعبة' : st.round > ROUNDS ? 'الجولة الفاصلة' : `الجولة ${st.round} من ${ROUNDS}`;
   $('#pts').textContent = `${nm(0)} ${st.pts[0]} – ${st.pts[1]} ${nm(1)}`;
-  $('#hold').textContent = canHold() ? 'اضغط على الصندوق لفتح وإظهار المنتج' : '';
+  $('#hold').textContent = canHold() ? 'اضغط على الصندوق ليفتح، ثم قلّب المنتج بإصبعك' : '';
   if (!canHold() && boxOpenedManually) { boxOpenedManually = false; }
   if (st.seq !== lastSeq) { lastSeq = st.seq; if (st.phase === 'choose' || st.phase === 'judge') sfx.turn(); }
+  const pk = st.round + (canHold() ? 'h' : st.phase === 'judge' ? 'g' : '');
+  if (pk !== preKey && /[hg]$/.test(pk)) { preKey = pk; setProduct(prod(st)); }
   syncBox(); renderPanel();
   if (st.phase === 'done' && !ended) {
     ended = true; const w = st.winner;
@@ -262,7 +238,7 @@ else if (ctx.isHost) {
     if (!Array.isArray(list) || !list.length) throw 0;
     const deck = [...list].sort(() => Math.random() - .5).slice(0, DECK), other = ids.find(i => i !== ctx.meta.host);
     runTransaction(gameRef(ctx.code), cur => cur || { order: [ctx.meta.host, other], deck, round: 1, phase: 'choose', pts: [0, 0],
-      viol: 0, endAt: deadline(CHOOSE_S), seq: 0 });
+      endAt: deadline(CHOOSE_S), seq: 0 });
   } catch { toast('لا توجد صور أو مجسمات في games/truth-lie/images', 'error'); setTimeout(backToLobby, 2500); }
 }
 players = ctx.players;
