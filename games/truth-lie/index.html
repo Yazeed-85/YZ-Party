@@ -23,7 +23,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 /* ===== المشهد: يُصغَّر تلقائياً ليتسع في الشاشة بلا تمرير ===== */
 .scene{position:relative;flex:1 1 0;min-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
 .stage{position:absolute;left:50%;top:0;width:340px;height:520px;margin-left:-170px;transform-origin:50% 0;perspective:900px}
-.rot{position:absolute;left:50%;top:410px;width:0;height:0;transform-style:preserve-3d}
+.rot{position:absolute;left:50%;top:410px;width:0;height:0;transform-style:preserve-3d;visibility:hidden}
 .rot.back{z-index:1}.rot.front{z-index:3}
 .f{position:absolute;border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 0 34px rgba(0,0,0,.4)}
 .f.front,.f.back{width:170px;height:120px;left:-85px;top:-60px}
@@ -128,10 +128,17 @@ if (reduce) gsap.globalTimeline.timeScale(10);
 gsap.set('.rot', { rotationX: -18, rotationY: -26 });
 gsap.set('#lid', { transformOrigin: '50% 0', rotationX: 0 });
 gsap.set('#item', { xPercent: -50, yPercent: -50, opacity: 0, scale: .4, y: 40, pointerEvents: 'none' });
-gsap.from('.rot', { y: -320, opacity: 0, duration: 1, ease: 'bounce.out', delay: .15 });
+gsap.fromTo('.rot', { y: -760, rotationZ: -10, visibility: 'visible' }, { y: 0, rotationZ: 0, duration: 1.2, ease: 'bounce.out', delay: .1 });
 gsap.from('.shadow', { opacity: 0, scale: .4, duration: .8, delay: .5 });
-gsap.to('.rot', { y: -8, duration: 1.8, ease: 'sine.inOut', yoyo: true, repeat: -1, delay: 1.3 });
+gsap.to('.rot', { y: -8, duration: 1.8, ease: 'sine.inOut', yoyo: true, repeat: -1, delay: 1.6 });
 
+let nudgeT = null;
+function nudge() { if (!boxOpen) gsap.fromTo('.rot', { rotationZ: -5 }, { rotationZ: 5, duration: .09, yoyo: true, repeat: 5, ease: 'sine.inOut', onComplete: () => gsap.set('.rot', { rotationZ: 0 }) }); }
+function updateNudge() {
+  const need = st && st.phase === 'choose' && me === holderOf(st.round) && !seen && !boxOpen && !reduce;
+  if (need && !nudgeT) nudgeT = setInterval(nudge, 3200);
+  if (!need && nudgeT) { clearInterval(nudgeT); nudgeT = null; }
+}
 function openBox() {
   boxOpen = true; tl?.kill(); bob?.kill();
   tl = gsap.timeline()
@@ -184,7 +191,7 @@ scene.addEventListener('pointerdown', e => {
   if (!canHold() || e.target.closest('#item')) return;
   e.preventDefault(); boxOpenedManually = !boxOpenedManually;
   if (boxOpenedManually && !seen) { seen = true; panelKey = ''; }
-  syncBox(); renderPanel();
+  syncBox(); renderPanel(); updateNudge();
 });
 // تصغير المشهد تلقائياً ليبقى الصندوق والمنتج واللوحة كلها داخل الشاشة
 function fit() {
@@ -215,7 +222,6 @@ const hd = (title, timer = true) => {                       // سطر العنو
 };
 const acts = (...els) => { const r = h('div', 'acts'); r.append(...els); return r; };
 const bar = () => { const b = h('div', 'tb'); b.id = 'tb'; b.append(h('i')); return b; };
-function openFromPanel() { seen = true; boxOpenedManually = true; syncBox(); panelKey = ''; renderPanel(); }
 function renderPanel() {
   if (!st) return;
   const key = [st.seq, st.phase, st.endAt, seen].join('|');
@@ -224,11 +230,8 @@ function renderPanel() {
   p.replaceChildren();
   if (ph === 'choose') {
     if (!isH) p.append(hd([sp(`${nm(hh)} يستعد…`, 'mu')]));
-    else if (!seen) p.append(hd('صندوقك جاهز'), acts(btn('افتح الصندوق', 'primary', openFromPanel)));
-    else {
-      const eye = btn('👁', 'ghost', () => { boxOpenedManually = true; syncBox(); }); eye.style.flex = '0 0 56px';
-      p.append(hd('ستكون…؟'), acts(btn('صادق 😇', 'good', () => choose('honest')), btn('كاذب 😈', 'bad', () => choose('liar')), eye));
-    }
+    else if (!seen) p.append(hd('المس الصندوق'));
+    else p.append(hd('ستكون…؟'), acts(btn('صادق 😇', 'good', () => choose('honest')), btn('كاذب 😈', 'bad', () => choose('liar'))));
   } else if (ph === 'ask') {
     if (isH) p.append(hd([sp(st.pick === 'honest' ? 'اخترت الصدق 😇' : 'اخترت الكذب 😈', st.pick === 'honest' ? 'ok' : 'no2')]), h('div', 'sub2', `يسألك ${nm(g)}`));
     else p.append(hd(`اسأل ${nm(hh)} عن المنتج`), acts(btn('انتهيت، سأحكم', 'primary', ready)));
@@ -237,8 +240,10 @@ function renderPanel() {
     else p.append(hd(`هل ${nm(hh)} صادق؟`), acts(btn('صادق', 'good', () => judge('honest')), btn('كاذب', 'bad', () => judge('liar'))));
   } else if (ph === 'reveal') {
     const good = st.ok ? me === g : me === hh, r = h('div', 'res');
-    r.append(sp(st.ok ? (me === g ? 'أصبت! 🎯' : `أصاب ${nm(g)} 🎯`) : (me === g ? 'أخطأت ✗' : `أخطأ ${nm(g)} ✗`), 'l1 ' + (good ? 'ok' : 'no2')));
-    const l2 = h('div', 'l2'); l2.append(document.createTextNode(`${nm(hh)} كان `), sp(T[st.pick], st.pick === 'honest' ? 'ok' : 'no2'));
+    // المخمِّن: «أصبت/أخطأت» ثم «اسم الخصم كان كاذب»، وصاحب الصندوق: «اسم الخصم أصاب/أخطأ» ثم «أنت كنت كاذب»
+    const l1 = me === g ? (st.ok ? 'أصبت! 🎯' : 'أخطأت ✗') : (st.ok ? `${nm(g)} أصاب 🎯` : `${nm(g)} أخطأ ✗`);
+    r.append(sp(l1, 'l1 ' + (good ? 'ok' : 'no2')));
+    const l2 = h('div', 'l2'); l2.append(document.createTextNode(me === hh ? 'أنت كنت ' : `${nm(hh)} كان `), sp(T[st.pick], st.pick === 'honest' ? 'ok' : 'no2'));
     r.append(l2); p.append(r);
   } else {
     const w = st.winner, r = h('div', 'res');
@@ -264,7 +269,7 @@ function render() {
   if (st.seq !== lastSeq) { lastSeq = st.seq; if (st.phase === 'choose' || st.phase === 'judge') sfx.turn(); }
   const pk = st.round + (canHold() ? 'h' : st.phase === 'judge' ? 'g' : '');
   if (pk !== preKey && /[hg]$/.test(pk)) { preKey = pk; setProduct(prod(st)); }
-  syncBox(); renderPanel();
+  syncBox(); renderPanel(); updateNudge();
   if (st.phase === 'done' && !ended) {
     ended = true; const w = st.winner;
     w === me ? sfx.win() : sfx.lose();
