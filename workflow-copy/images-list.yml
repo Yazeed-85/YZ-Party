@@ -1,4 +1,5 @@
-# يولّد games/truth-lie/images/list.json تلقائياً كلما أضفت أو حذفت صوراً في المجلد
+# يولّد games/truth-lie/images/list.json تلقائياً كلما أضفت أو حذفت ملفات في المجلد
+# يدعم المجسمات (glb, gltf) والصور، وإذا وُجد مجسم وصورة بنفس الاسم يُفضَّل المجسم
 name: Build images list
 on:
   push:
@@ -15,8 +16,11 @@ jobs:
         run: |
           node -e "
           const fs=require('fs');const d='games/truth-lie/images';
-          const f=fs.readdirSync(d).filter(n=>/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(n)).sort();
-          fs.writeFileSync(d+'/list.json',JSON.stringify(f,null,1)+'\n');"
+          const all=fs.readdirSync(d);const base=n=>n.replace(/\.[^.]+$/,'');
+          const models=all.filter(n=>/\.(glb|gltf)$/i.test(n));
+          const mb=new Set(models.map(base));
+          const imgs=all.filter(n=>/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(n)&&!mb.has(base(n)));
+          fs.writeFileSync(d+'/list.json',JSON.stringify([...models,...imgs].sort(),null,1)+'\n');"
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
