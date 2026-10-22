@@ -51,6 +51,10 @@ import { toast, sfx, show, enterAnim, toggleMute, isMuted } from './shared/ui.js
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const G = () => window.gsap && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+// صور بطاقات الألعاب من مجلد game-images (jpg ثم png ثم jpeg ثم webp)، وإن لم توجد تبقى الأيقونة
+const IMG = new Map(); let imgsReady = false, cardsShown = false;
+const probe = id => new Promise(res => { const ex = ['jpg', 'png', 'jpeg', 'webp']; let i = 0;
+  const next = () => { if (i >= ex.length) return res(null); const u = `game-images/${id}.${ex[i++]}`, im = new Image(); im.onload = () => res(u); im.onerror = next; im.src = u; }; next(); });
 let S = { code: null, uid: null, meta: null, players: {}, scores: {}, joined: false }, stop = null, armed = null, armT = null, known = new Set();
 
 // ===== الشاشة الرئيسية: الاسم والكود والأزرار الذكية =====
@@ -97,6 +101,16 @@ $('#code').addEventListener('input', onCode);
 $('#code').addEventListener('focus', () => $('#codebox').classList.add('focus'));
 $('#code').addEventListener('blur', () => $('#codebox').classList.remove('focus'));
 $('#name').addEventListener('input', refresh);
+// لمس مربع الكود يلصق ما في الحافظة فقط إن كان 4 أرقام بالضبط (أي نص آخر يُتجاهل ويبقى الإدخال اليدوي)
+$('#codebox').addEventListener('click', async () => {
+  if (fromLink || $('#code').readOnly || !navigator.clipboard?.readText) return;
+  try {
+    const t = (await navigator.clipboard.readText()).trim();
+    if (!/^[0-9٠-٩۰-۹]{4}$/.test(t)) return;
+    const v = digits(t); if (v === code) return;
+    $('#code').value = v; $('#code').blur(); sfx.click(); await onCode();
+  } catch { /* رُفض الإذن أو الحافظة فارغة: نكمل بالإدخال اليدوي */ }
+});
 
 // ===== رابط الدعوة: الكود معبّأ، «أنشئ» غير متاح، وسهم رجوع بجانب زر الصوت =====
 function enterLinkMode(c) {
@@ -151,12 +165,14 @@ function render() {
   if (G() && fresh.length) gsap.from(fresh, { x: 40, opacity: 0, duration: .45, ease: 'back.out(1.8)', clearProps: 'all' });
   known = new Set(ids.map(([id]) => id));
   $('#games').replaceChildren(...GAMES.map(x => {
-    const b = h('button', 'gcard' + (meta.pick === x.id ? ' on' : ''));
+    const url = IMG.get(x.id), b = h('button', 'gcard' + (meta.pick === x.id ? ' on' : '') + (url ? ' has-img' : ''));
     b.disabled = !isHost || !x.ready;
+    if (url) { const bg = h('span', 'gbg'); bg.style.backgroundImage = `url("${url}")`; b.append(bg); }
     b.append(h('span', 'gi', x.icon), h('strong', '', x.name), h('small', '', x.ready ? x.desc : 'قريباً'));
     b.onclick = () => { sfx.click(); pickGame(rc, x.id).catch(e => toast(e.message, 'error')); };
     return b;
   }));
+  if (imgsReady && !cardsShown) { cardsShown = true; if (G()) gsap.from('.gcard', { y: 18, opacity: 0, scale: .96, duration: .5, stagger: .07, ease: 'power3.out', clearProps: 'opacity,transform' }); }
   const pick = GAMES.find(x => x.id === meta.pick), ok = pick && n >= pick.min && n <= pick.max;
   $('#start').hidden = !isHost; $('#start').disabled = !ok;
   $('#hint').textContent = !isHost ? 'بانتظار المضيف ليختار اللعبة'
@@ -223,6 +239,7 @@ $('#mute').textContent = isMuted() ? '🔇' : '🔊';
 $('#name').value = savedName(); paint($('#codebox'), ''); refresh();
 const jp = digits(new URLSearchParams(location.search).get('join'));
 enterAnim('#home');
+Promise.all(GAMES.map(async g => IMG.set(g.id, await probe(g.id)))).then(() => { imgsReady = true; if (S.meta) render(); });
 ready.then(() => sweepRooms());                            // تنظيف الغرف المهملة (مرة كل 5 دقائق كحد أقصى)
 if (jp.length === 4) enterLinkMode(jp);
 else if (getCode()) enterRoom().then(c => openLobby(c.code)).catch(() => sessionStorage.removeItem('yz_room'));
