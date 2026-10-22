@@ -51,10 +51,12 @@ import { toast, sfx, show, enterAnim, toggleMute, isMuted } from './shared/ui.js
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const G = () => window.gsap && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-// صور بطاقات الألعاب من مجلد game-images (jpg ثم png ثم jpeg ثم webp)، وإن لم توجد تبقى الأيقونة
+// خلفيات بطاقات الألعاب: الأغلفة الموحّدة من game-covers/{id}.svg. غيّر USE_PHOTOS إلى true لتفضيل صورك في game-images (jpg/png/jpeg/webp) إن وُجدت
+const USE_PHOTOS = false;
 const IMG = new Map(); let imgsReady = false, cardsShown = false;
-const probe = id => new Promise(res => { const ex = ['jpg', 'png', 'jpeg', 'webp']; let i = 0;
-  const next = () => { if (i >= ex.length) return res(null); const u = `game-images/${id}.${ex[i++]}`, im = new Image(); im.onload = () => res(u); im.onerror = next; im.src = u; }; next(); });
+const tryList = urls => new Promise(res => { let i = 0;
+  const next = () => { if (i >= urls.length) return res(null); const u = urls[i++], im = new Image(); im.onload = () => res(u); im.onerror = next; im.src = u; }; next(); });
+const probe = id => tryList([...(USE_PHOTOS ? ['jpg', 'png', 'jpeg', 'webp'].map(e => `game-images/${id}.${e}`) : []), `game-covers/${id}.svg`]);
 let verT = null, kickT = null;
 let S = { code: null, uid: null, meta: null, players: {}, scores: {}, joined: false }, stop = null, armed = null, armT = null, known = new Set();
 

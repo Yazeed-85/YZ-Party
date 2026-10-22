@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#141b36"/><stop offset="1" stop-color="#090c18"/></linearGradient>
+<radialGradient id="gt" cx=".85" cy=".05" r=".75"><stop offset="0" stop-color="#4fd1c5" stop-opacity=".42"/><stop offset="1" stop-color="#4fd1c5" stop-opacity="0"/></radialGradient>
+<radialGradient id="ga" cx=".08" cy=".95" r=".75"><stop offset="0" stop-color="#ffb454" stop-opacity=".34"/><stop offset="1" stop-color="#ffb454" stop-opacity="0"/></radialGradient>
+<radialGradient id="rose" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffb3be"/><stop offset="1" stop-color="#ff6b81"/></radialGradient>
+<radialGradient id="amb" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffe3b0"/><stop offset="1" stop-color="#ffb454"/></radialGradient>
+<radialGradient id="orb" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffd48a"/><stop offset=".45" stop-color="#ffb454"/><stop offset="1" stop-color="#ff6b81"/></radialGradient>
+<linearGradient id="coin" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c98a22"/><stop offset=".5" stop-color="#ffd48a"/><stop offset="1" stop-color="#c98a22"/></linearGradient>
+<filter id="blur"><feGaussianBlur stdDeviation="8"/></filter>
+</defs>
+<rect width="600" height="400" fill="url(#bg)"/><rect width="600" height="400" fill="url(#gt)"/><rect width="600" height="400" fill="url(#ga)"/>
+<circle cx="238" cy="188" r="104" fill="#4fd1c5" fill-opacity=".30" stroke="#4fd1c5" stroke-width="4"/><circle cx="362" cy="188" r="104" fill="#ffb454" fill-opacity=".30" stroke="#ffb454" stroke-width="4"/><path d="M300 106 A104 104 0 0 1 300 270 A104 104 0 0 1 300 106Z" fill="#fff" fill-opacity=".20"/><polygon points="300.0,148.0 307.8,180.2 340.0,188.0 307.8,195.8 300.0,228.0 292.2,195.8 260.0,188.0 292.2,180.2" fill="#fff"/><polygon points="300.0,148.0 307.8,180.2 340.0,188.0 307.8,195.8 300.0,228.0 292.2,195.8 260.0,188.0 292.2,180.2" fill="#fff" filter="url(#blur)" opacity=".8"/><polygon points="352.0,106.0 354.8,115.2 364.0,118.0 354.8,120.8 352.0,130.0 349.2,120.8 340.0,118.0 349.2,115.2" fill="#fff" opacity=".8"/><polygon points="250.0,252.0 252.1,259.9 260.0,262.0 252.1,264.1 250.0,272.0 247.9,264.1 240.0,262.0 247.9,259.9" fill="#fff" opacity=".6"/><circle cx="138" cy="300" r="9" fill="#fff" fill-opacity=".35"/><circle cx="120" cy="326" r="5" fill="#fff" fill-opacity=".35"/><circle cx="470" cy="300" r="9" fill="#fff" fill-opacity=".35"/><circle cx="490" cy="326" r="5" fill="#fff" fill-opacity=".35"/></svg>
