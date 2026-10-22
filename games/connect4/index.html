@@ -28,9 +28,10 @@ main{justify-content:flex-start;padding-top:14px}
 </main>
 <script type="module">
 import { runTransaction, onValue } from '../../shared/firebase.js';
-import { enterRoom, watchRoom, gameRef, goLobby } from '../../shared/room.js';
+import { enterRoom, watchRoom, gameRef, goLobby, abortGame } from '../../shared/room.js';
 import { finishGame, makeResult } from '../../shared/result.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
+import { initGameExit } from '../../shared/leave.js';
 
 const R = 6, C = 7, $ = s => document.querySelector(s);
 let ctx, st = null, prev = null, busy = false, ended = false, players = {}, scores = {};
@@ -113,15 +114,16 @@ function render() {
 try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
 buildBoard();
 const ids = Object.keys(ctx.players);
-if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); setTimeout(() => goLobby(ctx.code), 1800); }
+if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); abortGame(ctx); }
 else if (ctx.isHost) {
   const other = ids.find(i => i !== ctx.meta.host);
   runTransaction(gameRef(ctx.code), cur => cur || { board: '0'.repeat(R * C), order: [ctx.meta.host, other], turn: 0, status: 'playing' });
 }
 players = ctx.players;
+const ex = initGameExit(ctx, { isOver: () => st?.status === 'done' });
 onValue(gameRef(ctx.code), s => { st = s.val(); render(); });
 watchRoom(ctx.code, {
-  meta: m => { if (!m || m.status !== 'playing') goLobby(ctx.code); },
+  meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },
   players: p => { players = p || players; render(); scoreBar($('#sb'), players, scores, ctx.uid); },
   scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
 });
