@@ -57,7 +57,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 /* الكبسولة الصوتية */
 .orb{width:92px;height:92px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffd48a,var(--amber) 45%,var(--rose));box-shadow:0 0 38px rgba(255,140,100,.55);display:flex;align-items:center;justify-content:center;gap:5px;flex:none}
 .orb i{width:6px;border-radius:4px;background:#2a1305}.orb i:nth-child(1){height:22px}.orb i:nth-child(2){height:42px}.orb i:nth-child(3){height:56px}.orb i:nth-child(4){height:34px}.orb i:nth-child(5){height:18px}
-.cap{font:700 1.2rem 'Reem Kufi',sans-serif;color:var(--amber)}.cap.flip{display:inline-block;transform:scaleX(-1)}
+.cap{font:700 1.2rem 'Reem Kufi',sans-serif;color:var(--amber)}
 /* نافذة النتيجة المشتركة */
 .blk{width:100%;max-width:400px;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:18px;background:rgba(0,0,0,.28);border:1px solid var(--line);position:relative;overflow:hidden;flex:none}
 .blk .meta{flex:1;display:flex;flex-direction:column;gap:2px;align-items:flex-start;min-width:0}.blk .lb{font-size:.82rem;color:var(--mute)}
@@ -67,6 +67,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .jd{width:100%;max-width:400px;padding:10px 14px 12px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid var(--line);display:flex;flex-direction:column;gap:7px;align-items:center;flex:none}
 .jd .top{display:flex;align-items:center;gap:12px}.jd .badge{width:60px;height:60px;font-size:2rem}
 .jd .tx{display:flex;flex-direction:column;align-items:flex-start;line-height:1.35}.jd .tx b{font:700 1.35rem 'Reem Kufi',sans-serif}.jd .tx small{color:var(--mute)}
+.ai{display:flex;align-items:center;gap:10px;width:100%}.ai .lbl{font:900 1.15rem 'Reem Kufi',sans-serif;color:var(--amber);direction:ltr;letter-spacing:1px}.ai .trk{flex:1;height:20px;border-radius:12px;background:rgba(255,255,255,.09);overflow:hidden;direction:rtl}.ai .trk i{display:block;height:100%;border-radius:12px}.ai .v{font:700 1.1rem 'Reem Kufi',sans-serif;min-width:44px;text-align:left}
 .mt{display:flex;align-items:center;gap:8px;width:100%;font-size:.78rem;color:var(--mute)}.mt span:first-child{width:78px;text-align:right}.mt span:last-child{width:34px;text-align:left}
 .mt .tk{flex:1;height:6px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}.mt .tk i{display:block;height:100%;transform-origin:right;background:linear-gradient(90deg,var(--rose),var(--amber),#34d399)}
 .sheet{position:sticky;bottom:-14px;margin:auto -16px -14px;align-self:stretch;padding:12px 16px 16px;background:rgba(14,18,34,.97);border-top:1px solid var(--line);border-radius:22px 22px 0 0;display:flex;flex-direction:column;gap:9px;align-items:center;z-index:5;flex:none}
@@ -89,7 +90,7 @@ import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import { analyze } from './judge.js';
 
 // ===== إعدادات قابلة للتعديل =====
-const ROUNDS = 4, PREP_S = 4, SAY_S = 25, LISTEN_S = 45, MIMIC_S = 30, JUDGE_S = 20, REVEAL_S = 45, NEXT_S = 10, SAY_MAX = 7, MIN_REC = 0.6, SR = 16000;
+const ROUNDS = 6, EASY = 3, PREP_S = 4, SAY_S = 25, LISTEN_S = 45, MIMIC_S = 30, JUDGE_S = 20, REVEAL_S = 45, NEXT_S = 10, SAY_MAX = 7, SAY_WORD = 4, MIN_REC = 0.6, SR = 16000;
 const CAT = {                                            // التصنيف ونقاط المقلِّد
   exact: { e: '🎯', t: 'مطابق تماماً', pts: 2, c: 'ok' }, close: { e: '⚠️', t: 'قريب جداً', pts: 1, c: 'am' },
   bad: { e: '❌', t: 'سيء جداً', pts: 0, c: 'no2' }, none: { e: '🤷', t: 'تعذّر التحليل', pts: 0, c: 'mu' }, skip: { e: '⏭️', t: 'جولة ملغاة', pts: 0, c: 'mu' }
@@ -280,7 +281,7 @@ async function holdStart(kind) {
   if (holding || recObj || recState === 'proc') return; holding = true;
   try { await mic(); } catch { holding = false; return toast('اسمح باستخدام الميكروفون من إعدادات المتصفح', 'error'); }
   if (!holding) return;                                  // أفلت اللاعب قبل أن يبدأ التسجيل
-  const r = st.round, maxS = kind === 'A' ? SAY_MAX : Math.min(12, Math.max(5, ((pcmA(r)?.length || SR * 3) / SR) * 1.7 + 2));
+  const r = st.round, maxS = kind === 'A' ? (r <= EASY ? SAY_WORD : SAY_MAX) : Math.min(12, Math.max(5, ((pcmA(r)?.length || SR * 3) / SR) * 1.7 + 2));
   try { recObj = record(maxS); } catch (e) { console.error(e); holding = false; return toast('تعذّر تشغيل الميكروفون', 'error'); }
   recState = 'rec'; setRecUI(true); sfx.turn();
   recObj.result.then(async ({ blob, secs }) => {
@@ -364,6 +365,11 @@ function block(ico, label, pcm, cls) {
   if (pcm) { drawPcm(cv, pcm); pl.onclick = () => { sfx.click(); play(pcm, false); gsap.fromTo(pr, { scaleX: 0 }, { scaleX: 1, duration: pcm.length / SR, ease: 'none' }); }; } else pl.disabled = true;
   b.append(pr, m, pl); return b;
 }
+const aiBar = v => {                                     // شريط واحد ملوّن من 0 إلى 100 بحسب قرب التسجيلين
+  v = Math.max(0, Math.min(1, v)); const hue = Math.round(v * 130), w = h('div', 'ai'), t = h('div', 'trk'), f = h('i');
+  f.style.width = Math.max(2, v * 100) + '%'; f.style.background = `linear-gradient(90deg,hsl(${Math.max(0, hue - 40)} 95% 55%),hsl(${hue} 95% 52%))`; f.style.boxShadow = `0 0 14px hsl(${hue} 95% 55% / .7)`;
+  t.append(f); w.append(h('span', 'lbl', 'AI'), t, h('span', 'v', Math.round(v * 100) + '%')); return w;
+};
 const meter = (lb, v) => { const m = h('div', 'mt'), t = h('div', 'tk'), i = h('i'); i.style.transform = `scaleX(${Math.max(0.02, Math.min(1, v))})`; t.append(i); m.append(h('span', '', lb), t, h('span', '', Math.round(Math.max(0, Math.min(1, v)) * 100) + '%')); return m; };
 
 function revealView(c) {
@@ -371,18 +377,16 @@ function revealView(c) {
   const rep = st.rep || { cat: 'none', score: 0 }, k = CAT[rep.cat] || CAT.none;
   c.classList.add('rv');
   const top = A ? block('🎙', isS ? 'جملتك الأصلية' : `الجملة الأصلية · ${nm(S)}`, A, 'top') : null;
-  const mid = h('div', 'jd'), tp = h('div', 'top'), bg = h('div', 'badge', k.e), tx = h('div', 'tx');
-  tx.append(h('b', k.c, k.t), h('small', '', 'تقرير الحَكَم'), h('small', '', ['exact', 'close', 'bad'].includes(rep.cat) ? `نسبة التشابه ${Math.round(rep.score * 100)}%` : ''));
-  tp.append(bg, tx); mid.append(tp);
-  if (rep.a != null) mid.append(meter('مخارج الحروف', rep.a), meter('الإيقاع والمقاطع', rep.b), meter('التوقيت', rep.c));
-  const bot = B ? block('🔁', isM ? 'محاولتك بعد عكسها' : `محاولة ${nm(M)} بعد عكسها`, B, 'bot') : null;
+  const mid = h('div', 'jd');
   if (rep.cat === 'skip') mid.append(h('div', 'sub', 'انتهى الوقت قبل أن يُسجَّل شيء'));
+  else mid.append(aiBar(rep.score || 0));
+  const bot = B ? block('🔁', isM ? 'محاولتك بعد عكسها' : `محاولة ${nm(M)} بعد عكسها`, B, 'bot') : null;
   c.append(...[top, mid, bot].filter(Boolean));
   const tl = !reduce && gsap.timeline();
   if (tl) { if (top) tl.from(top, { y: -280, x: 170, rotation: -16, scale: .5, opacity: 0, duration: .9, ease: 'bounce.out', clearProps: 'all' }, 0);
     if (bot) tl.from(bot, { y: 280, x: -170, rotation: 16, scale: .5, opacity: 0, duration: .9, ease: 'bounce.out', clearProps: 'all' }, .1);
     tl.from(mid, { scale: 0, opacity: 0, duration: .7, ease: 'elastic.out(1,.6)', clearProps: 'all' }, .55)
-    .from(bg, { rotation: -180, duration: .6, ease: 'back.out(2)' }, .7); }
+    .from(mid.querySelector('.trk i') || mid, { width: '0%', duration: 1.2, ease: 'power2.out' }, .9); }
   if (sfxSeq !== r) { sfxSeq = r; rep.cat === 'exact' ? sfx.win() : rep.cat === 'bad' ? sfx.lose() : sfx.turn(); }
   const box = h('div', 'sheet'); box.id = 'sheetBox'; c.append(box); sheetKey = ''; fillSheet();
   if (tl) tl.from(box, { y: 140, opacity: 0, duration: .55, ease: 'power3.out' }, 1.1);
@@ -397,9 +401,9 @@ function fillSheet() {                                   // أسفل الناف�
     const kc = CAT[st.conf] || CAT.none;
     box.append(sp(`قرار ${nm(S)}: ${kc.e} ${kc.t}${kc.pts ? ` · +${kc.pts} لـ${isM ? 'ك' : nm(M)}` : ''}`, 'q ' + kc.c), btn(r >= ROUNDS ? 'النتيجة النهائية' : 'التالي', 'primary', () => nextRound(st.seq)));
   } else if (isS) {
-    const q = h('div', 'q', `هل أدّى ${nm(M)} الجملة صحيحة؟`), a = h('div', 'acts'), star = c2 => (rep.cat === c2 ? ' ⭐' : '');
-    a.append(btn('✅ صحيحة' + star('exact'), 'good', () => confirmCat('exact')), btn('⚠️ تقريباً' + star('close'), 'warn', () => confirmCat('close')), btn('❌ خاطئة' + star('bad'), 'bad', () => confirmCat('bad')));
-    box.append(q, a, h('div', 'sub', '⭐ اقتراح الحَكَم، وقرارك هو الذي يحسم النقاط'));
+    const q = h('div', 'q', `هل أدّى ${nm(M)} ${r <= EASY ? 'الكلمة' : 'الجملة'} صحيحة؟`), a = h('div', 'acts');
+    a.append(btn('✅ صحيحة', 'good', () => confirmCat('exact')), btn('⚠️ تقريباً', 'warn', () => confirmCat('close')), btn('❌ خاطئة', 'bad', () => confirmCat('bad')));
+    box.append(q, a);
   } else { const sp2 = h('div', 'spin'); sp2.style.width = sp2.style.height = '30px'; box.append(sp2, h('div', 'sub', `بانتظار تأكيد ${nm(S)}…`)); }
   if (!reduce && sheetKey !== '|' + isS) gsap.from(box.children, { y: 12, opacity: 0, duration: .3, stagger: .05, clearProps: 'all' });
   startTimer();                                          // تغيّر الوقت المتبقي عند التأكيد
@@ -424,11 +428,11 @@ function renderPanel() {
       else c.append(h('div', 'ttl', musicOn ? '🔊 ستبدأ الآن موسيقى صاخبة!' : '🙉 اغلق أذنيك الآن!'), n,
         h('div', 'sub', musicOn ? `لن تسمع ${nm(S)} وهو يسجّل` : `غطِّ أذنيك بيديك أو بالسماعات حتى ينتهي ${nm(S)}`));
       prepStop?.(); prepStop = countdown(st.goAt, (l, sec) => { const e = $('#pc'); if (e) e.textContent = Math.max(1, sec); }, () => { panelKey = ''; render(); });
-    } else if (isS) recordView(c, 'A', 'قل جملة عادية', null);
+    } else if (isS) recordView(c, 'A', r <= EASY ? 'قل كلمة واحدة فقط' : 'قل جملة قصيرة', null);
     else if (musicOn) c.append(eq(), h('div', 'ttl', 'موسيقى صاخبة…'), h('div', 'sub', `${nm(S)} يسجّل الآن، ولا يجب أن تسمعه`));
     else { const e = h('div', 'ear', '🙉'); c.append(e, h('div', 'ttl', 'أبقِ أذنيك مغلقتين'), h('div', 'sub', `${nm(S)} يسجّل الآن، ولا يجب أن تسمعه`)); if (!reduce) gsap.to(e, { scale: 1.12, duration: .8, yoyo: true, repeat: -1, ease: 'sine.inOut' }); }
   } else if (ph === 'listen') {
-    if (isM) { const o = ORB(), cap = h('div', 'cap flip', 'وصلت مقلوبة!'); o.id = 'orbM'; cap.id = 'capM'; cap.style.opacity = 0; c.append(o, cap); animate = false; if (!pcmA(r)) c.append(h('div', 'sub', 'جارٍ الاستلام…')); }
+    if (isM) { const o = ORB(), cap = h('div', 'cap', 'وصلت مقلوبة!'); o.id = 'orbM'; cap.id = 'capM'; cap.style.opacity = 0; c.append(o, cap); animate = false; if (!pcmA(r)) c.append(h('div', 'sub', 'جارٍ الاستلام…')); }
     else { const o = ORB(); o.id = 'orbS'; c.append(o, h('div', 'sub', `أُرسلت إلى ${nm(M)} مقلوبة…`)); if (orbSeq !== st.seq) { orbSeq = st.seq; launchAnim(o); } animate = false; }
   } else if (ph === 'mimic') {
     if (isM) { recordView(c, 'B', 'جاء دورك', 'قل الجملة كما سمعتها'); if (alertSeq !== st.seq) { alertSeq = st.seq; sfx.turn(); } }
@@ -448,7 +452,7 @@ function readyView(c) {
   c.classList.add('rd');
   const t = h('div', 'top'), fl = h('div', 'fl'), orb = ORB(), ch = h('div', 'choices');
   t.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:center';
-  t.append(h('div', 'ttl', 'التحدي العكسي'), h('div', 'sub', 'تسجّل جملة فتُعكس، ويقلّدها خصمك وهي مقلوبة'));
+  t.append(h('div', 'ttl', 'التحدي العكسي'), h('div', 'sub', 'تسجّل كلمة أو جملة فتُعكس، ويقلّدها خصمك وهي مقلوبة'));
   fl.append(orb); ['🎵', '🎶', '🔊'].forEach((e, i) => { const n = h('span', 'note', e); n.style.cssText = `left:${[-14, 128, 108][i]}px;top:${[30, 0, 118][i]}px`; fl.append(n); });
   const on = h('button', 'choice'), off = h('button', 'choice mute');
   on.innerHTML = '<span class="ic">🎵</span><b>السماح للموسيقى الصاخبة</b><small>تُشغَّل عندك حين يسجّل خصمك</small>';
