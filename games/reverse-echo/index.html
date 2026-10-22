@@ -19,6 +19,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .pill{display:flex;gap:8px;align-items:center;padding:3px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:.85rem}
 .pill b{color:var(--amber);font:700 1.05rem 'Reem Kufi',sans-serif}
 .card{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px 16px 14px;text-align:center;border-radius:26px;position:relative;overflow:hidden}
+.card.rv .tm{display:none}
 .card.rv{justify-content:flex-start;overflow-y:auto;padding-top:14px;gap:9px}
 .ttl{font:700 1.5rem 'Reem Kufi',sans-serif}.sub{color:var(--mute);font-size:.92rem;line-height:1.7;white-space:pre-line}
 .ok{color:#34d399}.no2{color:#ff6b81}.am{color:var(--amber)}.mu{color:var(--mute)}
@@ -29,8 +30,8 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .btn.good{background:#34d399;color:#04241a;border-color:transparent}.btn.bad{background:#ff6b81;color:#2a0710;border-color:transparent}.btn.warn{background:var(--amber);color:#3a2605;border-color:transparent}
 /* زر اضغط مطولاً */
 .vis{position:relative;width:148px;height:148px;border-radius:50%;display:grid;place-items:center;--lvl:0;flex:none;color:var(--lagoon)}
-.vis::before{content:'';position:absolute;inset:calc(-6px - var(--lvl) * 44px);border-radius:50%;border:2px solid currentColor;opacity:calc(.25 + var(--lvl) * .75);transition:inset .08s linear}
-.vis button{width:100%;height:100%;border-radius:50%;border:none;background:currentColor;display:grid;place-items:center;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.vis::before{content:'';pointer-events:none;position:absolute;inset:calc(-6px - var(--lvl) * 44px);border-radius:50%;border:2px solid currentColor;opacity:calc(.25 + var(--lvl) * .75);transition:inset .08s linear}
+.vis button{position:relative;z-index:1;color:inherit;width:100%;height:100%;border-radius:50%;border:none;background:currentColor;display:grid;place-items:center;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;transition:transform .12s}
 .vis button svg{width:62px;height:62px;fill:#06231f;pointer-events:none}
 .vis.rec{color:var(--rose)}.vis.rec button{transform:scale(.92)}.vis.rec button svg{fill:#2a0710}
 #wave{width:100%;max-width:340px;height:72px;display:block}
@@ -302,9 +303,10 @@ function startTimer() {
 function holdBtn(kind) {
   const w = h('div', 'vis'); w.id = 'vis';
   const b = h('button'); b.innerHTML = MIC; b.setAttribute('aria-label', 'اضغط مطولاً وتكلّم');
-  b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch {} holdStart(kind); });
-  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => b.addEventListener(ev, holdEnd));
-  b.addEventListener('contextmenu', e => e.preventDefault()); w.append(b); return w;
+  w.style.touchAction = 'none'; w.style.userSelect = 'none'; w.style.webkitUserSelect = 'none'; w.style.webkitTouchCallout = 'none';
+  w.addEventListener('pointerdown', e => { e.preventDefault(); try { w.setPointerCapture(e.pointerId); } catch {} holdStart(kind); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => w.addEventListener(ev, holdEnd));
+  w.addEventListener('contextmenu', e => e.preventDefault()); w.append(b); return w;
 }
 const waveCv = () => { const c = h('canvas'); c.id = 'wave'; c.width = 640; c.height = 144; return c; };
 const wait = txt => [h('div', 'spin'), h('div', 'sub', txt)];
@@ -355,17 +357,18 @@ function revealView(c) {
   const r = st.round, S = spkOf(r), M = mimOf(r), isS = me === S, isM = me === M, A = pcmA(r), B = pcmB(r);
   const rep = st.rep || { cat: 'none', score: 0 }, k = CAT[rep.cat] || CAT.none;
   c.classList.add('rv');
-  const top = block('🎙', isS ? 'جملتك الأصلية' : `الجملة الأصلية · ${nm(S)}`, A, 'top');
+  const top = A ? block('🎙', isS ? 'جملتك الأصلية' : `الجملة الأصلية · ${nm(S)}`, A, 'top') : null;
   const mid = h('div', 'jd'), tp = h('div', 'top'), bg = h('div', 'badge', k.e), tx = h('div', 'tx');
   tx.append(h('b', k.c, k.t), h('small', '', 'تقرير الحَكَم'), h('small', '', ['exact', 'close', 'bad'].includes(rep.cat) ? `نسبة التشابه ${Math.round(rep.score * 100)}%` : ''));
   tp.append(bg, tx); mid.append(tp);
   if (rep.a != null) mid.append(meter('مخارج الحروف', rep.a), meter('الإيقاع والمقاطع', rep.b), meter('التوقيت', rep.c));
-  const bot = block('🔁', isM ? 'محاولتك بعد عكسها' : `محاولة ${nm(M)} بعد عكسها`, B, 'bot');
-  c.append(top, mid, bot);
+  const bot = B ? block('🔁', isM ? 'محاولتك بعد عكسها' : `محاولة ${nm(M)} بعد عكسها`, B, 'bot') : null;
+  if (rep.cat === 'skip') mid.append(h('div', 'sub', 'انتهى الوقت قبل أن يُسجَّل شيء'));
+  c.append(...[top, mid, bot].filter(Boolean));
   const tl = !reduce && gsap.timeline();
-  if (tl) { tl.from(top, { y: -280, x: 170, rotation: -16, scale: .5, opacity: 0, duration: .9, ease: 'bounce.out', clearProps: 'all' }, 0)
-    .from(bot, { y: 280, x: -170, rotation: 16, scale: .5, opacity: 0, duration: .9, ease: 'bounce.out', clearProps: 'all' }, .1)
-    .from(mid, { scale: 0, opacity: 0, duration: .7, ease: 'elastic.out(1,.6)', clearProps: 'all' }, .55)
+  if (tl) { if (top) tl.from(top, { y: -280, x: 170, rotation: -16, scale: .5, opacity: 0, duration: .9, ease: 'bounce.out', clearProps: 'all' }, 0);
+    if (bot) tl.from(bot, { y: 280, x: -170, rotation: 16, scale: .5, opacity: 0, duration: .9, ease: 'bounce.out', clearProps: 'all' }, .1);
+    tl.from(mid, { scale: 0, opacity: 0, duration: .7, ease: 'elastic.out(1,.6)', clearProps: 'all' }, .55)
     .from(bg, { rotation: -180, duration: .6, ease: 'back.out(2)' }, .7); }
   if (sfxSeq !== r) { sfxSeq = r; rep.cat === 'exact' ? sfx.win() : rep.cat === 'bad' ? sfx.lose() : sfx.turn(); }
   const box = h('div', 'sheet'); box.id = 'sheetBox'; c.append(box); sheetKey = ''; fillSheet();
