@@ -19,6 +19,19 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .pill{display:flex;gap:8px;align-items:center;padding:3px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:.85rem}
 .pill b{color:var(--amber);font:700 1.05rem 'Reem Kufi',sans-serif}
 .card{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px 16px 14px;text-align:center;border-radius:26px;position:relative;overflow:hidden}
+.card.rd{justify-content:space-between;gap:10px}
+.fl{position:relative;width:150px;height:150px;display:grid;place-items:center;flex:none}
+.fl::before,.fl::after{content:'';position:absolute;inset:8px;border-radius:50%;border:2px solid rgba(255,180,84,.45);animation:ring 2.6s ease-out infinite}
+.fl::after{animation-delay:1.3s}
+@keyframes ring{from{transform:scale(.7);opacity:.9}to{transform:scale(1.7);opacity:0}}
+.fl .orb{position:relative;z-index:1}
+.note{position:absolute;font-size:1.4rem;pointer-events:none}
+.choices{display:flex;gap:12px;width:100%;max-width:430px;flex:none}
+.choice{flex:1;border-radius:22px;padding:14px 8px 12px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);font:inherit;cursor:pointer;display:flex;flex-direction:column;gap:5px;align-items:center;transition:transform .15s,border-color .2s,background .2s;-webkit-tap-highlight-color:transparent}
+.choice .ic{font-size:2rem;line-height:1.1}.choice b{font-size:.98rem}.choice small{color:var(--mute);font-size:.76rem;line-height:1.45}
+.choice:hover{border-color:var(--amber);background:rgba(255,180,84,.09)}.choice.mute:hover{border-color:var(--rose);background:rgba(255,107,129,.09)}
+.choice:active{transform:scale(.95)}.choice:disabled{opacity:.5;pointer-events:none}
+.ear{font-size:5rem;line-height:1}
 .card.rv .tm{display:none}
 .card.rv{justify-content:flex-start;overflow-y:auto;padding-top:14px;gap:9px}
 .ttl{font:700 1.5rem 'Reem Kufi',sans-serif}.sub{color:var(--mute);font-size:.92rem;line-height:1.7;white-space:pre-line}
@@ -76,7 +89,7 @@ import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import { analyze } from './judge.js';
 
 // ===== إعدادات قابلة للتعديل =====
-const ROUNDS = 4, SAY_S = 25, LISTEN_S = 45, MIMIC_S = 30, JUDGE_S = 20, REVEAL_S = 45, NEXT_S = 10, SAY_MAX = 7, MIN_REC = 0.6, SR = 16000;
+const ROUNDS = 4, PREP_S = 4, SAY_S = 25, LISTEN_S = 45, MIMIC_S = 30, JUDGE_S = 20, REVEAL_S = 45, NEXT_S = 10, SAY_MAX = 7, MIN_REC = 0.6, SR = 16000;
 const CAT = {                                            // التصنيف ونقاط المقلِّد
   exact: { e: '🎯', t: 'مطابق تماماً', pts: 2, c: 'ok' }, close: { e: '⚠️', t: 'قريب جداً', pts: 1, c: 'am' },
   bad: { e: '❌', t: 'سيء جداً', pts: 0, c: 'no2' }, none: { e: '🤷', t: 'تعذّر التحليل', pts: 0, c: 'mu' }, skip: { e: '⏭️', t: 'جولة ملغاة', pts: 0, c: 'mu' }
@@ -90,7 +103,7 @@ const MIC = '<svg viewBox="0 0 24 24"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5V6a3.
 const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.9l10-6.5a1 1 0 0 0 0-1.8l-10-6.5A1 1 0 0 0 8 5.5Z"/></svg>';
 const ORB = () => { const o = h('div', 'orb'); for (let i = 0; i < 5; i++) o.append(h('i')); return o; };
 
-let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', lastRound = -1, prevPts = null, sfxSeq = -1, alertSeq = -1;
+let musicOn = sessionStorage.getItem('yz_music') !== '0', prepStop = null, ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', lastRound = -1, prevPts = null, sfxSeq = -1, alertSeq = -1;
 let recState = 'idle', recObj = null, holding = false, rawA = null, rawB = null, localA = null, localB = null, judging = {}, listenRun = {}, orbSeq = -1;
 
 // ===== الصوت: تسجيل، ترميز، عكس، تشغيل =====
@@ -221,7 +234,7 @@ function drawPcm(cv, pcm) {                              // شكل موجة ال
 // ===== القواعد =====
 const spkOf = r => (r - 1) % 2, mimOf = r => 1 - spkOf(r);   // المضيف يتكلم في الجولة الأولى
 const act = fn => runTransaction(gameRef(ctx.code, 's'), cur => (cur ? fn(cur) : undefined)).catch(() => {});
-const toSay = (c, r) => ({ ...c, round: r, phase: 'say', endAt: deadline(SAY_S), rep: null, conf: null, seq: c.seq + 1 });
+const toSay = (c, r) => ({ ...c, round: r, phase: 'say', goAt: deadline(PREP_S), endAt: deadline(PREP_S + SAY_S), rep: null, conf: null, seq: c.seq + 1 });
 const applyConf = (c, cat) => {                          // قرار صاحب الجملة النهائي يحسم النقاط
   const pts = [...c.pts]; pts[mimOf(c.round)] += (CAT[cat] || CAT.none).pts;
   return { ...c, pts, conf: cat, hist: [...(c.hist || []), { r: c.round, cat }], endAt: deadline(NEXT_S), seq: c.seq + 1 };
@@ -297,7 +310,7 @@ function setRecUI(on) {                                  // تحديث في مك
 const nm = i => players[st.order[i]]?.name || '؟';
 function startTimer() {
   stopT?.(); if (!st || st.phase === 'done' || st.phase === 'ready') return;
-  const t = $('#t'), b = $('#tb i'), seq = st.seq, tot = ({ say: SAY_S, listen: LISTEN_S, mimic: MIMIC_S, judge: JUDGE_S, reveal: st.conf ? NEXT_S : REVEAL_S }[st.phase] || 10) * 1000;
+  const t = $('#t'), b = $('#tb i'), seq = st.seq, tot = ({ say: SAY_S + PREP_S, listen: LISTEN_S, mimic: MIMIC_S, judge: JUDGE_S, reveal: st.conf ? NEXT_S : REVEAL_S }[st.phase] || 10) * 1000;
   stopT = countdown(st.endAt, (l, s) => { if (t) t.textContent = s; if (b) b.style.transform = `scaleX(${Math.min(1, l / tot)})`; }, () => timeout(seq));
 }
 function holdBtn(kind) {
@@ -395,18 +408,25 @@ function fillSheet() {                                   // أسفل الناف�
 function renderPanel() {
   if (!st) return;
   const ph = st.phase, r = st.round;
-  const key = ph === 'reveal' ? ['rv', r, !!pcmA(r), !!pcmB(r), st.rep?.cat].join('|') : [st.seq, ph, recState === 'rec' ? 'idle' : recState, !!pcmA(r), !!pcmB(r)].join('|');
+  const key = ph === 'reveal' ? ['rv', r, !!pcmA(r), !!pcmB(r), st.rep?.cat].join('|') : [st.seq, ph, recState === 'rec' ? 'idle' : recState, !!pcmA(r), !!pcmB(r), ph === 'say' && serverNow() < st.goAt].join('|');
   if (key === panelKey) return; panelKey = key;
   const c = $('#card'), S = spkOf(r), M = mimOf(r), isS = me === S, isM = me === M;
-  c.replaceChildren(); c.classList.remove('rv');
+  c.replaceChildren(); c.classList.remove('rv', 'rd');
   if (ph !== 'done' && ph !== 'ready') { const t = h('div', 'tm', '…'); t.id = 't'; c.append(t); }
   let animate = true;
   if (ph === 'ready') {
-    if (st.rd[me]) c.append(...wait(`بانتظار ${nm(1 - me)}…`));
-    else c.append(h('div', 'ttl', 'التحدي العكسي'), h('div', 'sub', 'يسجّل أحدكما جملة فتُعكس، ويقلّدها الآخر وهي مقلوبة،\nثم يحكم الحَكَم هل عادت كما كانت'), h('div', 'sub am', '🎧 المقلِّد يحتاج سماعات رأس'), btn('جاهز 🎤', 'primary', onReady));
+    if (st.rd[me]) c.append(...wait(`بانتظار ${nm(1 - me)}…`), h('div', 'sub ' + (musicOn ? 'am' : 'mu'), musicOn ? '🎵 اخترت: الموسيقى الصاخبة' : '🙉 اخترت: بلا موسيقى'));
+    else readyView(c);
   } else if (ph === 'say') {
-    if (isS) recordView(c, 'A', 'قل جملة عادية', null);
-    else c.append(eq(), h('div', 'ttl', 'موسيقى صاخبة…'), h('div', 'sub', `${nm(S)} يسجّل الآن، ولا يجب أن تسمعه`));
+    if (serverNow() < st.goAt) {                         // تنبيه قبل أن تبدأ الموسيقى ويُفتح التسجيل
+      const n = h('div', 'big', '…'); n.id = 'pc';
+      if (isS) c.append(h('div', 'ttl', 'استعد…'), n, h('div', 'sub', `${nm(M)} يتهيّأ قبل أن تبدأ الموسيقى`));
+      else c.append(h('div', 'ttl', musicOn ? '🔊 ستبدأ الآن موسيقى صاخبة!' : '🙉 اغلق أذنيك الآن!'), n,
+        h('div', 'sub', musicOn ? `لن تسمع ${nm(S)} وهو يسجّل` : `غطِّ أذنيك بيديك أو بالسماعات حتى ينتهي ${nm(S)}`));
+      prepStop?.(); prepStop = countdown(st.goAt, (l, sec) => { const e = $('#pc'); if (e) e.textContent = Math.max(1, sec); }, () => { panelKey = ''; render(); });
+    } else if (isS) recordView(c, 'A', 'قل جملة عادية', null);
+    else if (musicOn) c.append(eq(), h('div', 'ttl', 'موسيقى صاخبة…'), h('div', 'sub', `${nm(S)} يسجّل الآن، ولا يجب أن تسمعه`));
+    else { const e = h('div', 'ear', '🙉'); c.append(e, h('div', 'ttl', 'أبقِ أذنيك مغلقتين'), h('div', 'sub', `${nm(S)} يسجّل الآن، ولا يجب أن تسمعه`)); if (!reduce) gsap.to(e, { scale: 1.12, duration: .8, yoyo: true, repeat: -1, ease: 'sine.inOut' }); }
   } else if (ph === 'listen') {
     if (isM) { const o = ORB(), cap = h('div', 'cap flip', 'وصلت مقلوبة!'); o.id = 'orbM'; cap.id = 'capM'; cap.style.opacity = 0; c.append(o, cap); animate = false; if (!pcmA(r)) c.append(h('div', 'sub', 'جارٍ الاستلام…')); }
     else { const o = ORB(); o.id = 'orbS'; c.append(o, h('div', 'sub', `أُرسلت إلى ${nm(M)} مقلوبة…`)); if (orbSeq !== st.seq) { orbSeq = st.seq; launchAnim(o); } animate = false; }
@@ -424,10 +444,35 @@ function renderPanel() {
   if (animate && !reduce) gsap.from([...c.children].filter(e => !e.classList.contains('tm') && !e.classList.contains('tb')), { y: 14, opacity: 0, duration: .4, stagger: .06, ease: 'power2.out', clearProps: 'all' });
   startTimer();
 }
-async function onReady() {
-  primeMusic();                                          // داخل لمسة المستخدم
-  try { await mic(); } catch { return toast('الميكروفون مطلوب للعبة، اسمح به ثم أعد الضغط', 'error'); }
-  sfx.click(); imReady();
+function readyView(c) {
+  c.classList.add('rd');
+  const t = h('div', 'top'), fl = h('div', 'fl'), orb = ORB(), ch = h('div', 'choices');
+  t.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:center';
+  t.append(h('div', 'ttl', 'التحدي العكسي'), h('div', 'sub', 'تسجّل جملة فتُعكس، ويقلّدها خصمك وهي مقلوبة'));
+  fl.append(orb); ['🎵', '🎶', '🔊'].forEach((e, i) => { const n = h('span', 'note', e); n.style.cssText = `left:${[-14, 128, 108][i]}px;top:${[30, 0, 118][i]}px`; fl.append(n); });
+  const on = h('button', 'choice'), off = h('button', 'choice mute');
+  on.innerHTML = '<span class="ic">🎵</span><b>السماح للموسيقى الصاخبة</b><small>تُشغَّل عندك حين يسجّل خصمك</small>';
+  off.innerHTML = '<span class="ic">🙉</span><b>لا موسيقى صاخبة</b><small>تغلق أذنيك بنفسك</small>';
+  on.onclick = () => onChoose(true, fl, ch); off.onclick = () => onChoose(false, fl, ch);
+  ch.append(on, off); c.append(t, fl, ch);
+  if (!reduce) {
+    gsap.to(orb, { y: -12, rotation: 5, duration: 1.7, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+    fl.querySelectorAll('.note').forEach((n, i) => gsap.to(n, { y: gsap.utils.random(-22, 22), x: gsap.utils.random(-14, 14), rotation: gsap.utils.random(-25, 25), duration: gsap.utils.random(1.3, 2.2), yoyo: true, repeat: -1, ease: 'sine.inOut', delay: i * .2 }));
+  }
+}
+async function onChoose(music, fl, ch) {
+  musicOn = music; sessionStorage.setItem('yz_music', music ? '1' : '0');
+  [...ch.children].forEach(b => (b.disabled = true));
+  if (music) primeMusic(); else actx().resume?.();       // داخل لمسة المستخدم
+  const perm = mic();                                    // طلب إذن الميكروفون فوراً بلا زر منفصل
+  const orb = fl.querySelector('.orb'), dir = music ? 1 : -1;
+  if (!reduce) gsap.timeline().to(fl.querySelectorAll('.note'), { opacity: 0, duration: .2 }).to(orb, { x: dir * 150, y: 250, scale: .3, rotation: dir * 540, duration: .95, ease: 'power2.in' }, 0).to(orb, { opacity: 0, duration: .2 }, '-=.2');
+  sfx.click();
+  try { await perm; } catch {
+    toast('الميكروفون مطلوب للعبة، اسمح به ثم اختر من جديد', 'error'); sfx.error();
+    if (!reduce) gsap.to(orb, { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, duration: .5 }); [...ch.children].forEach(b => (b.disabled = false)); return;
+  }
+  setTimeout(imReady, reduce ? 0 : 750);
 }
 
 function render() {
@@ -441,7 +486,7 @@ function render() {
     return pl;
   }));
   prevPts = [...st.pts];
-  (st.phase === 'say' && me === mimOf(st.round)) ? startMusic() : stopMusic();       // الموسيقى عند المقلِّد طوال تسجيل صاحب الجملة فقط
+  (st.phase === 'say' && me === mimOf(st.round) && musicOn && serverNow() >= st.goAt) ? startMusic() : stopMusic();   // عند المقلِّد طوال تسجيل صاحب الجملة، إن سمح بها
   if (recObj && !((st.phase === 'say' && me === spkOf(st.round)) || (st.phase === 'mimic' && me === mimOf(st.round)))) recObj.stop();
   if (st.phase === 'judge' && me === spkOf(st.round) && !judging[st.round] && pcmA(st.round) && pcmB(st.round)) {
     judging[st.round] = true; setTimeout(() => finishJudge(st.round, runJudge(st.round)), 900);
