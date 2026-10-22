@@ -71,4 +71,17 @@ input:focus-visible{border-color:var(--lagoon);box-shadow:0 0 0 3px rgba(79,209,
 .ovl-row{display:flex;gap:10px;width:100%}.ovl-row .btn{flex:1}
 .btn.bad{background:#ff6b81;color:#2a0710;border-color:transparent}
 .cf{position:absolute;left:50%;top:50%;width:9px;height:14px;border-radius:2px;pointer-events:none}
+/* بطاقات الألعاب بصورة خلفية ضبابية قليلاً */
+.gcard{position:relative;overflow:hidden;transition:transform .2s,border-color .2s,box-shadow .2s}
+.gcard .gbg{position:absolute;inset:-6px;background-size:cover;background-position:center;filter:blur(1.6px) brightness(.62) saturate(1.05);transform:scale(1.05);transition:transform .5s;z-index:0}
+.gcard.has-img{min-height:128px;justify-content:flex-end;border-color:rgba(255,255,255,.16)}
+.gcard.has-img::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(8,10,20,.86),rgba(8,10,20,.12) 72%);z-index:1;pointer-events:none}
+.gcard.has-img>*:not(.gbg){position:relative;z-index:2}
+.gcard.has-img .gi{display:none}
+.gcard.has-img strong{font-size:1.08rem;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+.gcard.has-img small{color:#e8ebf7;text-shadow:0 1px 6px rgba(0,0,0,.9)}
+.gcard.has-img.on{box-shadow:0 0 0 2px var(--lagoon),0 0 22px rgba(79,209,197,.35)}
+.gcard.has-img:not(:disabled):hover .gbg{transform:scale(1.12)}
+.gcard.has-img:not(:disabled):active{transform:scale(.97)}
+.gcard.has-img:disabled{opacity:.62}.gcard.has-img.on:disabled{opacity:1}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
