@@ -56,7 +56,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .tb i{display:block;height:100%;background:var(--lagoon);transform-origin:right}
 .res{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:2px 0}
 .res .l1{font:700 1.55rem 'Reem Kufi',sans-serif}.res .l2{font-size:1.05rem}
-</style></style>
+</style>
 </head>
 <body>
 <main>
@@ -81,10 +81,11 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 </main>
 <script type="module">
 import { runTransaction, onValue, serverNow, update } from '../../shared/firebase.js';
-import { enterRoom, watchRoom, gameRef, roomRef, goLobby } from '../../shared/room.js';
+import { enterRoom, watchRoom, gameRef, roomRef, goLobby, abortGame } from '../../shared/room.js';
 import { finishGame, makeResult } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
+import { initGameExit } from '../../shared/leave.js';
 
 // إعدادات قابلة للتعديل
 const ROUNDS = 6, CHOOSE_S = 20, ASK_S = 30, JUDGE_S = 10, REVEAL_S = 7, DECK = 14, IDLE_MS = 3000; // IDLE_MS: يعود المجسم للصندوق بعد هذا الخمول
@@ -281,7 +282,7 @@ function render() {
 const backToLobby = async () => { await update(roomRef(ctx.code, 'meta'), { status: 'lobby', game: null }).catch(() => {}); goLobby(ctx.code); };
 try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
 const ids = Object.keys(ctx.players);
-if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); if (ctx.isHost) setTimeout(backToLobby, 1800); }
+if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); abortGame(ctx); }
 else if (ctx.isHost) {
   try {
     const list = await (await fetch('images/list.json?' + Date.now())).json();
@@ -292,9 +293,10 @@ else if (ctx.isHost) {
   } catch { toast('لا توجد صور أو مجسمات في games/truth-lie/images', 'error'); setTimeout(backToLobby, 2500); }
 }
 players = ctx.players;
+const ex = initGameExit(ctx, { isOver: () => st?.phase === 'done' });
 onValue(gameRef(ctx.code), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
 watchRoom(ctx.code, {
-  meta: m => { if (!m || m.status !== 'playing') goLobby(ctx.code); },
+  meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },
   players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) { panelKey = ''; render(); } },
   scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
 });
