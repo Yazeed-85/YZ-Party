@@ -6,6 +6,7 @@ import { db, ready, ref, get, set, update, remove, onValue, runTransaction, onDi
 export const STALE_MS = 3 * 3600e3;   // غرفة بلا أي نشاط 3 ساعات تُحذف
 export const CLOSED_MS = 5 * 60e3;    // الغرفة المغلقة تُحذف بعد 5 دقائق
 const BEAT_MS = 2 * 60e3;             // نبضة نشاط كل دقيقتين لمن هو داخل الغرفة
+const HEAL_MS = 10e3;                 // تأكيد حالة «متصل» كل 10 ثوانٍ
 
 export const roomRef = (c, p = "") => ref(db, `rooms/${c}` + (p ? "/" + p : ""));
 export const gameRef = (c, p = "") => roomRef(c, "game" + (p ? "/" + p : ""));
@@ -14,7 +15,8 @@ const idxRef = c => ref(db, `roomIndex/${c}`);
 export const savedName = () => localStorage.getItem("yz_name") || "";
 export const saveName = n => localStorage.setItem("yz_name", n);
 export const cleanName = n => (n || "").replace(/\s+/g, " ").trim().slice(0, 16);
-export const getCode = () => new URLSearchParams(location.search).get("room") || sessionStorage.getItem("yz_room");
+const okCode = c => (/^\d{4}$/.test(c || "") ? c : null);   // لا نقبل إلا 4 أرقام حتى لا يُحقن مسار في قاعدة البيانات
+export const getCode = () => okCode(new URLSearchParams(location.search).get("room")) || okCode(sessionStorage.getItem("yz_room"));
 const setCode = c => sessionStorage.setItem("yz_room", c);
 export const lobbyUrl = c => `../../index.html?room=${c}`; // من داخل games/اسم-اللعبة/
 export const goLobby = c => { location.href = lobbyUrl(c); };
@@ -28,7 +30,17 @@ function trackPresence(code, uid) {
   });
   const beat = () => update(idxRef(code), { t: serverTimestamp() }).catch(() => {});
   beat(); const iv = setInterval(beat, BEAT_MS);
-  stopPresence = () => { un(); clearInterval(iv); onDisconnect(pr).cancel(); stopPresence = null; };
+  // شفاء المؤشر: onDisconnect القادم من الصفحة السابقة (أو من تعليق الهاتف) قد يصل بعد أن كتبنا true فيبقى false خطأً.
+  // لذلك نؤكد «متصل» دورياً وعند العودة للتطبيق أو عودة الشبكة. الكتابة بقيمة مماثلة لا تكلّف شيئاً.
+  const assert = () => set(pr, true).catch(() => {});
+  const heal = setInterval(assert, HEAL_MS), first = setTimeout(assert, 2500);
+  const vis = () => { if (!document.hidden) assert(); };
+  document.addEventListener("visibilitychange", vis); addEventListener("online", assert); addEventListener("pageshow", assert);
+  stopPresence = () => {
+    un(); clearInterval(iv); clearInterval(heal); clearTimeout(first);
+    document.removeEventListener("visibilitychange", vis); removeEventListener("online", assert); removeEventListener("pageshow", assert);
+    onDisconnect(pr).cancel(); stopPresence = null;
+  };
 }
 export const stopTracking = () => stopPresence?.();
 
@@ -46,8 +58,8 @@ export async function createRoom(name, mode = "single", maxPlayers = 4) {
     const meta = { host: u.uid, mode, maxPlayers, status: "lobby", createdAt: Date.now() };
     const r = await runTransaction(roomRef(code, "meta"), cur => (cur ? undefined : meta));
     if (r.committed) {
-      await addPlayer(code, u.uid, name);
       await set(idxRef(code), { t: serverTimestamp(), s: "open" }).catch(() => {});
+      await addPlayer(code, u.uid, name);
       return code;
     }
   }
@@ -101,6 +113,10 @@ export function watchRoom(code, cb) {
   ];
   return () => subs.forEach(u => u());
 }
+
+// تحقق مباشر (قراءة من الخادم) قبل أي إجراء حاسم: هل ما زلتُ عضواً؟ وهل الغرفة ما زالت مفتوحة؟
+export async function amIIn(code) { const u = await ready; return (await get(roomRef(code, `players/${u.uid}`))).exists(); }
+export async function roomOpen(code) { const m = (await get(roomRef(code, "meta"))).val(); return !!m && m.status !== "closed"; }
 
 export const pickGame = (code, id) => update(roomRef(code, "meta"), { pick: id });
 

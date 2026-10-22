@@ -6,7 +6,7 @@
       ".read": "auth != null",
       "$code": {
         ".write": "auth != null && (newData.exists() ? (root.child('rooms/' + $code + '/players/' + auth.uid).exists() || root.child('rooms/' + $code + '/meta/host').val() === auth.uid) : (!root.child('rooms/' + $code + '/meta').exists() || data.child('t').val() < now - 10800000 || (data.child('s').val() === 'closed' && data.child('t').val() < now - 300000)))",
-        ".validate": "!newData.exists() || newData.hasChild('t')"
+        ".validate": "!newData.exists() || (newData.hasChild('t') && newData.child('t').val() === now)"
       }
     },
     "rooms": {

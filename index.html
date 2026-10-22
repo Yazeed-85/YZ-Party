@@ -43,8 +43,8 @@
 </main>
 
 <script type="module">
-import { ready } from './shared/firebase.js';
-import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveRoom, getCode, savedName, saveName, cleanName, checkRoom, kickPlayer, sweepRooms, stopTracking } from './shared/room.js';
+import { ready, onValue } from './shared/firebase.js';
+import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveRoom, getCode, savedName, saveName, cleanName, checkRoom, kickPlayer, roomRef, sweepRooms, stopTracking, amIIn, roomOpen } from './shared/room.js';
 import { GAMES } from './shared/games-registry.js';
 import { toast, sfx, show, enterAnim, toggleMute, isMuted } from './shared/ui.js';
 
@@ -55,6 +55,7 @@ const G = () => window.gsap && !matchMedia('(prefers-reduced-motion: reduce)').m
 const IMG = new Map(); let imgsReady = false, cardsShown = false;
 const probe = id => new Promise(res => { const ex = ['jpg', 'png', 'jpeg', 'webp']; let i = 0;
   const next = () => { if (i >= ex.length) return res(null); const u = `game-images/${id}.${ex[i++]}`, im = new Image(); im.onload = () => res(u); im.onerror = next; im.src = u; }; next(); });
+let verT = null, kickT = null;
 let S = { code: null, uid: null, meta: null, players: {}, scores: {}, joined: false }, stop = null, armed = null, armT = null, known = new Set();
 
 // ===== الشاشة الرئيسية: الاسم والكود والأزرار الذكية =====
@@ -197,20 +198,32 @@ async function openLobby(rc) {
   S = { code: rc, uid: u.uid, meta: null, players: {}, scores: {}, joined: false }; known = new Set();
   fromLink = false; $('#back').hidden = true; history.replaceState(null, '', location.pathname);
   show('lobby');
-  stop = watchRoom(rc, {
+  const unWatch = watchRoom(rc, {
     meta: m => {
-      if (!m || m.status === 'closed') return closed('أُغلقت الغرفة', 'error');
+      if (!m) {                                            // اختفاء مفاجئ: لا نغلق قبل التحقق بقراءة مباشرة
+        clearTimeout(verT); verT = setTimeout(() => roomOpen(rc).then(o => { if (!o && S.code === rc) closed('أُغلقت الغرفة', 'error'); }).catch(() => {}), 3000);
+        return;
+      }
+      if (m.status === 'closed') return closed('أُغلقت الغرفة', 'error');
+      clearTimeout(verT);
       if (m.status === 'playing' && m.game) { location.href = `games/${m.game}/index.html?room=${rc}`; return; }
       S.meta = m; render();
     },
     players: p => {
       S.players = p || {};
       if (p?.[S.uid]) S.joined = true;
-      else if (S.joined) return closed('تم طردك من الغرفة', 'error');   // اختفى اسمك بعد أن كنت فيها = طرد
+      else if (S.joined) {                                 // اختفى اسمك بعد أن كنت فيها = طرد، لكن نتحقق أولاً بقراءة مباشرة
+        clearTimeout(kickT); kickT = setTimeout(() => amIIn(rc).then(inn => { if (!inn && S.code === rc) closed('تم طردك من الغرفة', 'error'); }).catch(() => {}), 3000);
+        return;
+      }
+      clearTimeout(kickT);
       render();
     },
     scores: s => { S.scores = s || {}; render(); }
   });
+  // مستمع موثوق للطرد: علامة kicked الخاصة بك قابلة للقراءة دائماً (قائمة اللاعبين قد يُلغى مستمعها بصمت عند فقدان الصلاحية)
+  const unKick = onValue(roomRef(rc, `kicked/${u.uid}`), s => { if (s.val() === true && S.code === rc) closed('تم طردك من الغرفة', 'error'); }, () => {});
+  stop = () => { unWatch(); unKick(); };
 }
 
 async function go(fn) {
