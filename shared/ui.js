@@ -1,24 +1,27 @@
-// أدوات واجهة مشتركة: إشعارات، أصوات، انتقالات GSAP، شريط النقاط
+// أدوات واجهة مشتركة: إشعارات، أصوات، انتقالات GSAP، شريط النقاط، حوار تأكيد، شاشة نتيجة
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const anim = () => window.gsap && !reduce;
+const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 
 export function toast(msg, kind = "info") {
-  const t = document.createElement("div");
-  t.className = "toast " + kind;
-  t.textContent = msg;
+  const t = el("div", "toast " + kind, msg);
   document.body.append(t);
-  window.gsap && !reduce ? gsap.fromTo(t, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: .3 }) : 0;
-  setTimeout(() => t.remove(), 3200);
+  if (anim()) gsap.fromTo(t, { y: 30, opacity: 0, scale: .9 }, { y: 0, opacity: 1, scale: 1, duration: .35, ease: "back.out(2)" });
+  setTimeout(() => (anim() ? gsap.to(t, { opacity: 0, y: 10, duration: .25, onComplete: () => t.remove() }) : t.remove()), 3000);
 }
 
 export function enterAnim(sel) {
-  const el = document.querySelector(sel);
-  if (!el || reduce || !window.gsap) return;
-  gsap.fromTo(el.querySelectorAll(":scope > *"), { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: .5, stagger: .07, ease: "power3.out" });
+  const e = document.querySelector(sel);
+  if (!e || !anim()) return;
+  gsap.fromTo(e.querySelectorAll(":scope > *"), { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: .5, stagger: .07, ease: "power3.out", clearProps: "transform,opacity" });
 }
 
+// انتقال بين الشاشات: تخرج الحالية بنعومة ثم تدخل الجديدة
 export function show(id) {
-  document.querySelectorAll(".screen").forEach(s => { s.hidden = s.id !== id; });
-  enterAnim("#" + id);
+  const screens = [...document.querySelectorAll(".screen")], cur = screens.find(s => !s.hidden && s.id !== id);
+  const swap = () => { screens.forEach(s => { s.hidden = s.id !== id; }); enterAnim("#" + id); };
+  if (cur && anim()) gsap.to(cur, { opacity: 0, y: -14, scale: .98, duration: .2, ease: "power2.in", onComplete: () => { gsap.set(cur, { clearProps: "all" }); swap(); } });
+  else swap();
 }
 
 // ===== الأصوات (مولَّدة بالكود، بلا ملفات) =====
@@ -42,14 +45,47 @@ export const sfx = {
   error: () => tone(200, .18, "square", 0, .05)
 };
 
-// شريط النقاط العلوي للألعاب: يملأ العنصر el
-export function scoreBar(el, players, scores = {}, myUid) {
-  el.replaceChildren(...Object.entries(players).map(([id, p]) => {
-    const d = document.createElement("div");
-    d.className = "sb" + (id === myUid ? " me" : "");
-    const n = document.createElement("span"); n.textContent = p.name;
-    const s = document.createElement("b"); s.textContent = scores[id] || 0;
-    d.append(n, s);
+// ===== حوار تأكيد واحتفال =====
+export function confirmDialog(text, okLabel = "تأكيد", cancelLabel = "إلغاء") {
+  return new Promise(res => {
+    const o = el("div", "ovl"), c = el("div", "ovl-card glass"), row = el("div", "ovl-row");
+    const ok = el("button", "btn bad", okLabel), no = el("button", "btn ghost", cancelLabel);
+    row.append(ok, no); c.append(el("div", "ovl-t", text), row); o.append(c); document.body.append(o);
+    const done = v => { document.removeEventListener("keydown", key); const end = () => { o.remove(); res(v); };
+      anim() ? gsap.to(o, { opacity: 0, duration: .18, onComplete: end }) : end(); };
+    const key = e => { if (e.key === "Escape") done(false); };
+    document.addEventListener("keydown", key);
+    ok.onclick = () => done(true); no.onclick = () => done(false);
+    if (anim()) { gsap.fromTo(o, { opacity: 0 }, { opacity: 1, duration: .2 }); gsap.fromTo(c, { scale: .7, y: 30, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: .45, ease: "back.out(2)" }); }
+    no.focus();
+  });
+}
+
+export function showOverlay({ icon = "🏆", title = "", sub = "", confetti = true }) {
+  const o = el("div", "ovl"), c = el("div", "ovl-card glass"), i = el("div", "ovl-ic", icon);
+  c.append(i, el("div", "ovl-t", title), el("div", "ovl-s", sub)); o.append(c); document.body.append(o);
+  if (anim()) {
+    gsap.fromTo(o, { opacity: 0 }, { opacity: 1, duration: .3 });
+    gsap.fromTo(c, { scale: .5, y: 40, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: .7, ease: "elastic.out(1,.6)" });
+    gsap.fromTo(i, { rotation: -220, scale: 0 }, { rotation: 0, scale: 1, duration: .85, ease: "back.out(2)", delay: .12 });
+    if (confetti) for (let k = 0; k < 26; k++) {
+      const p = el("i", "cf"), a = Math.random() * Math.PI * 2, d = 120 + Math.random() * 190;
+      p.style.background = ["#ffb454", "#4fd1c5", "#ff6b81", "#fff"][k % 4]; o.append(p);
+      gsap.fromTo(p, { x: 0, y: 0, rotation: 0, opacity: 1, scale: 1 }, { x: Math.cos(a) * d, y: Math.sin(a) * d - 40, rotation: Math.random() * 540, opacity: 0, scale: .4, duration: 1.1 + Math.random() * .7, delay: .25, ease: "power2.out" });
+    }
+  }
+  return () => o.remove();
+}
+
+// ===== شريط النقاط العلوي للألعاب: يملأ العنصر el، ويضيف زر الانسحاب إن سُجّل معالج له =====
+let exitFn = null;
+export const setExitHandler = f => { exitFn = f; };
+export function scoreBar(e, players, scores = {}, myUid) {
+  const items = Object.entries(players).map(([id, p]) => {
+    const d = el("div", "sb" + (id === myUid ? " me" : ""));
+    d.append(el("span", "", p.name), el("b", "", scores[id] || 0));
     return d;
-  }));
+  });
+  if (exitFn) { const b = el("button", "sb-exit", "✕"); b.setAttribute("aria-label", "انسحاب"); b.onclick = () => { sfx.click(); exitFn(); }; items.push(b); }
+  e.replaceChildren(...items);
 }

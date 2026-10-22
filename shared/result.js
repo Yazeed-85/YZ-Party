@@ -29,9 +29,10 @@ export function pointsFor(result, uids) {
 }
 
 // تستدعيها اللعبة عند النهاية من كل الأجهزة، والمضيف وحده هو من يكتب النقاط وينهي الجولة
-export async function finishGame(ctx, result) {
+// players اختياري: عند الانسحاب نمرّر اللاعبين الباقين فقط حتى لا تُنشأ نقاط لمن غادر
+export async function finishGame(ctx, result, players = ctx.players) {
   if (!ctx.isHost) return null;
-  const pts = pointsFor(result, Object.keys(ctx.players));
+  const pts = pointsFor(result, Object.keys(players));
   await runTransaction(roomRef(ctx.code, "party/scores"), cur => {
     const s = cur || {};
     for (const [u, p] of Object.entries(pts)) s[u] = Math.max(0, (s[u] || 0) + p);

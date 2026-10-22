@@ -16,7 +16,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 export const db = rtdb.getDatabase(app);
-export const { ref, get, set, update, remove, onValue, runTransaction, onDisconnect } = rtdb;
+export const { ref, get, set, update, remove, onValue, runTransaction, onDisconnect, serverTimestamp } = rtdb;
 
 // يرجع المستخدم الحالي (نفس المعرّف بين الصفحات لأن الجلسة محفوظة في المتصفح)
 export const ready = (async () => {
