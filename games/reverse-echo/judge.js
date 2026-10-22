@@ -105,11 +105,11 @@ export function analyze(a, b) {
   const dA = dynamics(FA), dB = dynamics(FB), syA = syllables(FA), syB = syllables(FB);
   const lenR = FB.length / FA.length, syR = syA && syB ? Math.min(syA, syB) / Math.max(syA, syB) : 0;
   const d = dtw(prep(FA), prep(FB));
-  let s = 1 / (1 + Math.pow(d / P.d0, 4));                // درجة من المسافة
+  const base = 1 / (1 + Math.pow(d / P.d0, 4)); let s = base;   // base: تشابه شكل النطق (مخارج الحروف) قبل أي عقوبة
   const dynR = dA ? dB / dA : 0;
   if (dynR < 0.55) s *= Math.max(0.1, dynR / 0.55);      // جرس شبه ثابت = همهمة لا كلام
   const pen = Math.abs(Math.log(lenR)); if (pen > 0.15) s *= Math.max(0.3, 1 - 1.5 * (pen - 0.15)); // طول مختلف
   s *= 0.55 + 0.45 * syR;                                // اختلاف عدد المقاطع
   const cat = s >= T.exact ? 'exact' : s >= T.close ? 'close' : 'bad';
-  return { cat, score: +s.toFixed(3), d: +d.toFixed(3), lenR: +lenR.toFixed(2), syR: +syR.toFixed(2), dynR: +dynR.toFixed(2), sy: [syA, syB] };
+  return { cat, score: +s.toFixed(3), base: +base.toFixed(3), timing: +Math.max(0, 1 - pen / 0.7).toFixed(3), d: +d.toFixed(3), lenR: +lenR.toFixed(2), syR: +syR.toFixed(2), dynR: +dynR.toFixed(2), sy: [syA, syB] };
 }
