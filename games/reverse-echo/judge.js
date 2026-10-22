@@ -119,8 +119,8 @@ function syllables(F) {                                  // عدد قمم الط
   return cnt;
 }
 
-export const P = { sw: 1, dw: 2, c1: 1, d0: 2.2, kmax: 8, pen: 0.1, relHi: 0.95, relLo: 0.6, wRel: 0.8, sg: 0.35, segD0: 3.0 };   // أوزان مضبوطة بالتجربة
-export const T = { exact: 0.6, close: 0.33 };            // حدود التصنيف على الدرجة الخام: ارفعها لتشديد الحكم
+export const P = { sw: 1, dw: 2, c1: 1, d0: 3.2, kmax: 8, pen: 0.1, relHi: 1.05, relLo: 0.85, wRel: 0.4, sg: 0.25, segD0: 4.4 };   // مخفَّفة: الكلمة الواحدة قصيرة فمرجع الترتيب العشوائي قريب منها   // أوزان مضبوطة بالتجربة
+export const T = { exact: 0.55, close: 0.3 };            // حدود التصنيف على الدرجة الخام: ارفعها لتشديد الحكم
 // النسبة المعروضة للاعبين: تُحوَّل لتنسجم مع التصنيف (قريب = 50% إلى 75%، مطابق = 75% فأكثر، وما دون 50% سيء)
 export const pct = s => s >= T.exact ? 0.75 + 0.25 * (s - T.exact) / (1 - T.exact) : s >= T.close ? 0.5 + 0.25 * (s - T.close) / (T.exact - T.close) : 0.5 * s / T.close;
 
@@ -148,8 +148,8 @@ export function analyze(a, b) {
   let s = base;
   const dynR = dA ? dB / dA : 0;
   if (dynR < 0.55) s *= Math.max(0.1, dynR / 0.55);      // جرس شبه ثابت = همهمة لا كلام
-  const pen = Math.abs(Math.log(lenR)); if (pen > 0.15) s *= Math.max(0.3, 1 - 1.5 * (pen - 0.15));   // طول مختلف
-  s *= 0.55 + 0.45 * syR;                                // اختلاف عدد المقاطع
+  const pen = Math.abs(Math.log(lenR)); if (pen > 0.25) s *= Math.max(0.5, 1 - 1.0 * (pen - 0.25));   // طول مختلف
+  s *= 0.75 + 0.25 * syR;                                // اختلاف عدد المقاطع
   const cat = s >= T.exact ? 'exact' : s >= T.close ? 'close' : 'bad';
   return { cat, score: +pct(s).toFixed(3), raw: s, base: +pct(base).toFixed(3), dseg: +dseg.toFixed(2), timing: +Math.max(0, 1 - pen / 0.7).toFixed(3), d: +d.toFixed(3), rel: +rel.toFixed(3), lenR: +lenR.toFixed(2), syR: +syR.toFixed(2), dynR: +dynR.toFixed(2) };
 }
