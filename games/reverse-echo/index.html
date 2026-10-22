@@ -83,10 +83,11 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 </main>
 <script type="module">
 import { runTransaction, onValue, set, remove, update, serverNow } from '../../shared/firebase.js';
-import { enterRoom, watchRoom, gameRef, roomRef, goLobby } from '../../shared/room.js';
+import { enterRoom, watchRoom, gameRef, roomRef, goLobby, abortGame } from '../../shared/room.js';
 import { finishGame, makeResult } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
+import { initGameExit } from '../../shared/leave.js';
 import { analyze } from './judge.js';
 
 // ===== إعدادات قابلة للتعديل =====
@@ -510,17 +511,18 @@ const backToLobby = async () => { await update(roomRef(ctx.code, 'meta'), { stat
 try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
 const ids = Object.keys(ctx.players);
 if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { toast('متصفحك لا يدعم تسجيل الصوت', 'error'); if (ctx.isHost) setTimeout(backToLobby, 2200); }
-else if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); if (ctx.isHost) setTimeout(backToLobby, 1800); }
+else if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); abortGame(ctx); }
 else if (ctx.isHost) {
   const other = ids.find(i => i !== ctx.meta.host);
   runTransaction(gameRef(ctx.code, 's'), cur => cur || { order: [ctx.meta.host, other], round: 0, phase: 'ready', rd: [0, 0], pts: [0, 0], hist: [], endAt: 0, seq: 0 });
 }
 players = ctx.players;
+const ex = initGameExit(ctx, { isOver: () => st?.phase === 'done', onGone: () => { stopMusic(); stopPlay(); recObj?.stop(); } });
 onValue(gameRef(ctx.code, 's'), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
 onValue(gameRef(ctx.code, 'clipA'), s => { rawA = s.val(); if (st) render(); });
 onValue(gameRef(ctx.code, 'clipB'), s => { rawB = s.val(); if (st) render(); });
 watchRoom(ctx.code, {
-  meta: m => { if (!m || m.status !== 'playing') { stopMusic(); goLobby(ctx.code); } },
+  meta: m => { if (!m || m.status !== 'playing') { stopMusic(); if (!ex.busy()) goLobby(ctx.code); } },
   players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) { if (!['listen', 'reveal'].includes(st.phase)) panelKey = ''; render(); } },
   scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
 });
