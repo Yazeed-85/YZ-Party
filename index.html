@@ -10,20 +10,30 @@
 </head>
 <body>
 <button id="mute" class="fab" aria-label="كتم الصوت">🔊</button>
+<button id="back" class="fab back" aria-label="رجوع إلى القائمة الرئيسية" hidden>
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg>
+</button>
 <main>
   <section id="home" class="screen glass">
     <h1 class="mark">YZ Party</h1>
     <p class="sub">ألعاب لشخصين أو أكثر، كل لاعب على هاتفه</p>
     <input id="name" maxlength="16" placeholder="اسمك" autocomplete="off">
-    <button id="create" class="btn primary">أنشئ غرفة</button>
-    <div class="or">أو انضم بكود الغرفة</div>
-    <div class="row"><input id="code" class="codein" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off"><button id="join" class="btn">انضم</button></div>
+    <button id="create" class="btn primary" disabled>أنشئ غرفة</button>
+    <div id="or" class="or">أو انضم بكود الغرفة</div>
+    <div class="joinrow">
+      <div id="codebox" class="codebox" dir="ltr">
+        <span class="cc"></span><span class="cc"></span><span class="cc"></span><span class="cc"></span>
+        <input id="code" inputmode="numeric" autocomplete="off" aria-label="كود الغرفة (4 أرقام)">
+      </div>
+      <button id="join" class="btn" disabled>انضم</button>
+    </div>
   </section>
 
   <section id="lobby" class="screen" hidden>
     <div class="glass pad codewrap">
       <span class="lbl">كود الغرفة</span>
-      <div id="tiles" class="tiles"></div>
+      <button id="tiles" class="codebox show" dir="ltr" aria-label="انسخ رقم الغرفة"><span class="cc"></span><span class="cc"></span><span class="cc"></span><span class="cc"></span></button>
+      <span class="copyhint">المس الكود لنسخ الرقم</span>
       <button id="copy" class="btn ghost">انسخ رابط الدعوة</button>
     </div>
     <div class="glass pad"><h2>اللاعبون</h2><ul id="players"></ul></div>
@@ -34,31 +44,117 @@
 
 <script type="module">
 import { ready } from './shared/firebase.js';
-import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveRoom, getCode, savedName, saveName, cleanName } from './shared/room.js';
+import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveRoom, getCode, savedName, saveName, cleanName, checkRoom, kickPlayer, sweepRooms, stopTracking } from './shared/room.js';
 import { GAMES } from './shared/games-registry.js';
 import { toast, sfx, show, enterAnim, toggleMute, isMuted } from './shared/ui.js';
 
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
-let S = { code: null, uid: null, meta: null, players: {}, scores: {} }, stop = null;
+const G = () => window.gsap && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+let S = { code: null, uid: null, meta: null, players: {}, scores: {}, joined: false }, stop = null, armed = null, armT = null, known = new Set();
 
+// ===== الشاشة الرئيسية: الاسم والكود والأزرار الذكية =====
+const DIG = { '٠': 0, '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6, '٧': 7, '٨': 8, '٩': 9, '۰': 0, '۱': 1, '۲': 2, '۳': 3, '۴': 4, '۵': 5, '۶': 6, '۷': 7, '۸': 8, '۹': 9 };
+const digits = s => [...(s || '')].map(c => (c in DIG ? DIG[c] : c)).join('').replace(/\D/g, '').slice(0, 4);   // يقبل الأرقام العربية ويقصّ اللصق الزائد
+let code = '', roomState = 'idle', chk = 0, fromLink = false, busy = false;
+const nameOk = () => /[\p{L}\p{N}]/u.test($('#name').value);
+
+function setBtn(b, on) {                                  // مظلم تماماً حتى يتحقق الشرط، ثم يضيء بحركة
+  if (b.disabled === !on) return;
+  b.disabled = !on;
+  if (on && G()) gsap.fromTo(b, { scale: .92 }, { scale: 1, duration: .5, ease: 'back.out(3)', clearProps: 'transform' });
+}
+function refresh() {
+  setBtn($('#create'), !busy && nameOk() && !code && !fromLink);
+  setBtn($('#join'), !busy && nameOk() && code.length === 4 && roomState === 'ok');
+}
+function paint(box, str) {
+  [...box.querySelectorAll('.cc')].forEach((c, i) => {
+    const v = str[i] || '';
+    if (c.textContent !== v) { c.textContent = v; if (v && G()) gsap.fromTo(c, { scale: 1.3 }, { scale: 1, duration: .3, ease: 'back.out(3)' }); }
+    c.classList.toggle('cur', i === Math.min(str.length, 3));
+  });
+}
+function boxState(s) {
+  const b = $('#codebox'); b.classList.toggle('ok', s === 'ok'); b.classList.toggle('none', s === 'none');
+  if (!G()) return;
+  if (s === 'none') gsap.fromTo(b, { x: -8 }, { x: 0, duration: .5, ease: 'elastic.out(1,.25)' });
+  if (s === 'ok') gsap.fromTo(b, { scale: 1.04 }, { scale: 1, duration: .4, ease: 'back.out(3)', clearProps: 'transform' });
+}
+async function onCode() {
+  const v = digits($('#code').value); $('#code').value = v; code = v; paint($('#codebox'), v);
+  roomState = 'idle'; boxState(''); const my = ++chk; refresh();
+  if (v.length !== 4) return;
+  roomState = 'checking';
+  try {
+    const r = await checkRoom(v); if (my !== chk) return;                      // تجاهل أي رد متأخر لكود قديم
+    roomState = r === 'ok' ? 'ok' : 'none'; boxState(roomState);
+    if (r === 'started') toast('اللعبة بدأت بالفعل في هذه الغرفة', 'error');
+  } catch { if (my !== chk) return; roomState = 'none'; boxState('none'); }
+  refresh();
+}
+$('#code').addEventListener('input', onCode);
+$('#code').addEventListener('focus', () => $('#codebox').classList.add('focus'));
+$('#code').addEventListener('blur', () => $('#codebox').classList.remove('focus'));
+$('#name').addEventListener('input', refresh);
+
+// ===== رابط الدعوة: الكود معبّأ، «أنشئ» غير متاح، وسهم رجوع بجانب زر الصوت =====
+function enterLinkMode(c) {
+  fromLink = true; $('#code').value = c; $('#code').readOnly = true; $('#codebox').classList.add('locked');
+  $('#create').hidden = true; $('#or').hidden = true; $('#back').hidden = false;
+  if (G()) gsap.fromTo('#back', { scale: 0, rotation: -90 }, { scale: 1, rotation: 0, duration: .55, ease: 'back.out(2.4)', delay: .3 });
+  onCode().then(() => { if (roomState !== 'ok') toast('رابط الدعوة غير صالح أو أُغلقت الغرفة', 'error'); });
+}
+function leaveLinkMode() {
+  history.replaceState(null, '', location.pathname);
+  const done = () => {
+    fromLink = false; $('#back').hidden = true; if (window.gsap) gsap.set('#back', { clearProps: 'all' });
+    $('#code').readOnly = false; $('#code').value = ''; $('#codebox').classList.remove('locked');
+    $('#create').hidden = false; $('#or').hidden = false;
+    onCode();
+    if (G()) gsap.from(['#create', '#or'], { y: 14, opacity: 0, duration: .45, stagger: .08, ease: 'power3.out', clearProps: 'all' });
+  };
+  G() ? gsap.to('#back', { scale: 0, rotation: 90, duration: .25, ease: 'power2.in', onComplete: done }) : done();
+}
+$('#back').onclick = () => { sfx.click(); leaveLinkMode(); };
+
+// ===== الردهة =====
+function copyText(t) {
+  const ok = () => toast('نُسخ'), fb = () => { const a = h('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0'; document.body.append(a); a.select(); try { document.execCommand('copy'); ok(); } catch { toast('تعذّر النسخ', 'error'); } a.remove(); };
+  navigator.clipboard?.writeText ? navigator.clipboard.writeText(t).then(ok, fb) : fb();
+}
 function render() {
-  const { meta, code, uid, players, scores } = S;
+  const { meta, code: rc, uid, players, scores } = S;
   if (!meta) return;
-  $('#tiles').replaceChildren(...[...code].map(d => h('b', 'tile', d)));
-  $('#players').replaceChildren(...Object.entries(players).sort((a, b) => a[1].joinedAt - b[1].joinedAt).map(([id, p]) => {
+  paint($('#tiles'), rc);
+  const ids = Object.entries(players).sort((a, b) => a[1].joinedAt - b[1].joinedAt), isHost = meta.host === uid, n = ids.length;
+  const fresh = [];
+  $('#players').replaceChildren(...ids.map(([id, p]) => {
     const li = h('li', 'pl');
     li.append(h('i', 'dot' + (p.connected === false ? ' off' : '')), h('span', 'nm', p.name + (id === uid ? ' (أنت)' : '')));
     if (id === meta.host) li.append(h('span', 'crown', 'المضيف'));
+    if (isHost && id !== uid) {
+      const k = h('button', 'kick' + (armed === id ? ' arm' : ''), armed === id ? 'تأكيد الطرد؟' : 'طرد');
+      k.onclick = () => {
+        sfx.click();
+        if (armed !== id) { armed = id; clearTimeout(armT); armT = setTimeout(() => { armed = null; render(); }, 3000); return render(); }
+        armed = null; clearTimeout(armT);
+        const go = () => kickPlayer(rc, id).catch(e => toast(e.message, 'error'));
+        G() ? gsap.to(li, { x: -70, opacity: 0, duration: .3, ease: 'power2.in', onComplete: go }) : go();
+      };
+      li.append(k);
+    }
     li.append(h('span', 'pts', scores[id] || 0));
+    if (!known.has(id)) fresh.push(li);
     return li;
   }));
-  const isHost = meta.host === uid, n = Object.keys(players).length;
+  if (G() && fresh.length) gsap.from(fresh, { x: 40, opacity: 0, duration: .45, ease: 'back.out(1.8)', clearProps: 'all' });
+  known = new Set(ids.map(([id]) => id));
   $('#games').replaceChildren(...GAMES.map(x => {
     const b = h('button', 'gcard' + (meta.pick === x.id ? ' on' : ''));
     b.disabled = !isHost || !x.ready;
     b.append(h('span', 'gi', x.icon), h('strong', '', x.name), h('small', '', x.ready ? x.desc : 'قريباً'));
-    b.onclick = () => { sfx.click(); pickGame(code, x.id).catch(e => toast(e.message, 'error')); };
+    b.onclick = () => { sfx.click(); pickGame(rc, x.id).catch(e => toast(e.message, 'error')); };
     return b;
   }));
   const pick = GAMES.find(x => x.id === meta.pick), ok = pick && n >= pick.min && n <= pick.max;
@@ -69,52 +165,67 @@ function render() {
     : ok ? '' : `هذه اللعبة تحتاج ${pick.min === pick.max ? pick.min : pick.min + ' إلى ' + pick.max} لاعبين`;
 }
 
-function closed(msg) {
-  stop?.(); sessionStorage.removeItem('yz_room');
+function closed(msg, kind = 'info') {
+  stop?.(); stop = null; stopTracking(); sessionStorage.removeItem('yz_room');
+  S = { code: null, uid: null, meta: null, players: {}, scores: {}, joined: false }; known = new Set();
   history.replaceState(null, '', location.pathname);
-  toast(msg); show('home');
+  fromLink = false; $('#back').hidden = true; $('#create').hidden = false; $('#or').hidden = false;
+  $('#code').readOnly = false; $('#code').value = ''; $('#codebox').classList.remove('locked'); code = ''; roomState = 'idle'; busy = false;
+  paint($('#codebox'), ''); refresh();
+  toast(msg, kind); show('home');
 }
 
-async function openLobby(code) {
+async function openLobby(rc) {
   const u = await ready;
   stop?.();
-  S = { code, uid: u.uid, meta: null, players: {}, scores: {} };
+  S = { code: rc, uid: u.uid, meta: null, players: {}, scores: {}, joined: false }; known = new Set();
+  fromLink = false; $('#back').hidden = true; history.replaceState(null, '', location.pathname);
   show('lobby');
-  stop = watchRoom(code, {
+  stop = watchRoom(rc, {
     meta: m => {
-      if (!m || m.status === 'closed') return closed('أُغلقت الغرفة');
-      if (m.status === 'playing' && m.game) { location.href = `games/${m.game}/index.html?room=${code}`; return; }
+      if (!m || m.status === 'closed') return closed('أُغلقت الغرفة', 'error');
+      if (m.status === 'playing' && m.game) { location.href = `games/${m.game}/index.html?room=${rc}`; return; }
       S.meta = m; render();
     },
-    players: p => { S.players = p || {}; render(); },
+    players: p => {
+      S.players = p || {};
+      if (p?.[S.uid]) S.joined = true;
+      else if (S.joined) return closed('تم طردك من الغرفة', 'error');   // اختفى اسمك بعد أن كنت فيها = طرد
+      render();
+    },
     scores: s => { S.scores = s || {}; render(); }
   });
 }
 
 async function go(fn) {
+  if (busy) return;
   const name = cleanName($('#name').value);
   if (!name) { sfx.error(); return toast('اكتب اسمك أولاً', 'error'); }
-  saveName(name);
-  try { sfx.click(); openLobby(await fn(name)); } catch (e) { sfx.error(); toast(e.message, 'error'); }
+  saveName(name); busy = true; refresh();
+  try { sfx.click(); await openLobby(await fn(name)); busy = false; }
+  catch (e) { busy = false; sfx.error(); toast(e.message, 'error'); onCode(); }
+  refresh();
 }
-
 $('#create').onclick = () => go(n => createRoom(n));
-$('#join').onclick = () => go(n => {
-  const c = $('#code').value.trim();
-  if (!/^\d{4}$/.test(c)) throw new Error('الكود مكوّن من 4 أرقام');
-  return joinRoom(c, n);
-});
+$('#join').onclick = () => go(n => joinRoom(code, n));
+$('#name').addEventListener('keydown', e => { if (e.key === 'Enter') ($('#join').disabled ? $('#create') : $('#join')).click(); });
 $('#start').onclick = () => startGame(S.code, S.meta.pick).catch(e => toast(e.message, 'error'));
-$('#leave').onclick = async () => { await leaveRoom(S.code); closed('غادرت الغرفة'); };
-$('#copy').onclick = () => navigator.clipboard?.writeText(`${location.origin}${location.pathname}?join=${S.code}`).then(() => toast('نُسخ الرابط'));
+$('#leave').onclick = async () => { const c = S.code; stop?.(); stop = null; await leaveRoom(c); closed('غادرت الغرفة'); };
+$('#copy').onclick = () => { sfx.click(); copyText(`${location.origin}${location.pathname}?join=${S.code}`); };
+$('#tiles').onclick = () => {                              // لمس الكود ينسخ الرقم مباشرة
+  sfx.click(); copyText(S.code);
+  if (G()) gsap.fromTo('#tiles .cc', { y: 0, scale: 1 }, { y: -6, scale: 1.12, duration: .18, yoyo: true, repeat: 1, stagger: .05, ease: 'power2.out' });
+};
 $('#mute').onclick = () => { $('#mute').textContent = toggleMute() ? '🔇' : '🔊'; };
 
+// ===== التشغيل =====
 $('#mute').textContent = isMuted() ? '🔇' : '🔊';
-$('#name').value = savedName();
-const jp = new URLSearchParams(location.search).get('join');
-if (jp) $('#code').value = jp.slice(0, 4);
+$('#name').value = savedName(); paint($('#codebox'), ''); refresh();
+const jp = digits(new URLSearchParams(location.search).get('join'));
 enterAnim('#home');
-if (getCode()) enterRoom().then(c => openLobby(c.code)).catch(() => sessionStorage.removeItem('yz_room'));
+ready.then(() => sweepRooms());                            // تنظيف الغرف المهملة (مرة كل 5 دقائق كحد أقصى)
+if (jp.length === 4) enterLinkMode(jp);
+else if (getCode()) enterRoom().then(c => openLobby(c.code)).catch(() => sessionStorage.removeItem('yz_room'));
 </script>
 </body>
 </html>

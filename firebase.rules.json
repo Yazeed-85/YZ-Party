@@ -2,8 +2,16 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "roomIndex": {
+      ".read": "auth != null",
+      "$code": {
+        ".write": "auth != null && (newData.exists() ? (root.child('rooms/' + $code + '/players/' + auth.uid).exists() || root.child('rooms/' + $code + '/meta/host').val() === auth.uid) : (!root.child('rooms/' + $code + '/meta').exists() || data.child('t').val() < now - 10800000 || (data.child('s').val() === 'closed' && data.child('t').val() < now - 300000)))",
+        ".validate": "!newData.exists() || newData.hasChild('t')"
+      }
+    },
     "rooms": {
       "$code": {
+        ".write": "auth != null && !newData.exists() && root.child('roomIndex/' + $code + '/t').exists() && (root.child('roomIndex/' + $code + '/t').val() < now - 10800000 || (root.child('roomIndex/' + $code + '/s').val() === 'closed' && root.child('roomIndex/' + $code + '/t').val() < now - 300000))",
         "meta": {
           ".read": "auth != null",
           ".write": "auth != null && ((!data.exists() && newData.child('host').val() === auth.uid) || data.child('host').val() === auth.uid)",
@@ -13,8 +21,14 @@
           ".read": "auth != null && data.child(auth.uid).exists()",
           "$uid": {
             ".read": "auth != null && auth.uid === $uid",
-            ".write": "auth != null && auth.uid === $uid && root.child('rooms/' + $code + '/meta').exists() && (data.exists() || root.child('rooms/' + $code + '/meta/status').val() === 'lobby')",
+            ".write": "auth != null && ((auth.uid === $uid && root.child('rooms/' + $code + '/meta').exists() && !root.child('rooms/' + $code + '/kicked/' + auth.uid).exists() && (data.exists() || root.child('rooms/' + $code + '/meta/status').val() === 'lobby')) || (!newData.exists() && root.child('rooms/' + $code + '/meta/host').val() === auth.uid))",
             ".validate": "newData.hasChild('name') && newData.child('name').isString() && newData.child('name').val().length <= 16"
+          }
+        },
+        "kicked": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && root.child('rooms/' + $code + '/meta/host').val() === auth.uid"
           }
         },
         "party": {
