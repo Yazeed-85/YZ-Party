@@ -8,6 +8,6 @@ export const GAMES = [
   { id: "shared-word", name: "الكلمة المشتركة", icon: "🧠", desc: "فكّرا بنفس الكلمة",          min: 2, max: 2, ready: true },
   { id: "reverse-echo", name: "التحدي العكسي",  icon: "🔁", desc: "قلّد الجملة وهي مقلوبة",     min: 2, max: 2, ready: true },
   { id: "hot-cold",     name: "حار بارد",  icon: "🔥", desc: "خمّن كلمتك السرية بمساعدة خصمك",     min: 2, max: 2, ready: true },
-  { id: "hot-cold",     name: "X & O",  icon: "🔥", desc: "",     min: 2, max: 2, ready: true },
+  { id: "xo",     name: "X & O",  icon: "🔥", desc: "",     min: 2, max: 2, ready: true },
   { id: "truth-lie",    name: "صادق أم كاذب",  icon: "📦", desc: "اكشف من يكذب في الصندوق",    min: 2, max: 2, ready: true }
 ];
