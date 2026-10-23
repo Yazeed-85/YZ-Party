@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>حار بارد</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+html,body{height:100%;overflow:hidden}
+main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:8px;padding:10px 14px 14px}
+@media (pointer:coarse){main{padding-bottom:58px}}
+.scorebar{padding:6px 10px;flex:none}.sb{padding:5px 12px}
+.info{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}
+.dots{display:flex;gap:6px}.dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.16)}
+.dots i.on{background:var(--amber)}.dots i.cur{background:var(--text);box-shadow:0 0 0 3px rgba(255,255,255,.18)}
+.gp{display:flex;gap:6px}
+.pill{display:flex;gap:8px;align-items:center;padding:3px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:.85rem}
+.pill b{color:var(--amber);font:700 1.05rem 'Reem Kufi',sans-serif}
+
+/* البطاقة الرئيسية والطاولة */
+.card{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 12px;text-align:center;border-radius:26px;position:relative;overflow:hidden;transition:box-shadow .45s,border-color .45s}
+.card.center-mode{justify-content:center;gap:14px}
+.card.glow-cold{box-shadow:inset 0 0 65px rgba(45,212,255,.18);border-color:rgba(45,212,255,.45)}
+.card.glow-warm{box-shadow:inset 0 0 65px rgba(255,180,84,.18);border-color:rgba(255,180,84,.45)}
+.card.glow-hot{box-shadow:inset 0 0 75px rgba(255,59,30,.24);border-color:rgba(255,80,60,.55)}
+.card.glow-timeout{box-shadow:inset 0 0 60px rgba(168,85,247,.18);border-color:rgba(168,85,247,.45)}
+
+.ttl{font:700 1.45rem 'Reem Kufi',sans-serif}
+.sub{color:var(--mute);font-size:.9rem;line-height:1.65;white-space:pre-line}
+.ok{color:#34d399}.no2{color:#ff6b81}.am{color:var(--amber)}.mu{color:var(--mute)}.cy{color:#2dd4ff}
+
+/* المؤقت وأدوات أعلى الطاولة */
+.top-bar{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;z-index:2}
+.tm-pill{display:flex;align-items:center;gap:6px;padding:4px 13px;border-radius:999px;background:rgba(0,0,0,.35);border:1px solid var(--line);font:700 1.1rem 'Reem Kufi',sans-serif;color:var(--text)}
+.tm-pill.warn{color:var(--rose);border-color:var(--rose);box-shadow:0 0 14px rgba(255,107,129,.35)}
+.reroll-btn{padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--mute);font:700 .78rem 'Cairo',sans-serif;cursor:pointer;transition:all .2s}
+.reroll-btn:hover:not(:disabled){color:var(--text);border-color:var(--amber);background:rgba(255,180,84,.1)}
+.reroll-btn:disabled{opacity:.38;cursor:not-allowed}
+
+.tb{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.07)}
+.tb i{display:block;height:100%;background:var(--lagoon);transform-origin:right}
+
+/* أوراق اللعب على الطاولة */
+.table-zone{width:100%;max-width:420px;display:flex;flex-direction:column;gap:6px;align-items:center;flex:none}
+.zone-head{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 6px;font-size:.82rem;color:var(--mute)}
+.zone-head .who{display:flex;align-items:center;gap:6px;font-weight:700;color:var(--text)}
+.turn-tag{padding:2px 10px;border-radius:999px;font-size:.74rem;font-weight:900;background:rgba(255,255,255,.08);color:var(--mute)}
+.turn-tag.active{background:rgba(255,180,84,.2);color:var(--amber);border:1px solid rgba(255,180,84,.45)}
+
+.playing-card{width:100%;border-radius:20px;padding:14px 16px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:86px;transition:transform .3s,border-color .3s,box-shadow .3s}
+/* ورقة الخصم المكشوفة لك */
+.card-opp{background:linear-gradient(145deg,#f8fafc,#e2e8f0);color:#0f172a;border:3px solid #cbd5e1;box-shadow:0 10px 26px rgba(0,0,0,.42);transform:perspective(650px) rotateX(-3deg)}
+.card-opp.asking{border-color:var(--amber);box-shadow:0 0 26px rgba(255,180,84,.38),0 10px 26px rgba(0,0,0,.45)}
+.card-opp .secret-word{font:900 1.65rem 'Cairo',sans-serif;color:#0f172a;line-height:1.2}
+.card-opp .cat-chip{font-size:.76rem;font-weight:700;color:#475569;background:rgba(15,23,42,.08);padding:2px 10px;border-radius:999px}
+
+/* ورقتك السرية المجهولة */
+.card-mine{background:repeating-linear-gradient(-45deg,rgba(24,32,54,.92),rgba(24,32,54,.92) 12px,rgba(14,19,34,.92) 12px,rgba(14,19,34,.92) 24px);border:2px solid rgba(255,255,255,.14);box-shadow:0 10px 28px rgba(0,0,0,.5);transform:perspective(650px) rotateX(3deg)}
+.card-mine.asking{border-color:var(--amber);box-shadow:0 0 28px rgba(255,180,84,.3)}
+.card-mine .mystery{font:700 1.9rem 'Reem Kufi',sans-serif;color:var(--amber);letter-spacing:6px}
+.hint-btn{padding:4px 14px;border-radius:999px;background:rgba(255,180,84,.16);border:1px solid var(--amber);color:var(--amber);font:700 .8rem 'Cairo',sans-serif;cursor:pointer;transition:transform .15s}
+.hint-btn:active{transform:scale(.95)}
+.my-cat-badge{padding:3px 12px;border-radius:999px;background:rgba(52,211,153,.16);border:1px solid rgba(52,211,153,.45);color:#34d399;font-size:.8rem;font-weight:700}
+
+/* الترمومتر والمؤشر الحراري في وسط الطاولة */
+.thermo-wrap{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;flex:none;my:2px}
+.thermo-hub{display:flex;align-items:center;justify-content:center;gap:10px;padding:7px 22px;border-radius:999px;background:rgba(8,12,24,.92);border:2px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.6);min-width:175px;z-index:2;transition:border-color .3s,box-shadow .3s}
+.thermo-hub .em{font-size:1.55rem;line-height:1}
+.thermo-hub .lb{font:700 1.15rem 'Reem Kufi',sans-serif;color:var(--mute)}
+.thermo-hub.st-cold{border-color:#2dd4ff;box-shadow:0 0 24px rgba(45,212,255,.35)}.thermo-hub.st-cold .lb{color:#2dd4ff}
+.thermo-hub.st-warm{border-color:var(--amber);box-shadow:0 0 24px rgba(255,180,84,.35)}.thermo-hub.st-warm .lb{color:var(--amber)}
+.thermo-hub.st-hot{border-color:#ff3b1e;box-shadow:0 0 28px rgba(255,59,30,.48)}.thermo-hub.st-hot .lb{color:#ff5238}
+.thermo-hub.st-timeout{border-color:#a855f7;box-shadow:0 0 22px rgba(168,85,247,.35)}.thermo-hub.st-timeout .lb{color:#c084fc}
+.thermo-bar{width:85%;height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+.thermo-bar i{display:block;height:100%;width:100%;transform-origin:right;transform:scaleX(.08);background:linear-gradient(90deg,#ff3b1e,var(--amber),#2dd4ff);transition:transform .4s cubic-bezier(.22,1,.36,1)}
+
+/* لوحة التقييم والأوامر السفلية */
+.ctrl-dock{width:100%;max-width:420px;display:flex;flex-direction:column;gap:8px;flex:none;z-index:2}
+.prompt-txt{font-size:.9rem;font-weight:700;color:var(--text)}
+.eval-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%}
+.ev-btn{padding:11px 6px;border-radius:15px;border:1px solid transparent;font:900 .95rem 'Cairo',sans-serif;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:transform .12s,filter .15s}
+.ev-btn:active{transform:scale(.94)}
+.ev-btn.cold{background:linear-gradient(145deg,#0284c7,#1e3a8a);border-color:rgba(45,212,255,.35)}
+.ev-btn.warm{background:linear-gradient(145deg,#d97706,#92400e);border-color:rgba(255,180,84,.4)}
+.ev-btn.hot{background:linear-gradient(145deg,#dc2626,#7f1d1d);border-color:rgba(255,107,129,.45)}
+.ev-btn.win{grid-column:span 3;padding:12px;background:linear-gradient(145deg,#10b981,#047857);border-color:rgba(52,211,153,.5);font-size:1.05rem;box-shadow:0 6px 20px rgba(16,185,129,.28)}
+
+.ask-box{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(255,180,84,.08);border:1px dashed rgba(255,180,84,.4)}
+.ask-box span{font-size:.88rem;font-weight:700;color:var(--amber);text-align:right}
+.skip-btn{padding:6px 12px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--mute);font:700 .78rem 'Cairo',sans-serif;cursor:pointer;white-space:nowrap}
+
+/* نافذة كشف الجولة */
+.rv-cards{display:flex;gap:10px;width:100%;max-width:420px}
+.rv-item{flex:1;padding:12px 10px;border-radius:18px;background:rgba(0,0,0,.28);border:1px solid var(--line);display:flex;flex-direction:column;gap:4px;align-items:center}
+.rv-item.winner{border-color:#34d399;background:rgba(52,211,153,.09)}
+.rv-item .w{font:900 1.25rem 'Cairo',sans-serif;color:var(--amber)}
+.badge{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;font-size:2.9rem;background:rgba(255,255,255,.06);border:2px solid var(--line);flex:none}
+.big{font:700 1.7rem 'Reem Kufi',sans-serif}
+.acts{display:flex;gap:10px;width:100%;max-width:380px}.acts .btn{flex:1;padding:12px}
+.spin{width:54px;height:54px;border-radius:50%;border:5px solid rgba(255,255,255,.12);border-top-color:var(--lagoon);animation:sp .9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <div id="sb" class="glass scorebar"></div>
+  <div class="info"><div id="dots" class="dots"></div><div id="gp" class="gp"></div></div>
+  <div id="card" class="glass card center-mode">جارٍ التحميل…</div>
+</main>
+<script type="module">
+import { runTransaction, onValue, update, serverNow } from '../../shared/firebase.js';
+import * as RoomMod from '../../shared/room.js';
+import { finishGame, makeResult } from '../../shared/result.js';
+import { countdown, deadline } from '../../shared/timer.js';
+import { toast, sfx, scoreBar } from '../../shared/ui.js';
+import * as LeaveMod from '../../shared/leave.js';
+import { CATEGORY_LABELS, pickWordsPair } from './words.js';
+
+const { enterRoom, watchRoom, gameRef, roomRef, goLobby } = RoomMod;
+
+// ===== إعدادات اللعبة =====
+const ROUNDS = 3;
+const REACT_S = 2.4;      // مدة استعراض الترمومتر قبل انتقال الدور
+const REROLL_S = 15;      // مهلة التصويت على تغيير الكلمات
+const REVEAL_S = 18;      // مهلة نافذة نتيجة الجولة
+const HINT_AFTER = 3;     // يظهر زر كشف التصنيف بعد 3 أسئلة
+
+const $ = s => document.querySelector(s);
+const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.onclick = () => { sfx.click(); fn(); }; return b; };
+const sp = (t, c) => h('span', c, t);
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null;
+let panelKey = '', lastSeq = -1, prevPts = null, sfxSeq = -1;
+
+// حساب وقت السؤال المتدرج حسب عدد الأسئلة في الجولة
+function turnSeconds(qCount = [0, 0]) {
+  const maxQ = Math.max(qCount[0] || 0, qCount[1] || 0);
+  if (maxQ >= 10) return 10;
+  if (maxQ >= 5) return 15;
+  return 30;
+}
+
+// ===== المعاملات الذرية وتحديث الحالة =====
+const act = fn => runTransaction(gameRef(ctx.code, 's'), cur => (cur ? fn(cur) : undefined)).catch(() => {});
+
+function startNewRound(c, r) {
+  const used = c.used || [];
+  const { words, cats } = pickWordsPair(used);
+  const firstTurn = (r - 1) % 2;
+  const secs = turnSeconds([0, 0]);
+  return {
+    ...c,
+    round: r,
+    phase: 'ask',
+    turn: firstTurn,
+    words,
+    cats,
+    qCount: [0, 0],
+    hint: [0, 0],
+    rerollUsed: [0, 0],
+    rerollBy: null,
+    savedLeft: 0,
+    lastEval: 'none',
+    roundWinner: null,
+    used: [...used, ...words],
+    endAt: deadline(secs),
+    seq: (c.seq || 0) + 1
+  };
+}
+
+const imReady = () => act(c => {
+  if (c.phase !== 'ready') return;
+  const rd = [...(c.rd || [0, 0])];
+  rd[me] = 1;
+  return rd[0] && rd[1] ? startNewRound({ ...c, rd }, 1) : { ...c, rd, seq: c.seq + 1 };
+});
+
+// تقييم سؤال الخصم (بارد / دافئ / حار / إجابة صحيحة)
+const submitEval = type => act(c => {
+  if (c.phase !== 'ask' || c.turn === me) return;
+  const guesser = c.turn;
+  const qCount = [...(c.qCount || [0, 0])];
+  qCount[guesser] = (qCount[guesser] || 0) + 1;
+
+  if (type === 'correct') {
+    const pts = [...c.pts];
+    const usedHint = !!(c.hint && c.hint[guesser]);
+    const gained = usedHint ? 2 : 3; // 3 نقاط بدون مساعدة، أو نقطتان مع المساعدة
+    pts[guesser] += gained;
+    return {
+      ...c,
+      pts,
+      qCount,
+      lastEval: 'correct',
+      roundWinner: guesser,
+      roundGain: gained,
+      phase: 'reveal',
+      endAt: deadline(REVEAL_S),
+      seq: c.seq + 1
+    };
+  }
+
+  return {
+    ...c,
+    qCount,
+    lastEval: type,
+    phase: 'react',
+    endAt: deadline(REACT_S),
+    seq: c.seq + 1
+  };
+});
+
+// تخطي الدور يدوياً من السائل
+const skipMyTurn = () => act(c => {
+  if (c.phase !== 'ask' || c.turn !== me) return;
+  const qCount = [...(c.qCount || [0, 0])];
+  qCount[me] = (qCount[me] || 0) + 1;
+  const nextTurn = 1 - c.turn;
+  return {
+    ...c,
+    qCount,
+    turn: nextTurn,
+    lastEval: 'none',
+    endAt: deadline(turnSeconds(qCount)),
+    seq: c.seq + 1
+  };
+});
+
+// استخدام وسيلة المساعدة لكشف التصنيف (بعد 3 أسئلة)
+const unlockMyHint = () => act(c => {
+  if (c.phase !== 'ask' || (c.qCount?.[me] || 0) < HINT_AFTER || c.hint?.[me]) return;
+  const hint = [...(c.hint || [0, 0])];
+  hint[me] = 1;
+  return { ...c, hint, seq: c.seq + 1 };
+});
+
+// طلب تغيير الكلمات (مرة واحدة لكل لاعب في الجولة)
+const askReroll = () => act(c => {
+  if (c.phase !== 'ask' || c.rerollUsed?.[me]) return;
+  const rerollUsed = [...(c.rerollUsed || [0, 0])];
+  rerollUsed[me] = 1;
+  const savedLeft = Math.max(5000, c.endAt - serverNow());
+  return {
+    ...c,
+    phase: 'reroll',
+    rerollBy: me,
+    rerollUsed,
+    savedLeft,
+    endAt: deadline(REROLL_S),
+    seq: c.seq + 1
+  };
+});
+
+// التصويت على طلب تغيير الكلمات
+const voteReroll = accept => act(c => {
+  if (c.phase !== 'reroll' || c.rerollBy === me) return;
+  if (accept) {
+    const used = c.used || [];
+    const { words, cats } = pickWordsPair(used);
+    return {
+      ...c,
+      phase: 'ask',
+      words,
+      cats,
+      qCount: [0, 0],
+      hint: [0, 0],
+      rerollBy: null,
+      lastEval: 'none',
+      used: [...used, ...words],
+      endAt: deadline(30),
+      seq: c.seq + 1
+    };
+  }
+  const resumeSecs = Math.max(6, Math.ceil((c.savedLeft || 15000) / 1000));
+  return {
+    ...c,
+    phase: 'ask',
+    rerollBy: null,
+    endAt: deadline(resumeSecs),
+    seq: c.seq + 1
+  };
+});
+
+// الانتقال للجولة التالية أو إنهاء المباراة
+const toNextRound = seq => act(c => {
+  if (c.phase !== 'reveal' || c.seq !== seq) return;
+  if (c.round >= ROUNDS) {
+    const w = c.pts[0] === c.pts[1] ? 'draw' : c.pts[0] > c.pts[1] ? 0 : 1;
+    return { ...c, phase: 'done', winner: w, seq: c.seq + 1 };
+  }
+  return startNewRound(c, c.round + 1);
+});
+
+// معالجة انتهاء الوقت لكل طور بأمان
+const onTimeout = seq => act(c => {
+  if (c.seq !== seq || serverNow() < c.endAt - 400) return;
+  if (c.phase === 'ask') {
+    const qCount = [...(c.qCount || [0, 0])];
+    qCount[c.turn] = (qCount[c.turn] || 0) + 1;
+    return {
+      ...c,
+      qCount,
+      lastEval: 'timeout',
+      phase: 'react',
+      endAt: deadline(REACT_S),
+      seq: c.seq + 1
+    };
+  }
+  if (c.phase === 'react') {
+    const nextTurn = 1 - c.turn;
+    return {
+      ...c,
+      phase: 'ask',
+      turn: nextTurn,
+      lastEval: 'none',
+      endAt: deadline(turnSeconds(c.qCount)),
+      seq: c.seq + 1
+    };
+  }
+  if (c.phase === 'reroll') {
+    const resumeSecs = Math.max(6, Math.ceil((c.savedLeft || 15000) / 1000));
+    return { ...c, phase: 'ask', rerollBy: null, endAt: deadline(resumeSecs), seq: c.seq + 1 };
+  }
+  if (c.phase === 'reveal') {
+    if (c.round >= ROUNDS) {
+      const w = c.pts[0] === c.pts[1] ? 'draw' : c.pts[0] > c.pts[1] ? 0 : 1;
+      return { ...c, phase: 'done', winner: w, seq: c.seq + 1 };
+    }
+    return startNewRound(c, c.round + 1);
+  }
+});
+
+// ===== بناء الواجهة والأنيميشن (GSAP) =====
+const nm = i => players[st?.order?.[i]]?.name || 'لاعب';
+
+const EVAL_META = {
+  none:    { cls: '',          hub: '',           em: '🌡️', lb: 'بانتظار السؤال', bar: 0.08 },
+  cold:    { cls: 'glow-cold', hub: 'st-cold',    em: '🧊', lb: 'بارد! بعيد',     bar: 0.25 },
+  warm:    { cls: 'glow-warm', hub: 'st-warm',    em: '🌤️', lb: 'دافئ.. يقترب',   bar: 0.62 },
+  hot:     { cls: 'glow-hot',  hub: 'st-hot',     em: '🔥', lb: 'حار جداً!',      bar: 0.95 },
+  timeout: { cls: 'glow-timeout', hub: 'st-timeout', em: '⏱️', lb: 'انتهى الوقت!', bar: 0.15 }
+};
+
+function startTimer() {
+  stopT?.();
+  if (!st || st.phase === 'ready' || st.phase === 'done') return;
+  const tEl = $('#t'), pill = $('#tmPill'), bar = $('#tb i'), seq = st.seq;
+  const tot = (st.phase === 'ask' ? turnSeconds(st.qCount)
+    : st.phase === 'react' ? REACT_S
+    : st.phase === 'reroll' ? REROLL_S
+    : REVEAL_S) * 1000;
+
+  stopT = countdown(st.endAt, (left, sec) => {
+    if (tEl) tEl.textContent = sec;
+    if (pill) pill.classList.toggle('warn', st.phase === 'ask' && sec <= 5);
+    if (bar) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, left / tot))})`;
+  }, () => onTimeout(seq));
+}
+
+function animateThermo(ev) {
+  if (reduce) return;
+  const hub = $('#thermoHub');
+  if (!hub) return;
+  if (ev === 'hot') {
+    gsap.fromTo(hub, { scale: 1.28 }, { scale: 1, duration: 0.55, ease: 'elastic.out(1.2, 0.4)' });
+    gsap.to(hub, { x: () => gsap.utils.random(-10, 10), duration: 0.06, repeat: 7, yoyo: true, onComplete: () => gsap.set(hub, { x: 0 }) });
+  } else if (ev === 'warm' || ev === 'cold' || ev === 'timeout') {
+    gsap.fromTo(hub, { scale: 0.8, y: 6 }, { scale: 1, y: 0, duration: 0.5, ease: 'back.out(2)' });
+  }
+}
+
+function renderTable(c) {
+  const opp = 1 - me;
+  const isMyTurn = st.turn === me;
+  const ev = EVAL_META[st.lastEval] || EVAL_META.none;
+  c.className = 'glass card ' + ev.cls;
+
+  // 1) الشريط العلوي (تغيير الكلمات + المؤقت)
+  const top = h('div', 'top-bar');
+  const rrBtn = h('button', 'reroll-btn', st.rerollUsed?.[me] ? '🔁 استُخدم التغيير' : '🔁 تغيير الكلمات');
+  rrBtn.disabled = st.phase !== 'ask' || !!st.rerollUsed?.[me];
+  rrBtn.onclick = () => { sfx.click(); askReroll(); };
+
+  const tmPill = h('div', 'tm-pill'); tmPill.id = 'tmPill';
+  const tmVal = sp('…'); tmVal.id = 't';
+  tmPill.append(sp('⏱️'), tmVal);
+  top.append(rrBtn, tmPill);
+
+  // 2) منطقة ورقة الخصم (المكشوفة لك)
+  const oppZone = h('div', 'table-zone');
+  const oppHead = h('div', 'zone-head');
+  oppHead.append(
+    h('div', 'who', `👤 ${nm(opp)} · ${st.qCount?.[opp] || 0} سؤال`),
+    h('span', 'turn-tag' + (!isMyTurn ? ' active' : ''), !isMyTurn ? '🎤 يسأل الآن' : '👂 يقيّمك')
+  );
+  const oppCard = h('div', 'playing-card card-opp' + (!isMyTurn ? ' asking' : ''));
+  oppCard.append(
+    h('span', 'cat-chip', `كلمته السرية · ${CATEGORY_LABELS[st.cats?.[opp]] || ''}`),
+    h('div', 'secret-word', st.words?.[opp] || '—')
+  );
+  oppZone.append(oppHead, oppCard);
+
+  // 3) الترمومتر في منتصف الطاولة
+  const thWrap = h('div', 'thermo-wrap');
+  const thHub = h('div', 'thermo-hub ' + ev.hub); thHub.id = 'thermoHub';
+  thHub.append(h('span', 'em', ev.em), h('span', 'lb', ev.lb));
+  const thBar = h('div', 'thermo-bar'), thFill = h('i');
+  thFill.style.transform = `scaleX(${ev.bar})`;
+  thBar.append(thFill);
+  thWrap.append(thHub, thBar);
+
+  // 4) منطقة ورقتك السرية (المخفية عنك)
+  const myZone = h('div', 'table-zone');
+  const myHead = h('div', 'zone-head');
+  myHead.append(
+    h('div', 'who', `🙋 أنت (${nm(me)}) · ${st.qCount?.[me] || 0} سؤال`),
+    h('span', 'turn-tag' + (isMyTurn ? ' active' : ''), isMyTurn ? '🎤 دورك لتسأل' : '👂 دورك للتقييم')
+  );
+  const myCard = h('div', 'playing-card card-mine' + (isMyTurn ? ' asking' : ''));
+  myCard.append(h('div', 'mystery', '؟ ؟ ؟'));
+  if (st.hint?.[me]) {
+    myCard.append(h('div', 'my-cat-badge', `تصنيف كلمتك: ${CATEGORY_LABELS[st.cats?.[me]] || ''}`));
+  } else if ((st.qCount?.[me] || 0) >= HINT_AFTER && st.phase === 'ask') {
+    const hb = h('button', 'hint-btn', '💡 مساعدة: اكشف تصنيفي!');
+    hb.onclick = () => { sfx.click(); unlockMyHint(); };
+    myCard.append(hb);
+  } else {
+    const leftForHint = Math.max(1, HINT_AFTER - (st.qCount?.[me] || 0));
+    myCard.append(h('span', 'sub', `تُفتح المساعدة بعد ${leftForHint} ${leftForHint === 1 ? 'سؤال' : 'أسئلة'}`));
+  }
+  myZone.append(myHead, myCard);
+
+  // 5) لوحة التحكم السفلية
+  const dock = h('div', 'ctrl-dock');
+  if (st.phase === 'react') {
+    dock.append(h('div', 'prompt-txt am', 'جارٍ نقل الدور للاعب التالي…'));
+  } else if (isMyTurn) {
+    const askBox = h('div', 'ask-box');
+    askBox.append(
+      sp('🎤 اسأل خصمك بصوتك عن كلمتك أو خمّنها الآن!'),
+      (() => { const sb = h('button', 'skip-btn', 'تخطي ⏭️'); sb.onclick = () => { sfx.click(); skipMyTurn(); }; return sb; })()
+    );
+    dock.append(askBox);
+  } else {
+    dock.append(h('div', 'prompt-txt', `استمع لسؤال ${nm(opp)} وقيّم مدى قربه من كلمته:`));
+    const grid = h('div', 'eval-grid');
+    const mkEv = (txt, cls, type) => {
+      const b = h('button', 'ev-btn ' + cls, txt);
+      b.onclick = () => { sfx.click(); submitEval(type); };
+      return b;
+    };
+    grid.append(
+      mkEv('🧊 بارد', 'cold', 'cold'),
+      mkEv('🌤️ دافئ', 'warm', 'warm'),
+      mkEv('🔥 حار!', 'hot', 'hot'),
+      mkEv('🏆 إجابة صحيحة! نطق الكلمة', 'win', 'correct')
+    );
+    dock.append(grid);
+  }
+
+  const tb = h('div', 'tb'); tb.id = 'tb'; tb.append(h('i'));
+  c.append(top, oppZone, thWrap, myZone, dock, tb);
+
+  if (lastSeq !== st.seq) {
+    const prevSeq = lastSeq;
+    lastSeq = st.seq;
+    if (st.phase === 'react') {
+      if (st.lastEval === 'hot') sfx.turn();
+      else if (st.lastEval === 'timeout') sfx.error();
+      else sfx.click();
+      animateThermo(st.lastEval);
+    } else if (!reduce && prevSeq === -1) {
+      gsap.from([oppZone, thWrap, myZone, dock], { y: 16, opacity: 0, duration: 0.4, stagger: 0.06, ease: 'power2.out' });
+    }
+  }
+}
+
+function renderReveal(c) {
+  c.className = 'glass card center-mode';
+  const w = st.roundWinner;
+  const isW = w === me;
+  const t = h('div', 'tm-pill'); t.style.position = 'absolute'; t.style.top = '12px'; t.style.left = '14px';
+  const tv = sp('…'); tv.id = 't'; t.append(sp('⏱️'), tv);
+
+  const badge = h('div', 'badge', isW ? '🎯' : '👏');
+  const title = h('div', 'big ' + (isW ? 'ok' : 'am'), isW ? 'أحسنت! كشفت كلمتك' : `كشف ${nm(w)} كلمته!`);
+  const sub = h('div', 'sub', `حصل ${isW ? 'حسابك' : nm(w)} على +${st.roundGain || 2} نقطة في ${st.qCount?.[w] || 1} سؤال`);
+
+  const cards = h('div', 'rv-cards');
+  [me, 1 - me].forEach(idx => {
+    const item = h('div', 'rv-item' + (idx === w ? ' winner' : ''));
+    item.append(
+      h('span', 'sub', idx === me ? 'كلمتك السرية' : `كلمة ${nm(idx)}`),
+      h('div', 'w', st.words?.[idx] || '—'),
+      h('span', 'sub', CATEGORY_LABELS[st.cats?.[idx]] || '')
+    );
+    cards.append(item);
+  });
+
+  const nextBtn = btn(st.round >= ROUNDS ? 'النتيجة النهائية 🏆' : 'الجولة التالية ▶', 'primary', () => toNextRound(st.seq));
+  const tb = h('div', 'tb'); tb.id = 'tb'; tb.append(h('i'));
+  c.append(t, badge, title, sub, cards, nextBtn, tb);
+
+  if (sfxSeq !== st.seq) {
+    sfxSeq = st.seq;
+    isW ? sfx.win() : sfx.turn();
+    if (!reduce) {
+      gsap.from(badge, { scale: 0, rotation: -35, duration: 0.7, ease: 'elastic.out(1, 0.55)' });
+      gsap.from(cards.children, { rotationY: 90, opacity: 0, duration: 0.55, stagger: 0.12, ease: 'back.out(1.5)' });
+    }
+  }
+}
+
+function renderPanel() {
+  if (!st) return;
+  const key = [
+    st.seq, st.phase, st.round, st.turn, st.lastEval,
+    st.qCount?.join(','), st.hint?.join(','), st.rerollUsed?.join(',')
+  ].join('|');
+  if (key === panelKey) return;
+  panelKey = key;
+
+  const c = $('#card');
+  c.replaceChildren();
+
+  if (st.phase === 'ready') {
+    c.className = 'glass card center-mode';
+    if (st.rd?.[me]) {
+      c.append(h('div', 'spin'), h('div', 'sub', `بانتظار ${nm(1 - me)}…`));
+    } else {
+      c.append(
+        h('div', 'badge', '🔥'),
+        h('div', 'ttl', 'حار بارد'),
+        h('div', 'sub', 'ترى كلمة خصمك السرية ولا ترى كلمتك!\nاسأل في دورك، وسيوجهك خصمك بـ (بارد 🧊 / دافئ 🌤️ / حار 🔥)\nأول من ينطق كلمته السرية يحسم الجولة.'),
+        btn('جاهز للتحدي 🔥🧊', 'primary', imReady)
+      );
+    }
+  } else if (st.phase === 'reroll') {
+    c.className = 'glass card center-mode';
+    const t = h('div', 'tm-pill'); const tv = sp('…'); tv.id = 't'; t.append(sp('⏱️'), tv);
+    c.append(t, h('div', 'badge', '🔄'), h('div', 'ttl', 'طلب تغيير الكلمات'));
+    if (st.rerollBy === me) {
+      c.append(h('div', 'spin'), h('div', 'sub', `بانتظار موافقة ${nm(1 - me)} على تغيير الكلمات…`));
+    } else {
+      c.append(
+        h('div', 'sub', `يطلب ${nm(st.rerollBy)} استبدال كلمتَي الجولة لأن إحداهما غير معروفة.\nهل توافق على سحب كلمات جديدة؟`),
+        (() => {
+          const a = h('div', 'acts');
+          a.append(btn('✔️ نعم، غيّرها', 'primary', () => voteReroll(true)), btn('❌ لا، استمر', 'ghost', () => voteReroll(false)));
+          return a;
+        })()
+      );
+    }
+    const tb = h('div', 'tb'); tb.id = 'tb'; tb.append(h('i')); c.append(tb);
+  } else if (st.phase === 'ask' || st.phase === 'react') {
+    renderTable(c);
+  } else if (st.phase === 'reveal') {
+    renderReveal(c);
+  } else if (st.phase === 'done') {
+    c.className = 'glass card center-mode';
+    const w = st.winner;
+    c.append(
+      h('div', 'badge', w === 'draw' ? '🤝' : w === me ? '🏆' : '😎'),
+      sp(w === 'draw' ? 'تعادل!' : w === me ? 'فزت بالمباراة! 🎉' : `فاز ${nm(w)}`, 'big ' + (w === me ? 'ok' : 'am')),
+      h('div', 'sub', `${st.pts[me]} – ${st.pts[1 - me]}`)
+    );
+  }
+
+  startTimer();
+}
+
+function render() {
+  if (!st) return;
+  const done = st.phase === 'done';
+
+  // نقاط الجولات
+  $('#dots').replaceChildren(...Array.from({ length: ROUNDS }, (_, i) =>
+    h('i', (i + 1 < st.round || done ? 'on' : '') + (i + 1 === st.round && !done ? ' cur' : ''))
+  ));
+
+  // كبسولات نقاط اللاعبين في المباراة
+  $('#gp').replaceChildren(...[0, 1].map(i => {
+    const pl = h('div', 'pill');
+    const roleIcon = !done && st.round && (st.phase === 'ask' || st.phase === 'react')
+      ? (i === st.turn ? ' 🎤' : ' 👂') : '';
+    pl.append(sp(nm(i) + roleIcon), h('b', '', st.pts[i]));
+    if (prevPts && prevPts[i] !== st.pts[i] && !reduce) {
+      gsap.fromTo(pl, { scale: 1.25 }, { scale: 1, duration: 0.6, ease: 'elastic.out(1, 0.5)' });
+    }
+    return pl;
+  }));
+  prevPts = [...st.pts];
+
+  renderPanel();
+
+  if (done && !ended) {
+    ended = true;
+    stopT?.();
+    const w = st.winner;
+    w === me ? sfx.win() : w === 'draw' ? sfx.turn() : sfx.lose();
+    if (ctx.isHost) {
+      setTimeout(() => finishGame(ctx, w === 'draw'
+        ? makeResult('draw', st.order, { pts: st.pts })
+        : makeResult('win', [st.order[w], st.order[1 - w]], { pts: st.pts })
+      ), 5500);
+    }
+  }
+}
+
+// ===== التشغيل والربط مع الغرفة والانسحاب =====
+const abort = async msg => {
+  const fn = RoomMod.abortGame || LeaveMod.abortGame;
+  if (fn) return fn(ctx, msg);
+  if (msg) toast(msg, 'error');
+  if (ctx?.isHost) await update(roomRef(ctx.code, 'meta'), { status: 'lobby', game: null }).catch(() => {});
+  setTimeout(() => goLobby(ctx?.code || ''), 1800);
+};
+
+try {
+  ctx = await enterRoom();
+} catch (e) {
+  toast(e.message, 'error');
+  setTimeout(() => goLobby(''), 1800);
+  throw e;
+}
+
+const ids = Object.keys(ctx.players || {});
+if (ids.length !== 2) {
+  abort('اللعبة تحتاج لاعبين اثنين');
+} else {
+  if (ctx.isHost) {
+    const other = ids.find(i => i !== ctx.meta.host);
+    runTransaction(gameRef(ctx.code, 's'), cur => cur || {
+      order: [ctx.meta.host, other],
+      round: 0,
+      phase: 'ready',
+      rd: [0, 0],
+      pts: [0, 0],
+      used: [],
+      endAt: 0,
+      seq: 0
+    });
+  }
+
+  // تفعيل نظام الانسحاب المشترك إن وجد في leave.js
+  const initLeave = LeaveMod.watchLeave || LeaveMod.setupLeave || LeaveMod.initLeave || LeaveMod.bindLeave || LeaveMod.default;
+  if (typeof initLeave === 'function') {
+    try { initLeave(ctx, () => !ended); } catch {}
+  }
+
+  players = ctx.players;
+  onValue(gameRef(ctx.code, 's'), s => {
+    st = s.val();
+    if (st) {
+      me = st.order.indexOf(ctx.uid);
+      render();
+    }
+  });
+
+  watchRoom(ctx.code, {
+    meta: m => { if (!m || m.status !== 'playing') goLobby(ctx.code); },
+    players: p => {
+      players = p || players;
+      scoreBar($('#sb'), players, scores, ctx.uid);
+      if (st) { panelKey = ''; render(); }
+    },
+    scores: s => {
+      scores = s || {};
+      scoreBar($('#sb'), players, scores, ctx.uid);
+    }
+  });
+}
+</script>
+</body>
+</html>
