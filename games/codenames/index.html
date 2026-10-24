@@ -1,621 +1,325 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Codenames - الأسماء المشفرة</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../../shared/style.css">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Cairo', sans-serif; }
-        body { background-color: #1e1e24; color: white; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        
-        .team-color-bar { height: 6px; width: 100%; transition: all 0.5s; z-index: 100; flex-shrink: 0; }
-        .bar-red { background: #ef4444; box-shadow: 0 0 15px #ef4444; }
-        .bar-blue { background: #3b82f6; box-shadow: 0 0 15px #3b82f6; }
-        .bar-none { background: #555; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>الأسماء المشفرة - Codenames</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+html,body{height:100%;overflow:hidden;background-color:#0d1117;}
+main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;display:flex;flex-direction:column;gap:8px;padding:10px 14px 14px}
 
-        .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #2b2b2b; color: white; height: 75px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); z-index: 10; flex-shrink: 0; }
-        .room-pin { font-family: monospace; font-size: 1.4rem; background: #111; padding: 8px 20px; border-radius: 8px; color: #facc15; font-weight: bold; border: 1px solid #444; cursor: pointer; display: flex; gap: 10px; align-items: center; }
-        
-        .host-menu-btn { background: transparent; border: none; font-size: 1.8rem; cursor: pointer; transition: 0.2s; display: none; }
-        .host-menu-btn:active { transform: rotate(45deg); }
+.scorebar{padding:6px 10px;flex:none;z-index:2}
 
-        .score-board { display: flex; gap: 15px; font-size: 1.5rem; font-weight: bold; }
-        .score-red { color: #fca5a5; background: #7f1d1d; padding: 4px 15px; border-radius: 8px; border: 2px solid #ef4444; }
-        .score-blue { color: #bfdbfe; background: #1e3a8a; padding: 4px 15px; border-radius: 8px; border: 2px solid #3b82f6; }
+/* شاشة اللوبي */
+.lobby-card{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;background:rgba(15,20,30,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:20px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.5);overflow-y:auto}
+.ttl{font:900 1.8rem 'Reem Kufi',sans-serif;color:white;text-shadow:0 0 15px rgba(255,255,255,0.2)}
+.sub{color:var(--mute);font-size:.9rem}
 
-        .turn-status { font-size: 1rem; font-weight: bold; background: #444; padding: 8px 15px; border-radius: 30px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .turn-red { background: #ef4444; color: white; border: 2px solid #b91c1c; }
-        .turn-blue { background: #3b82f6; color: white; border: 2px solid #1d4ed8; }
+.teams-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:400px;margin-top:10px}
+.team-col{background:rgba(0,0,0,0.4);border-radius:16px;padding:12px;border:1px solid rgba(255,255,255,0.05)}
+.t-red{border-top:3px solid #ef4444;box-shadow:inset 0 15px 30px -15px rgba(239,68,68,0.2)}
+.t-blue{border-top:3px solid #3b82f6;box-shadow:inset 0 15px 30px -15px rgba(59,130,246,0.2)}
 
-        .game-board { flex: 1; display: flex; justify-content: center; align-items: center; padding: 15px; background-image: radial-gradient(#d4cbb8 2px, transparent 2px); background-size: 20px 20px; overflow: hidden; }
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; width: 100%; max-width: 850px; height: 100%; max-height: 550px; }
-        
-        .card { background: #fdfbf7; border: 2px solid #d0c8b6; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 1.1rem; font-weight: bold; color: #333; cursor: pointer; box-shadow: 0 6px 10px rgba(0,0,0,0.15); transition: all 0.2s; position: relative; text-align: center; padding: 4px; word-break: break-word; }
-        .card:active { transform: scale(0.95); }
-        .card.revealed { pointer-events: none; }
-        .card.revealed.red { background: #ef4444; color: white; border-color: #b91c1c; }
-        .card.revealed.blue { background: #3b82f6; color: white; border-color: #1d4ed8; }
-        .card.revealed.neutral { background: #d4d4d8; color: #555; border-color: #a1a1aa; }
-        .card.revealed.assassin { background: #18181b; color: white; border-color: #000; }
+.slot{background:rgba(255,255,255,0.05);border:1px dashed rgba(255,255,255,0.2);border-radius:10px;padding:12px 8px;margin-top:8px;cursor:pointer;transition:0.2s;font-size:0.85rem;font-weight:700;color:var(--mute)}
+.slot:active{transform:scale(0.95)}
+.slot.filled{background:rgba(255,255,255,0.1);border-style:solid;color:white}
+.slot.me{border-color:var(--amber);box-shadow:0 0 15px rgba(251,191,36,0.2);color:var(--amber)}
 
-        .spymaster-view .card:not(.revealed).red { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
-        .spymaster-view .card:not(.revealed).blue { background: #dbeafe; border-color: #3b82f6; color: #1e3a8a; }
-        .spymaster-view .card:not(.revealed).assassin { background: #3f3f46; border-color: #000; color: #fff; }
-        .spymaster-view .card:not(.revealed).neutral { background: #f4f4f5; }
+/* لوحة اللعب */
+.game-area{flex:1;display:none;flex-direction:column;gap:10px;min-height:0}
+.top-hud{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.4);padding:10px 15px;border-radius:16px;border:1px solid rgba(255,255,255,0.05);flex:none}
+.score{font:900 1.5rem 'Cairo';padding:4px 16px;border-radius:12px}
+.score.r{color:#fca5a5;background:#7f1d1d;border:2px solid #ef4444}
+.score.b{color:#bfdbfe;background:#1e3a8a;border:2px solid #3b82f6}
+.turn-badge{background:var(--glass);padding:6px 15px;border-radius:20px;font-weight:700;font-size:0.9rem;border:1px solid var(--line)}
+.turn-badge.r{background:#ef4444;color:white}
+.turn-badge.b{background:#3b82f6;color:white}
 
-        .bottom-panel { background: #2b2b2b; padding: 12px 20px; border-top: 3px solid #111; display: flex; flex-direction: column; align-items: center; gap: 10px; color: white; z-index: 50; flex-shrink: 0; }
-        .clue-area { display: none; gap: 10px; align-items: center; justify-content: center; background: #1a1a1a; padding: 8px; border-radius: 10px; border: 1px solid #444; flex-wrap: wrap; }
-        .clue-area input { padding: 8px 12px; border-radius: 6px; border: 2px solid #555; font-size: 1rem; width: 160px; background: #333; color: white; outline: none; }
-        .clue-area select { padding: 8px; border-radius: 6px; border: 2px solid #555; font-size: 1rem; background: #333; color: white; cursor: pointer; }
-        .btn-submit { background: #10b981; color: white; padding: 8px 20px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
-        
-        .clue-display { text-align: center; font-size: 1.3rem; font-weight: bold; color: #facc15; display: none; background: #1a1a1a; padding: 8px 20px; border-radius: 10px; border: 1px dashed #facc15; }
-        .btn-end { background: #6b7280; color: white; padding: 10px 25px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; display: none; }
+.board{flex:1;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;align-content:center;perspective:800px}
+.b-card{background:#fdfbf7;border:2px solid #d0c8b6;border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;font:700 0.85rem 'Cairo';color:#111;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.2);padding:2px;word-break:break-word;transition:transform 0.2s}
+.b-card:active{transform:scale(0.92)}
+.b-card.rev{pointer-events:none;box-shadow:none}
+.b-card.rev.red{background:#ef4444;color:white;border-color:#b91c1c}
+.b-card.rev.blue{background:#3b82f6;color:white;border-color:#1d4ed8}
+.b-card.rev.neutral{background:#d4d4d8;color:#555;border-color:#a1a1aa}
+.b-card.rev.assassin{background:#18181b;color:white;border-color:#000}
 
-        /* شاشة اللوبي */
-        .lobby-screen { position: fixed; inset: 0; background: #111; z-index: 1000; display: flex; flex-direction: column; overflow: hidden; }
-        .lobby-header { text-align: center; padding: 12px; background: #0a0a0a; border-bottom: 2px solid #333; flex-shrink: 0; }
-        .lobby-header h1 { color: #facc15; margin: 0; font-size: 1.8rem; }
-        .lobby-header .pin-box { display: inline-block; background: #222; border: 2px dashed #444; padding: 4px 20px; border-radius: 10px; margin-top: 6px; cursor: pointer; }
-        .lobby-header .pin-text { font-size: 1.6rem; color: #fff; font-family: monospace; font-weight: bold; letter-spacing: 4px; }
-        
-        .btn-master-lock { display: none; margin: 6px auto 0; padding: 6px 20px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 0.9rem; color: white; }
+/* رؤية القائد (Spymaster) */
+.view-spy .b-card:not(.rev).red{background:#fee2e2;border-color:#ef4444;color:#991b1b}
+.view-spy .b-card:not(.rev).blue{background:#dbeafe;border-color:#3b82f6;color:#1e3a8a}
+.view-spy .b-card:not(.rev).assassin{background:#3f3f46;border-color:#000;color:#fff}
+.view-spy .b-card:not(.rev).neutral{background:#f4f4f5;color:#555}
 
-        .lobby-content { flex: 1; display: flex; flex-wrap: wrap; padding: 15px; gap: 15px; overflow-y: auto; justify-content: center; align-items: stretch; }
-        
-        .team-col { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 10px; border-radius: 12px; padding: 12px; border: 2px solid transparent; }
-        .col-blue { background: linear-gradient(to bottom, #1e3a8a, #0f172a); border-color: #3b82f6; }
-        .col-red { background: linear-gradient(to bottom, #7f1d1d, #2e0505); border-color: #ef4444; }
-        .col-center { background: rgba(255, 255, 255, 0.05); border: 2px dashed #666; }
-        
-        .team-title { text-align: center; font-size: 1.4rem; font-weight: bold; margin-bottom: 5px; }
-        .col-blue .team-title { color: #60a5fa; }
-        .col-red .team-title { color: #f87171; }
-        .col-center .team-title { color: #aaa; }
+/* لوحة التحكم السفلية */
+.bottom-dock{background:rgba(0,0,0,0.6);padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,0.05);flex:none;display:flex;flex-direction:column;gap:10px;align-items:center}
+.clue-form{display:flex;gap:8px;width:100%;max-width:350px}
+.clue-form input{flex:1;background:#222;border:1px solid #444;color:white;padding:10px;border-radius:10px;font-family:'Cairo';outline:none}
+.clue-form select{background:#222;border:1px solid #444;color:white;padding:10px;border-radius:10px;outline:none}
+.clue-display{font:900 1.2rem 'Cairo';color:var(--amber);background:rgba(251,191,36,0.1);padding:8px 20px;border-radius:12px;border:1px dashed var(--amber);width:100%;text-align:center}
 
-        .role-box { background: rgba(0,0,0,0.4); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.1); flex: 1; display: flex; flex-direction: column; }
-        .role-title { font-size: 1rem; color: #facc15; text-align: center; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; }
-        
-        .players-wrap { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; flex: 1; align-content: flex-start; min-height: 45px; border-radius: 6px; padding: 4px; border: 2px dashed transparent; transition: 0.2s; }
-        .players-wrap.drag-over { border-color: #facc15; background: rgba(250, 204, 21, 0.1); }
-        
-        .player-badge { background: #333; padding: 6px 12px; border-radius: 15px; font-weight: bold; color: white; display: flex; align-items: center; gap: 6px; border: 1px solid #555; font-size: 0.9rem; }
-        .me-badge { background: #f59e0b; color: #000; border-color: #fff; }
-
-        .btn-join { width: 100%; padding: 10px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 10px; }
-        .col-blue .btn-join { background: #3b82f6; color: white; }
-        .col-red .btn-join { background: #ef4444; color: white; }
-
-        .lobby-footer { background: #000; padding: 15px; display: flex; justify-content: center; align-items: center; gap: 15px; border-top: 2px solid #333; flex-wrap: wrap; flex-shrink: 0; width: 100%; }
-        .btn-large { padding: 12px 25px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; color: white; }
-        .btn-start { background: #10b981; }
-        .btn-random { background: #8b5cf6; }
-        
-        .overlay { position: fixed; inset: 0; background: rgba(10, 10, 15, 0.92); z-index: 2000; display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center; backdrop-filter: blur(5px); }
-        .end-box { background: #1a1a1a; padding: 30px; border-radius: 18px; border: 2px solid #444; width: 90%; max-width: 450px; }
-        .host-top-menu { background: #222; padding: 20px; border-radius: 15px; border: 2px solid #555; display: flex; flex-direction: column; gap: 10px; width: 280px; }
-
-        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #fff; color: #000; padding: 8px 16px; border-radius: 20px; font-weight: bold; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 3000; }
-        .toast.show { opacity: 1; bottom: 70px; }
-    </style>
+@media (max-width:380px){ .b-card{font-size:0.75rem;} .top-hud{padding:8px;} }
+</style>
 </head>
 <body>
+<main>
+  <div id="sb" class="glass scorebar"></div>
 
-    <div id="teamColorBar" class="team-color-bar bar-none"></div>
-
-    <!-- شاشة اللوبي (تتطلب 4 لاعبين) -->
-    <div id="lobbyScreen" class="lobby-screen" style="display: none;">
-        <div class="lobby-header">
-            <h1>الأسماء المشفرة 🕵️‍♂️</h1>
-            <div class="pin-box" onclick="copyPin()">
-                <div style="color:#aaa; font-size:0.85rem; margin-bottom:2px;">كود الغرفة (اضغط للنسخ)</div>
-                <div class="pin-text" id="lobbyPinDisplay">----</div>
-            </div>
-            <button id="masterLockBtn" class="btn-master-lock" onclick="toggleMasterLock()">🔒 قفل اللوبي</button>
-        </div>
-        
-        <div class="lobby-content">
-            <div class="team-col col-blue">
-                <div class="team-title">الفريق الأزرق 🔵</div>
-                <div class="role-box">
-                    <div class="role-title">القائد (Spymaster)</div>
-                    <div class="players-wrap" id="blueSpymaster" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropPlayer(event, 'blue', 'spymaster')"></div>
-                    <button class="btn-join" onclick="joinSlot('blue', 'spymaster')">انضم كقائد أزرق</button>
-                </div>
-                <div class="role-box">
-                    <div class="role-title">العملاء (Operatives)</div>
-                    <div class="players-wrap" id="blueOperatives" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropPlayer(event, 'blue', 'operative')"></div>
-                    <button class="btn-join" onclick="joinSlot('blue', 'operative')">انضم كعميل أزرق</button>
-                </div>
-            </div>
-
-            <div class="team-col col-center">
-                <div class="team-title">قاعة الانتظار ☕</div>
-                <div class="players-wrap" id="unassignedPlayers" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropPlayer(event, 'none', 'none')"></div>
-            </div>
-
-            <div class="team-col col-red">
-                <div class="team-title">الفريق الأحمر 🔴</div>
-                <div class="role-box">
-                    <div class="role-title">القائد (Spymaster)</div>
-                    <div class="players-wrap" id="redSpymaster" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropPlayer(event, 'red', 'spymaster')"></div>
-                    <button class="btn-join" onclick="joinSlot('red', 'spymaster')">انضم كقائد أحمر</button>
-                </div>
-                <div class="role-box">
-                    <div class="role-title">العملاء (Operatives)</div>
-                    <div class="players-wrap" id="redOperatives" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropPlayer(event, 'red', 'operative')"></div>
-                    <button class="btn-join" onclick="joinSlot('red', 'operative')">انضم كعميل أحمر</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="lobby-footer" id="hostControls">
-            <button class="btn-large btn-random" onclick="randomizeTeams()">🎲 توزيع عشوائي</button>
-            <button class="btn-large btn-start" id="startBtn" onclick="startGame()" style="opacity: 0.5; cursor: not-allowed;" disabled>🚀 بدء اللعبة (يتطلب 4 لاعبين)</button>
-        </div>
-        <div class="lobby-footer" id="waitingMsg" style="display: none; justify-content: center; align-items: center; width: 100%;">
-            <div style="color:#facc15; font-size:1.2rem; font-weight:bold; text-align: center;" id="waitingText">في انتظار اكتمال 4 لاعبين والهوست...</div>
-        </div>
+  <!-- شاشة اللوبي -->
+  <div id="lobby" class="lobby-card">
+    <div>
+      <div class="ttl">الأسماء المشفرة 🕵️‍♂️</div>
+      <div class="sub">اختر دورك (تتطلب 4 لاعبين)</div>
     </div>
-
-    <!-- شاشة اللعب الرئيسية -->
-    <div class="top-bar">
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <div class="room-pin" id="pinDisplay" onclick="copyPin()">----</div>
-            <button id="hostSettingsBtn" class="host-menu-btn" onclick="openHostTopMenu()">⚙️</button>
-        </div>
-        
-        <div class="turn-status" id="turnStatus">بانتظار اللعبة...</div>
-        
-        <div class="score-board">
-            <div class="score-red" id="scoreRed">0</div>
-            <div class="score-blue" id="scoreBlue">0</div>
-        </div>
+    
+    <div class="teams-grid">
+      <div class="team-col t-red">
+        <h3 style="color:#f87171;margin-bottom:5px;font-size:1.1rem">الفريق الأحمر</h3>
+        <div id="slot-red-spy" class="slot" onclick="joinSlot('red','spy')">القائد (اضغط)</div>
+        <div id="slot-red-op" class="slot" onclick="joinSlot('red','op')">العميل (اضغط)</div>
+      </div>
+      <div class="team-col t-blue">
+        <h3 style="color:#60a5fa;margin-bottom:5px;font-size:1.1rem">الفريق الأزرق</h3>
+        <div id="slot-blue-spy" class="slot" onclick="joinSlot('blue','spy')">القائد (اضغط)</div>
+        <div id="slot-blue-op" class="slot" onclick="joinSlot('blue','op')">العميل (اضغط)</div>
+      </div>
     </div>
+    
+    <button id="btnStart" class="btn primary" style="width:100%;max-width:300px;margin-top:10px;opacity:0.5" disabled onclick="startGame()">🚀 بدء اللعبة</button>
+    <div id="waitText" class="sub am" style="font-weight:bold">في انتظار اكتمال 4 لاعبين...</div>
+  </div>
 
-    <div class="game-board">
-        <div class="grid" id="grid"></div>
+  <!-- شاشة اللعب -->
+  <div id="game" class="game-area">
+    <div class="top-hud">
+      <div id="scoreRed" class="score r">0</div>
+      <div id="turnBadge" class="turn-badge">جاري التحميل...</div>
+      <div id="scoreBlue" class="score b">0</div>
     </div>
+    <div id="board" class="board"></div>
+    <div id="dock" class="bottom-dock"></div>
+  </div>
 
-    <div class="bottom-panel">
-        <div class="clue-display" id="clueDisplay">التلميح: - (0)</div>
-        
-        <div class="clue-area" id="clueArea">
-            <input type="text" id="clueWord" placeholder="كلمة التلميح..." autocomplete="off">
-            <select id="clueNum">
-                <option value="1">1</option><option value="2">2</option>
-                <option value="3">3</option><option value="4">4</option>
-                <option value="5">5</option><option value="9">∞</option>
-            </select>
-            <button class="btn-submit" onclick="submitClue()">إرسال التلميح</button>
-        </div>
+  <!-- شاشة النهاية -->
+  <div id="done" class="lobby-card" style="display:none">
+    <div id="winBadge" style="font-size:4rem">🏆</div>
+    <div id="winText" class="ttl">انتهت اللعبة!</div>
+    <div id="winReason" class="sub"></div>
+  </div>
+</main>
 
-        <button class="btn-end" id="btnEnd" onclick="endTurn()">إنهاء التخمين (Pass)</button>
-    </div>
+<script type="module">
+import { runTransaction, onValue, update } from '../../shared/firebase.js';
+import * as RoomMod from '../../shared/room.js';
+import { finishGame, makeResult } from '../../shared/result.js';
+import { toast, sfx, scoreBar } from '../../shared/ui.js';
+import * as LeaveMod from '../../shared/leave.js';
 
-    <div id="endScreen" class="overlay">
-        <div id="endBox" class="end-box"></div>
-    </div>
+const { enterRoom, watchRoom, gameRef, roomRef, goLobby } = RoomMod;
+const $ = s => document.querySelector(s);
+const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.onclick = () => { sfx.click(); fn(); }; return b; };
 
-    <div id="hostTopModal" class="overlay"></div>
-    <div id="toast" class="toast">تم نسخ الكود ✅</div>
+const WORDS = ["تفاح","موز","أسد","نمر","سيارة","طيارة","شمس","قمر","نجم","بحر","نهر","جبل","نار","ثلج","ملك","أميرة","سيف","درع","قلعة","خيمة","مستشفى","مدرسة","طبيب","معلم","كتاب","قلم","ساعة","باب","شباك","كرسي","طاولة","حاسوب","هاتف","صورة","لون","شجرة","وردة","عشب","جذر","سماء","أرض","هواء","رياح","عاصفة","مطر","قطة","كلب","حصان","جمل","عصفور"];
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
-        import * as RoomMod from '../../shared/room.js';
-        import { finishGame, makeResult } from '../../shared/result.js';
-        import { scoreBar } from '../../shared/ui.js';
-        import * as LeaveMod from '../../shared/leave.js';
+let ctx, st = null, players = {}, scores = {}, ended = false;
+let boardHtml = '';
 
-        const { enterRoom, watchRoom, gameRef, roomRef, goLobby } = RoomMod;
+const nm = uid => players[uid]?.name || 'لاعب';
+const act = fn => runTransaction(gameRef(ctx.code, 's'), cur => (cur ? fn(cur) : undefined)).catch(() => {});
 
-        const firebaseConfig = { apiKey: "AIzaSyB5CobIKfYdAz8jaabJpMQrGoqS9Ton28Y", authDomain: "buttons-f3501.firebaseapp.com", databaseURL: "https://buttons-f3501-default-rtdb.firebaseio.com", projectId: "buttons-f3501" };
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+window.joinSlot = (team, role) => act(c => {
+  if (c.phase !== 'ready') return;
+  const teams = c.teams || {};
+  for(let key in teams) { if(teams[key] === ctx.uid) delete teams[key]; }
+  teams[`${team}-${role}`] = ctx.uid;
+  return { ...c, teams, seq: c.seq + 1 };
+});
 
-        let ctx;
-        try {
-            ctx = await enterRoom();
-        } catch (e) {
-            setTimeout(() => goLobby(''), 1500);
-            throw e;
-        }
+window.startGame = () => act(c => {
+  if (c.phase !== 'ready') return;
+  const pIds = Object.keys(players);
+  if (pIds.length < 4 || Object.keys(c.teams||{}).length !== 4) return;
 
-        const pin = ctx.code;
-        let myName = ctx.myName || "لاعب";
-        const isHost = ctx.isHost;
-        const myId = ctx.uid;
+  let shf = [...WORDS].sort(() => 0.5 - Math.random()).slice(0, 25);
+  let startTeam = Math.random() > 0.5 ? 'red' : 'blue';
+  let colors = [...Array(9).fill(startTeam), ...Array(8).fill(startTeam==='red'?'blue':'red'), ...Array(7).fill('neutral'), 'assassin'].sort(() => 0.5 - Math.random());
+  let board = shf.map((w, i) => ({ word: w, color: colors[i], rev: false }));
 
-        const codenamesRef = ref(db, `codenames/${pin}`);
-        const stateRef = ref(db, `codenames/${pin}/state`);
-        const playersRef = ref(db, `codenames/${pin}/players`);
-        const boardRef = ref(db, `codenames/${pin}/board`);
+  return {
+    ...c, phase: 'play', board, 
+    turn: startTeam, tPhase: 'spy', 
+    clue: {w:'', n:0}, 
+    sRed: startTeam==='red'?9:8, sBlue: startTeam==='blue'?9:8,
+    seq: c.seq + 1
+  };
+});
 
-        const WORD_LIST = ["تفاح", "موز", "أسد", "نمر", "سيارة", "طيارة", "شمس", "قمر", "نجم", "بحر", "نهر", "جبل", "نار", "ثلج", "ملك", "أميرة", "سيف", "درع", "قلعة", "خيمة", "مستشفى", "مدرسة", "طبيب", "معلم", "كتاب", "قلم", "ساعة", "باب", "شباك", "كرسي", "طاولة", "حاسوب", "هاتف", "صورة", "لون", "شجرة", "وردة", "عشب", "جذر", "سماء", "أرض", "هواء", "رياح", "عاصفة", "مطر", "قطة", "كلب", "حصان", "جمل", "عصفور"];
+window.submitClue = () => {
+  const w = $('#clueWord').value.trim();
+  const n = parseInt($('#clueNum').value);
+  if(!w || !n) return toast('اكتب الكلمة واختر الرقم','error');
+  act(c => {
+    if(c.phase !== 'play' || c.tPhase !== 'spy' || c.teams[`${c.turn}-spy`] !== ctx.uid) return;
+    return { ...c, tPhase: 'op', clue: {w, n}, seq: c.seq + 1 };
+  });
+};
 
-        let gameState = { status: 'lobby', lobbyLocked: false };
-        let players = {};
-        let board = [];
-        let myPlayer = { name: myName, team: 'none', role: 'none' };
-        let ended = false;
+window.endTurn = () => act(c => {
+  if(c.phase !== 'play' || c.tPhase !== 'op' || c.teams[`${c.turn}-op`] !== ctx.uid) return;
+  return { ...c, turn: c.turn==='red'?'blue':'red', tPhase: 'spy', clue: {w:'', n:0}, seq: c.seq + 1 };
+});
 
-        const myPlayerRef = ref(db, `codenames/${pin}/players/${myId}`);
-        get(myPlayerRef).then((snap) => {
-            if (!snap.exists()) { 
-                set(myPlayerRef, { name: myName, team: 'none', role: 'none' }); 
-            } else { 
-                if(snap.val().name) myName = snap.val().name; 
-            }
-        });
+window.clickCard = (idx) => act(c => {
+  if(c.phase !== 'play' || c.tPhase !== 'op' || c.teams[`${c.turn}-op`] !== ctx.uid || c.board[idx].rev) return;
+  
+  const nb = [...c.board];
+  const card = nb[idx];
+  card.rev = true;
 
-        onValue(stateRef, snap => { gameState = snap.val() || { status: 'lobby', lobbyLocked: false }; renderUI(); });
-        onValue(playersRef, snap => { players = snap.val() || {}; myPlayer = players[myId] || myPlayer; renderUI(); });
-        onValue(boardRef, snap => { board = snap.val() || []; renderBoard(); });
+  let sr = c.sRed, sb = c.sBlue;
+  let nextPhase = c.tPhase, nextTurn = c.turn;
 
-        // --- إدارة اللوبي والفرق ---
-        window.joinSlot = async (team, role) => {
-            if (gameState.lobbyLocked && !isHost) {
-                alert("🔒 اللوبي مقفل من قبل الهوست!");
-                return;
-            }
-            let updates = {};
-            updates[`codenames/${pin}/players/${myId}/team`] = team;
-            updates[`codenames/${pin}/players/${myId}/role`] = role;
+  if (card.color === 'assassin') {
+    const winner = c.turn === 'red' ? 'blue' : 'red';
+    return { ...c, phase: 'done', board: nb, winner, reason: `لمس المغتال! خسر الفريق ${c.turn==='red'?'الأحمر':'الأزرق'}`, seq: c.seq+1 };
+  }
 
-            if (role === 'spymaster') {
-                Object.keys(players).forEach(pId => {
-                    if (pId !== myId && players[pId].team === team && players[pId].role === 'spymaster') {
-                        updates[`codenames/${pin}/players/${pId}/role`] = 'operative';
-                    }
-                });
-            }
-            await update(ref(db), updates);
-        };
+  if (card.color === 'red') sr--;
+  if (card.color === 'blue') sb--;
 
-        window.randomizeTeams = async () => {
-            let pIds = Object.keys(players);
-            pIds.sort(() => 0.5 - Math.random()); 
-            let mid = Math.ceil(pIds.length / 2);
-            let blueTeam = pIds.slice(0, mid);
-            let redTeam = pIds.slice(mid);
+  if (sr === 0) return { ...c, phase: 'done', board: nb, sRed: sr, winner: 'red', reason: 'اكتشف الفريق الأحمر عملاءه!', seq: c.seq+1 };
+  if (sb === 0) return { ...c, phase: 'done', board: nb, sBlue: sb, winner: 'blue', reason: 'اكتشف الفريق الأزرق عملاءه!', seq: c.seq+1 };
 
-            let updates = {};
-            blueTeam.forEach((id, index) => {
-                updates[`codenames/${pin}/players/${id}/team`] = 'blue';
-                updates[`codenames/${pin}/players/${id}/role`] = index === 0 ? 'spymaster' : 'operative';
-            });
-            redTeam.forEach((id, index) => {
-                updates[`codenames/${pin}/players/${id}/team`] = 'red';
-                updates[`codenames/${pin}/players/${id}/role`] = index === 0 ? 'spymaster' : 'operative';
-            });
-            await update(ref(db), updates);
-        };
+  if (card.color !== c.turn) {
+    nextTurn = c.turn === 'red' ? 'blue' : 'red';
+    nextPhase = 'spy';
+  }
 
-        window.toggleMasterLock = async () => {
-            if (!isHost) return;
-            let currentLock = gameState.lobbyLocked || false;
-            await update(stateRef, { lobbyLocked: !currentLock });
-        };
+  return { ...c, board: nb, sRed: sr, sBlue: sb, turn: nextTurn, tPhase: nextPhase, clue: nextPhase==='spy'?{w:'',n:0}:c.clue, seq: c.seq+1 };
+});
 
-        window.dragStart = (e, pId) => {
-            if (!isHost) { e.preventDefault(); return; }
-            e.dataTransfer.setData("text/plain", pId);
-        };
-        window.dragOver = (e) => { if (!isHost) return; e.preventDefault(); e.currentTarget.classList.add('drag-over'); };
-        window.dragLeave = (e) => { if (!isHost) return; e.currentTarget.classList.remove('drag-over'); };
-        window.dropPlayer = async (e, team, role) => {
-            if (!isHost) return;
-            e.preventDefault();
-            e.currentTarget.classList.remove('drag-over');
-            const pId = e.dataTransfer.getData("text/plain");
-            if (pId) {
-                let updates = {};
-                updates[`codenames/${pin}/players/${pId}/team`] = team;
-                updates[`codenames/${pin}/players/${pId}/role`] = role;
-                if (role === 'spymaster') {
-                    Object.keys(players).forEach(id => {
-                        if (id !== pId && players[id].team === team && players[id].role === 'spymaster') {
-                            updates[`codenames/${pin}/players/${id}/role`] = 'operative';
-                        }
-                    });
-                }
-                await update(ref(db), updates);
-            }
-        };
+function renderLobby() {
+  const tms = st.teams || {};
+  const isFull = Object.keys(tms).length === 4 && Object.keys(players).length >= 4;
+  
+  ['red-spy','red-op','blue-spy','blue-op'].forEach(slot => {
+    const el = $(`#slot-${slot}`);
+    if(tms[slot]) {
+      el.className = 'slot filled' + (tms[slot] === ctx.uid ? ' me' : '');
+      el.innerHTML = `${slot.includes('spy')?'🕵️‍♂️':'🏃‍♂️'} ${nm(tms[slot])}`;
+    } else {
+      el.className = 'slot';
+      el.innerHTML = `${slot.includes('spy')?'القائد':'العميل'} (اضغط للانضمام)`;
+    }
+  });
 
-        window.openHostTopMenu = () => {
-            const overlay = document.getElementById('hostTopModal');
-            overlay.style.display = 'flex';
-            overlay.innerHTML = `
-                <div class="host-top-menu">
-                    <h2 style="color:#facc15; margin:0; text-align:center;">إدارة اللعبة ⚙️</h2>
-                    <button class="btn" style="background:#3b82f6;" onclick="closeHostTopMenu()">▶️ استمرار</button>
-                    <button class="btn" style="background:#8b5cf6;" onclick="startGame()">🔄 إعادة ضبط اللعبة</button>
-                    <button class="btn" style="background:#ef4444;" onclick="returnToLobby()">🔙 العودة للوبي</button>
-                </div>
-            `;
-        };
-        window.closeHostTopMenu = () => { document.getElementById('hostTopModal').style.display = 'none'; };
+  const btn = $('#btnStart');
+  if(ctx.isHost) {
+    btn.style.display = 'block';
+    if(isFull) { btn.disabled=false; btn.style.opacity='1'; $('#waitText').innerText='الفرق مكتملة، اضغط للبدء!'; }
+    else { btn.disabled=true; btn.style.opacity='0.5'; $('#waitText').innerText=`تحتاج 4 لاعبين لأخذ أدوارهم (حاليا: ${Object.keys(players).length})`; }
+  } else {
+    btn.style.display = 'none';
+    $('#waitText').innerText = isFull ? 'في انتظار الهوست للبدء...' : 'اختر دورك وانتظر البقية...';
+  }
+}
 
-        window.returnToLobby = async () => {
-            await update(ref(db, `codenames/${pin}/state`), { status: 'lobby', lobbyLocked: false });
-            await set(boardRef, []);
-            closeHostTopMenu();
-        };
+function renderPlay() {
+  const myRoleObj = Object.entries(st.teams).find(([k, v]) => v === ctx.uid);
+  const myTeam = myRoleObj ? myRoleObj[0].split('-')[0] : 'spectator';
+  const myRole = myRoleObj ? myRoleObj[0].split('-')[1] : 'spectator';
 
-        // --- بدء اللعبة (بشرط 4 لاعبين) ---
-        window.startGame = async function() {
-            closeHostTopMenu();
-            let totalPlayers = Object.keys(players).length;
-            if (totalPlayers < 4) {
-                alert("⚠️ لا يمكن بدء اللعبة إلا بوجود 4 لاعبين على الأقل في الغرفة!");
-                return;
-            }
+  $('#scoreRed').innerText = st.sRed;
+  $('#scoreBlue').innerText = st.sBlue;
+  
+  const tb = $('#turnBadge');
+  tb.className = `turn-badge ${st.turn === 'red' ? 'r' : 'b'}`;
+  tb.innerText = st.tPhase === 'spy' 
+    ? `🕵️‍♂️ قائد ${st.turn==='red'?'الأحمر':'الأزرق'} يكتب تلميحاً` 
+    : `🏃‍♂️ عميل ${st.turn==='red'?'الأحمر':'الأزرق'} يخمن`;
 
-            let redCount = Object.values(players).filter(p => p.team === 'red').length;
-            let blueCount = Object.values(players).filter(p => p.team === 'blue').length;
-            if (redCount === 0 || blueCount === 0) {
-                alert("يجب توزيع اللاعبين على الفريقين الأحمر والأزرق!");
-                return;
-            }
+  const newBoardHtml = st.board.map((c, i) => `<div class="b-card ${c.rev ? 'rev '+c.color : c.color}" onclick="clickCard(${i})">${c.word}</div>`).join('');
+  if (boardHtml !== newBoardHtml) {
+    boardHtml = newBoardHtml;
+    const b = $('#board');
+    b.innerHTML = boardHtml;
+    b.className = `board ${myRole === 'spy' ? 'view-spy' : ''}`;
+    gsap.from(b.children, {rotationY:90, opacity:0, duration:0.4, stagger:0.02, ease:'back.out'});
+  }
 
-            let shuffledWords = [...WORD_LIST].sort(() => 0.5 - Math.random()).slice(0, 25);
-            let startingTeam = Math.random() > 0.5 ? 'red' : 'blue';
-            
-            let colors = [
-                ...Array(9).fill(startingTeam),
-                ...Array(8).fill(startingTeam === 'red' ? 'blue' : 'red'),
-                ...Array(7).fill('neutral'),
-                'assassin'
-            ].sort(() => 0.5 - Math.random());
+  const dock = $('#dock');
+  dock.replaceChildren();
+  
+  if (st.tPhase === 'spy' && myRole === 'spy' && myTeam === st.turn) {
+    const f = h('div', 'clue-form');
+    f.innerHTML = `<input type="text" id="clueWord" placeholder="كلمة واحدة فقط..." autocomplete="off">
+                   <select id="clueNum"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="9">∞</option></select>`;
+    f.append(btn('إرسال', 'primary', submitClue));
+    dock.append(f);
+  } else if (st.tPhase === 'op') {
+    dock.append(h('div', 'clue-display', `التلميح: ${st.clue.w} (${st.clue.n === 9 ? '∞' : st.clue.n})`));
+    if (myRole === 'op' && myTeam === st.turn) {
+      dock.append(btn('إنهاء التخمين (Pass)', 'ghost', endTurn));
+    }
+  } else {
+    dock.append(h('div', 'sub', 'راقب اللعب واستنتج...'));
+  }
+}
 
-            let newBoard = shuffledWords.map((word, i) => ({ word: word, color: colors[i], revealed: false }));
+function render() {
+  if (!st) return;
+  const p = st.phase;
 
-            await set(codenamesRef, {
-                state: { status: 'playing', currentTurn: startingTeam, turnPhase: 'spymaster', clueWord: '', clueNum: 0, redScore: startingTeam === 'red' ? 9 : 8, blueScore: startingTeam === 'blue' ? 9 : 8 },
-                players: players,
-                board: newBoard
-            });
-        };
+  if (p === 'ready') { $('#lobby').style.display='flex'; $('#game').style.display='none'; $('#done').style.display='none'; renderLobby(); }
+  else if (p === 'play') { $('#lobby').style.display='none'; $('#game').style.display='flex'; $('#done').style.display='none'; renderPlay(); }
+  else if (p === 'done') {
+    $('#game').style.display='none'; $('#done').style.display='flex';
+    $('#winBadge').innerText = '🏆';
+    const wt = $('#winText');
+    wt.className = `ttl ${st.winner==='red'?'no':'b'}`;
+    wt.innerText = `فاز الفريق ${st.winner==='red'?'الأحمر 🔴':'الأزرق 🔵'}!`;
+    $('#winReason').innerText = st.reason;
+    
+    if (!ended) {
+      ended = true;
+      const myTeam = Object.entries(st.teams).find(([k,v]) => v === ctx.uid)?.[0].split('-')[0];
+      const isWin = myTeam === st.winner;
+      isWin ? sfx.win() : sfx.lose();
+      if (ctx.isHost) {
+        const winners = Object.entries(st.teams).filter(([k,v]) => k.startsWith(st.winner)).map(([k,v]) => v);
+        setTimeout(() => finishGame(ctx, makeResult(isWin?'win':'lose', winners)), 6000);
+      }
+    }
+  }
+}
 
-        window.submitClue = () => {
-            const word = document.getElementById('clueWord').value.trim();
-            const num = document.getElementById('clueNum').value;
-            if (word && num) {
-                update(stateRef, { turnPhase: 'operative', clueWord: word, clueNum: parseInt(num) });
-                document.getElementById('clueWord').value = ''; 
-            }
-        };
+const abort = async msg => {
+  const fn = RoomMod.abortGame || LeaveMod.abortGame;
+  if (fn) return fn(ctx, msg);
+  toast(msg || 'تم إنهاء اللعبة', 'error');
+  if (ctx?.isHost) await update(roomRef(ctx.code, 'meta'), { status: 'lobby', game: null }).catch(() => {});
+  setTimeout(() => goLobby(ctx?.code || ''), 1800);
+};
 
-        window.endTurn = () => {
-            if (gameState.turnPhase === 'operative') {
-                update(stateRef, { currentTurn: gameState.currentTurn === 'red' ? 'blue' : 'red', turnPhase: 'spymaster', clueWord: '', clueNum: 0 });
-            }
-        };
+try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
 
-        window.clickCard = async (index) => {
-            if (gameState.status !== 'playing' || myPlayer.role !== 'operative' || gameState.turnPhase !== 'operative' || myPlayer.team !== gameState.currentTurn) return;
-            if (board[index].revealed) return;
+if (ctx.isHost) {
+  runTransaction(gameRef(ctx.code, 's'), cur => cur || { phase: 'ready', teams: {}, seq: 0 });
+}
 
-            let card = board[index];
-            await update(ref(db, `codenames/${pin}/board/${index}`), { revealed: true });
+const initLeave = LeaveMod.watchLeave || LeaveMod.setupLeave || LeaveMod.default;
+if (typeof initLeave === 'function') { try { initLeave(ctx, () => !ended); } catch {} }
 
-            let newRedScore = gameState.redScore;
-            let newBlueScore = gameState.blueScore;
-
-            if (card.color === 'assassin') {
-                update(stateRef, { status: 'game_over', winner: gameState.currentTurn === 'red' ? 'blue' : 'red', reason: '💥 تم لمس المغتال! خسر الفريق ' + (gameState.currentTurn === 'red' ? 'الأحمر' : 'الأزرق') });
-                checkEndGame('assassin', gameState.currentTurn === 'red' ? 'blue' : 'red');
-                return;
-            }
-
-            if (card.color === 'red') newRedScore--;
-            if (card.color === 'blue') newBlueScore--;
-
-            if (newRedScore === 0) { 
-                update(stateRef, { status: 'game_over', winner: 'red', reason: '🎉 اكتشف الفريق الأحمر جميع عملائه وفاز بالمهمة!' }); 
-                checkEndGame('win', 'red');
-                return; 
-            }
-            if (newBlueScore === 0) { 
-                update(stateRef, { status: 'game_over', winner: 'blue', reason: '🎉 اكتشف الفريق الأزرق جميع عملائه وفاز بالمهمة!' }); 
-                checkEndGame('win', 'blue');
-                return; 
-            }
-
-            let updates = { redScore: newRedScore, blueScore: newBlueScore };
-            if (card.color !== gameState.currentTurn) {
-                updates.currentTurn = gameState.currentTurn === 'red' ? 'blue' : 'red';
-                updates.turnPhase = 'spymaster';
-                updates.clueWord = '';
-            }
-            update(stateRef, updates);
-        };
-
-        function checkEndGame(type, winnerTeam) {
-            if (ended) return;
-            ended = true;
-            let iWon = (winnerTeam === 'red' && myPlayer.team === 'red') || (winnerTeam === 'blue' && myPlayer.team === 'blue');
-            if (iWon) makeResult('win', [myId], { redScore: gameState.redScore, blueScore: gameState.blueScore });
-            else makeResult('lose', [myId], { redScore: gameState.redScore, blueScore: gameState.blueScore });
-            if (isHost) {
-                setTimeout(() => finishGame(ctx, makeResult(iWon ? 'win' : 'lose', [myId])), 5000);
-            }
-        }
-
-        function renderBoard() {
-            const grid = document.getElementById('grid');
-            if (!grid) return;
-            grid.innerHTML = '';
-            if (myPlayer?.role === 'spymaster') grid.classList.add('spymaster-view');
-            else grid.classList.remove('spymaster-view');
-
-            board.forEach((card, index) => {
-                const el = document.createElement('div');
-                el.className = `card ${card.revealed ? 'revealed ' + card.color : card.color}`;
-                el.innerText = card.word;
-                el.onclick = () => clickCard(index);
-                grid.appendChild(el);
-            });
-        }
-
-        window.copyPin = () => {
-            navigator.clipboard.writeText(pin);
-            const t = document.getElementById('toast'); t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 2000);
-        };
-
-        function getPlayersHTML(team, role) {
-            let filtered = Object.keys(players).filter(id => players[id].team === team && players[id].role === role);
-            if(filtered.length === 0) return `<div style="color:#888; font-size:0.85rem; padding: 6px; width:100%; text-align:center; pointer-events:none;">${isHost ? '-- اسحب اللاعبين هنا --' : '-- فارغ --'}</div>`;
-            
-            return filtered.map(id => {
-                const p = players[id];
-                const isMe = id === myId ? 'me-badge' : '';
-                return `
-                    <div class="player-badge ${isMe}" draggable="${isHost ? 'true' : 'false'}" ondragstart="dragStart(event, '${id}')" style="cursor: ${isHost ? 'grab' : 'default'}">
-                        👤 ${p.name}
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function getTurnAnnouncement() {
-            let activeTeam = gameState.currentTurn;
-            let phase = gameState.turnPhase;
-            let teamName = activeTeam === 'red' ? 'الأحمر' : 'الأزرق';
-            
-            if (phase === 'spymaster') {
-                let sm = Object.values(players).find(p => p.team === activeTeam && p.role === 'spymaster');
-                let name = sm ? sm.name : "القائد";
-                return `🕵️‍♂️ قائد ${teamName}: ${name}`;
-            } else {
-                let ops = Object.values(players).filter(p => p.team === activeTeam && p.role === 'operative');
-                let name = ops.length === 1 ? ops[0].name : "العملاء";
-                return `🏃‍♂️ عملاء ${teamName}: ${name}`;
-            }
-        }
-
-        function renderUI() {
-            document.getElementById('pinDisplay').innerText = `PIN: ${pin}`;
-            document.getElementById('lobbyPinDisplay').innerText = pin;
-            
-            const colorBar = document.getElementById('teamColorBar');
-            colorBar.className = `team-color-bar ${myPlayer?.team === 'red' ? 'bar-red' : (myPlayer?.team === 'blue' ? 'bar-blue' : 'bar-none')}`;
-
-            document.getElementById('hostSettingsBtn').style.display = isHost ? 'block' : 'none';
-
-            const lobbyScreen = document.getElementById('lobbyScreen');
-            const endScreen = document.getElementById('endScreen');
-            
-            if (gameState.status === 'lobby') {
-                lobbyScreen.style.display = 'flex';
-                endScreen.style.display = 'none';
-
-                document.getElementById('blueSpymaster').innerHTML = getPlayersHTML('blue', 'spymaster');
-                document.getElementById('blueOperatives').innerHTML = getPlayersHTML('blue', 'operative');
-                document.getElementById('redSpymaster').innerHTML = getPlayersHTML('red', 'spymaster');
-                document.getElementById('redOperatives').innerHTML = getPlayersHTML('red', 'operative');
-                document.getElementById('unassignedPlayers').innerHTML = getPlayersHTML('none', 'none');
-
-                document.getElementById('hostControls').style.display = isHost ? 'flex' : 'none';
-                document.getElementById('waitingMsg').style.display = isHost ? 'none' : 'flex';
-
-                // فحص شرط الـ 4 لاعبين لبدء اللعبة
-                let totalPlayers = Object.keys(players).length;
-                let startBtn = document.getElementById('startBtn');
-                let waitingText = document.getElementById('waitingText');
-
-                if (totalPlayers >= 4) {
-                    if (startBtn) {
-                        startBtn.style.opacity = '1';
-                        startBtn.style.cursor = 'pointer';
-                        startBtn.removeAttribute('disabled');
-                    }
-                    if (waitingText) waitingText.innerText = "اكتمل العدد! في انتظار الهوست لبدء اللعبة...";
-                } else {
-                    if (startBtn) {
-                        startBtn.style.opacity = '0.5';
-                        startBtn.style.cursor = 'not-allowed';
-                        startBtn.setAttribute('disabled', 'true');
-                    }
-                    if (waitingText) waitingText.innerText = `يجب أن يكون هناك 4 لاعبين على الأقل (حالياً: ${totalPlayer}/4)`;
-                }
-
-                if (isHost) {
-                    const lockBtn = document.getElementById('masterLockBtn');
-                    lockBtn.style.display = 'block';
-                    if (gameState.lobbyLocked) {
-                        lockBtn.innerText = '🔓 فتح اللوبي';
-                        lockBtn.style.background = '#10b981';
-                    } else {
-                        lockBtn.innerText = '🔒 قفل اللوبي';
-                        lockBtn.style.background = '#ef4444';
-                    }
-                }
-
-            } else if (gameState.status === 'playing') {
-                lobbyScreen.style.display = 'none';
-                endScreen.style.display = 'none';
-                
-                document.getElementById('scoreRed').innerText = gameState.redScore;
-                document.getElementById('scoreBlue').innerText = gameState.blueScore;
-                
-                const turnBox = document.getElementById('turnStatus');
-                turnBox.className = `turn-status ${gameState.currentTurn === 'red' ? 'turn-red' : 'turn-blue'}`;
-                turnBox.innerText = getTurnAnnouncement();
-
-                const clueArea = document.getElementById('clueArea');
-                const clueDisplay = document.getElementById('clueDisplay');
-                const btnEnd = document.getElementById('btnEnd');
-                
-                if (gameState.turnPhase === 'spymaster' && myPlayer.role === 'spymaster' && myPlayer.team === gameState.currentTurn) {
-                    clueArea.style.display = 'flex';
-                    clueDisplay.style.display = 'none';
-                    btnEnd.style.display = 'none';
-                } else if (gameState.turnPhase === 'operative') {
-                    clueArea.style.display = 'none';
-                    clueDisplay.style.display = 'block';
-                    clueDisplay.innerText = `التلميح: ${gameState.clueWord} (${gameState.clueNum === 9 ? 'لا نهائي' : gameState.clueNum})`;
-                    
-                    if (myPlayer.role === 'operative' && myPlayer.team === gameState.currentTurn) {
-                        btnEnd.style.display = 'block';
-                    } else {
-                        btnEnd.style.display = 'none';
-                    }
-                } else {
-                    clueArea.style.display = 'none';
-                    clueDisplay.style.display = 'none';
-                    btnEnd.style.display = 'none';
-                }
-            } else if (gameState.status === 'game_over') {
-                lobbyScreen.style.display = 'none';
-                endScreen.style.display = 'flex';
-                
-                const box = document.getElementById('endBox');
-                box.style.borderColor = gameState.winner === 'red' ? '#ef4444' : '#3b82f6';
-                box.innerHTML = `
-                    <h1 style="color:${gameState.winner === 'red' ? '#ef4444' : '#3b82f6'}; font-size: 2.2rem; margin-bottom: 15px;">
-                        فاز الفريق ${gameState.winner === 'red' ? 'الأحمر' : 'الأزرق'}! 🏆
-                    </h1>
-                    <p style="color:#ccc; font-size: 1.1rem; margin-bottom: 20px;">${gameState.reason}</p>
-                    ${isHost ? `
-                    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                        <button class="btn-large" style="background:#ef4444;" onclick="returnToLobby()">🔙 اللوبي</button>
-                        <button class="btn-large btn-start" onclick="startGame()">🔄 جولة جديدة</button>
-                    </div>` : '<p style="color:#facc15; font-weight:bold; font-size:1.1rem;">في انتظار الهوست...</p>'}
-                `;
-            }
-        }
-
-        // إعدادات الخروج المشترك عبر الـ leave.js
-        const initLeave = LeaveMod.watchLeave || LeaveMod.setupLeave || LeaveMod.default;
-        if (typeof initLeave === 'function') {
-            try { initLeave(ctx, () => !ended); } catch {}
-        }
-    </script>
+players = ctx.players;
+onValue(gameRef(ctx.code, 's'), s => { st = s.val(); if (st) render(); });
+watchRoom(ctx.code, {
+  meta: m => { if (!m || m.status !== 'playing') goLobby(ctx.code); },
+  players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) render(); },
+  scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
+});
+</script>
 </body>
 </html>
