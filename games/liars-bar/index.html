@@ -8,11 +8,20 @@
 <link rel="stylesheet" href="../../shared/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
-html,body{height:100%;overflow:hidden;background-color:#0d1117;}
+html,body{height:100%;overflow:hidden}
 body{background-image:radial-gradient(70% 40% at 50% 0%,rgba(255,107,129,.13),transparent),radial-gradient(60% 50% at 95% 0%,rgba(79,209,197,.13),transparent),radial-gradient(55% 45% at 0% 100%,rgba(255,180,84,.12),transparent)}
-main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;display:flex;flex-direction:column;gap:8px;padding:10px 14px 14px}
-
-.scorebar{padding:6px 10px;flex:none;z-index:120}
+main{max-width:520px;height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:6px;padding:8px 12px 10px;margin: 0 auto;display: flex;flex-direction: column;}
+@media (pointer:coarse){main{padding-bottom:54px}}
+.scorebar{padding:5px 8px;flex:none;position:relative;z-index:120}.sb{padding:4px 10px;font-size:.88rem}
+/* شريط المعلومات */
+.info{display:flex;align-items:center;gap:6px;flex:none;justify-content:center}
+.chip{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:.85rem;white-space:nowrap;color:var(--text)}
+.chip b{font:700 1.1rem 'Reem Kufi',sans-serif;color:var(--amber)}
+.chip.tg{padding:2px 10px 2px 7px}.chip.tg svg{width:22px;height:30px;display:block}
+.chip.btnc{cursor:pointer;font:inherit;width:38px;justify-content:center;padding:4px 0}
+.chip.warn{border-color:var(--rose);color:var(--rose)}
+.tbar{height:4px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden;flex:none;margin:0 10px}
+.tbar i{display:block;height:100%;width:100%;background:var(--lagoon);transform-origin:right;transform:scaleX(0)}
 
 /* اللوبي الجديد المتوافق مع المنصة */
 .lobby-card{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;background:rgba(15,20,30,0.85);border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:20px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.5)}
@@ -25,16 +34,6 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .seat-slot:active{transform:scale(0.95)}
 .seat-slot.filled{background:rgba(255,255,255,0.1);border-style:solid;color:white}
 .seat-slot.me{border-color:var(--amber);box-shadow:0 0 15px rgba(251,191,36,0.2);color:var(--amber)}
-
-/* شريط المعلومات داخل اللعبة */
-.info{display:flex;align-items:center;gap:6px;flex:none;justify-content:center}
-.chip{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:.85rem;white-space:nowrap;color:var(--text)}
-.chip b{font:700 1.1rem 'Reem Kufi',sans-serif;color:var(--amber)}
-.chip.tg{padding:2px 10px 2px 7px}.chip.tg svg{width:22px;height:30px;display:block}
-.chip.btnc{cursor:pointer;font:inherit;width:38px;justify-content:center;padding:4px 0}
-.chip.warn{border-color:var(--rose);color:var(--rose)}
-.tbar{height:4px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden;flex:none;margin:0 10px}
-.tbar i{display:block;height:100%;width:100%;background:var(--lagoon);transform-origin:right;transform:scaleX(0)}
 
 /* المشهد */
 .scene{position:relative;flex:1 1 0;min-height:110px}
@@ -84,7 +83,6 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .btn.play{background:var(--amber);color:#3a2605;border-color:transparent;flex:1.35}
 .btn.liar{background:var(--rose);color:#2a0710;border-color:transparent;flex:1}
 .btn.pulse{animation:pulseb .8s ease-in-out infinite alternate}@keyframes pulseb{to{transform:scale(1.05);box-shadow:0 0 18px rgba(255,107,129,.7)}}
-
 .spec{flex:none;text-align:center;padding:15px;border-radius:16px;background:rgba(255,107,129,.1);border:1px solid rgba(255,107,129,.4);color:var(--rose);font-weight:700;font-size:1.1rem}
 
 .rules{max-width:380px;text-align:right;align-items:stretch}
@@ -124,9 +122,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
     <div class="ttl">LIAR<em>'</em>S BAR</div>
     <div class="sub">اكذب بذكاء… أو مُت بشرف</div>
     
-    <div class="seats-container" id="seatsContainer">
-        <!-- يتم توليد المقاعد ديناميكياً هنا -->
-    </div>
+    <div class="seats-container" id="seatsContainer"></div>
     
     <button id="btnStart" class="btn primary" style="width:100%;max-width:300px;display:none" onclick="startGame()">🚀 بدء اللعبة</button>
     <div id="waitText" class="sub" style="font-weight:bold;color:var(--amber)">اختر مقعدك لتبدأ...</div>
@@ -169,14 +165,14 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 </main>
 
 <script type="module">
-import { runTransaction, onValue, get, set, remove, serverNow } from '../../shared/firebase.js';
+import { runTransaction, onValue, get, set, remove } from '../../shared/firebase.js';
 import * as RoomMod from '../../shared/room.js';
 import { finishGame, makeResult } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar, confirmDialog, showOverlay, isMuted, toggleMute } from '../../shared/ui.js';
 import { initGroupExit } from '../../shared/leave.js';
 
-const { enterRoom, watchRoom, gameRef, roomRef, goLobby } = RoomMod;
+const { enterRoom, watchRoom, gameRef, goLobby } = RoomMod;
 
 // ===== محرّك القواعد =====
 const HAND = 5, MAX_PLAY = 3, TURN_S = 45, DEAL_S = 3.6, REVEAL_S = 4.8, ROUL_S = 8.8, REDEAL_S = 3.4, DONE_S = 6.5, STRIKES = 2, CH_S = 8;
@@ -240,11 +236,13 @@ function challenge(s, io) {
   const liar = !valid || cards.some(x => x !== s.tg && x !== 'J'), vic = liar ? on : s.clg.by;
   return { state: { ...s, ph: 'reveal', rv: { cards: valid ? cards : [], liar, vic, inv: !valid }, endAt: deadline(REVEAL_S), seq: s.seq + 1 } };
 }
+
 function toRoulette(s, io) {
   const v = s.rv.vic;
   if (!s.al[v]) return afterShot({ ...s, shot: null });
   return { state: { ...s, ph: 'roulette', shot: { vic: v, died: s.ch[v] === io.bullet(s.order[v]), chm: s.ch[v] }, endAt: deadline(ROUL_S), seq: s.seq + 1 } };
 }
+
 function afterShot(s) {
   const v = s.shot?.vic ?? s.rv?.vic, al = [...s.al], out = [...(s.out || [])], ch = [...s.ch], hc = [...s.hc];
   if (v != null && al[v]) { if (s.shot?.died) { al[v] = 0; out.push(v); hc[v] = 0; } else ch[v]++; }
@@ -266,7 +264,7 @@ function autoTurn(s, io) {
 }
 
 function step(s, io, now) {
-  if (s.ph === 'ready') return null; // يتم التعامل معها في الواجهة
+  if (s.ph === 'ready') return null;
   if (s.ph === 'challenge') return challenge(s, io);
   if (now < (s.endAt || 0)) return null;
   switch (s.ph) {
@@ -357,7 +355,7 @@ function fit() {
 const toStage = (cx, cy) => { const r = $('#stage').getBoundingClientRect(); return { x: (cx - r.left) / scale, y: (cy - r.top) / scale }; };
 function seatXY(i) { const n = st.order.length, r = (i - me + n) % n, a = Math.PI / 2 + r * 2 * Math.PI / n; return { x: 170 + Math.cos(a) * 138, y: 160 + Math.sin(a) * 118 }; }
 
-// اللوبي الجديد (الضغط للجلوس)
+// اللوبي 
 window.joinGameSlot = async () => {
     await unlockAudio(); sfx.click();
     act(c => {
@@ -391,7 +389,7 @@ function renderLobby() {
     $('#gameScreen').style.display = 'none';
 
     const seats = st.seats || [];
-    const maxPlayers = 4; // بحد أقصى 4 لاعبين
+    const maxPlayers = 4;
     
     let html = '';
     for(let i=0; i<maxPlayers; i++) {
@@ -426,7 +424,7 @@ function renderLobby() {
         }
     } else {
         btn.style.display = 'none';
-        $('#waitText').innerText = seats.length >= 2 ? 'في انتظار الهوست لبدء اللعبة...' : 'بانتظار دخول اللاعبين...';
+        $('#waitText').innerText = seats.length >= 2 ? 'في انتظار الهوست للبدء...' : 'بانتظار دخول اللاعبين...';
     }
 }
 
@@ -519,7 +517,7 @@ function reconcileHand() {
   if (!st || st.ph === 'ready' || !isAlive(me) || myHand.length <= st.hc[me] || st.last?.by !== me) return;
   const played = myPl[st.last.pid]; if (!Array.isArray(played)) return;
   const rest = [...myHand]; played.forEach(c => { const k = rest.indexOf(c); if (k >= 0) rest.splice(k, 1); });
-  if (rest.length === st.hc[me]) set(roomRef(ctx.code, `hands/${ctx.uid}/h`), rest).catch(() => {});
+  if (rest.length === st.hc[me]) set(gameRef(ctx.code, `hands/${ctx.uid}/h`), rest).catch(() => {});
 }
 
 async function doPlay() {
@@ -528,10 +526,10 @@ async function doPlay() {
   const pts = idxs.map(i => { const r = $(`.hc[data-i="${i}"]`).getBoundingClientRect(); return toStage(r.left + r.width / 2, r.top + r.height / 2); });
   pendingFly = { pid, pts, metas };
   try {
-    await set(roomRef(ctx.code, `hands/${ctx.uid}/pl/${pid}`), cards);
+    await set(gameRef(ctx.code, `hands/${ctx.uid}/pl/${pid}`), cards);
     const res = await act(c => (c.ph === 'turn' && c.turn === me && c.hc[me] === old.length) ? playTx(c, me, cards.length, pid, metas) : undefined);
-    if (res?.committed) { sel.clear(); await set(roomRef(ctx.code, `hands/${ctx.uid}/h`), rest); }
-    else { pendingFly = null; toast('تعذّر النزول، حاول مجدداً', 'error'); remove(roomRef(ctx.code, `hands/${ctx.uid}/pl/${pid}`)).catch(() => {}); }
+    if (res?.committed) { sel.clear(); await set(gameRef(ctx.code, `hands/${ctx.uid}/h`), rest); }
+    else { pendingFly = null; toast('تعذّر النزول، حاول مجدداً', 'error'); remove(gameRef(ctx.code, `hands/${ctx.uid}/pl/${pid}`)).catch(() => {}); }
   } catch (e) { pendingFly = null; toast('خطأ', 'error'); }
   busyAct = false; updateControls();
 }
@@ -694,13 +692,13 @@ function render() {
 
 // ===== المضيف =====
 let hostRunning = false, hostT = null, tries = {}, finishing = false;
-async function ensureBullets(s) { for (const u of s.order) if (bullets[u] == null) { bullets[u] = rnd(6); await set(roomRef(ctx.code, `secret/b/${u}`), bullets[u]); } }
+async function ensureBullets(s) { for (const u of s.order) if (bullets[u] == null) { bullets[u] = rnd(6); await set(gameRef(ctx.code, `secret/b/${u}`), bullets[u]); } }
 async function applyHost(s, r) {
-  if (r.pre?.pl) await Promise.all(Object.entries(r.pre.pl).map(([u, v]) => set(roomRef(ctx.code, `hands/${u}/pl/${v.pid}`), v.c)));
+  if (r.pre?.pl) await Promise.all(Object.entries(r.pre.pl).map(([u, v]) => set(gameRef(ctx.code, `hands/${u}/pl/${v.pid}`), v.c)));
   const res = await act(c => (c.seq === s.seq ? r.state : undefined));
   if (res?.committed) {
-    if (r.post?.deal) await Promise.all(Object.entries(r.post.deal).map(([u, h]) => set(roomRef(ctx.code, 'hands/' + u), { h })));
-    if (r.post?.h) await Promise.all(Object.entries(r.post.h).map(([u, h]) => set(roomRef(ctx.code, `hands/${u}/h`), h)));
+    if (r.post?.deal) await Promise.all(Object.entries(r.post.deal).map(([u, h]) => set(gameRef(ctx.code, 'hands/' + u), { h })));
+    if (r.post?.h) await Promise.all(Object.entries(r.post.h).map(([u, h]) => set(gameRef(ctx.code, `hands/${u}/h`), h)));
   }
 }
 async function hostFinish(s) {
@@ -708,17 +706,17 @@ async function hostFinish(s) {
   try {
     const present = Object.keys(players), rank = [s.order[s.win], ...[...(s.out || [])].reverse().map(i => s.order[i])];
     const ranking = rank.filter((u, i) => present.includes(u) && rank.indexOf(u) === i);
-    await remove(roomRef(ctx.code, 'hands')).catch(() => {}); await remove(roomRef(ctx.code, 'secret')).catch(() => {});
+    await remove(gameRef(ctx.code, 'hands')).catch(() => {}); await remove(gameRef(ctx.code, 'secret')).catch(() => {});
     await finishGame(ctx, makeResult('win', ranking.length ? ranking : [ctx.uid], { rounds: s.rnd }), players);
   } catch (e) { console.error(e); finishing = false; }
 }
 async function hostTick() {
   if (!ctx.isHost || !st || hostRunning) return; hostRunning = true; const s = st;
   try {
-    if (s.ph === 'done') { if (serverNow() >= (s.endAt || 0)) await hostFinish(s); }
+    if (s.ph === 'done') { if (Date.now() >= (s.endAt || 0)) await hostFinish(s); }
     else {
-      const now = serverNow(), cache = {};
-      await Promise.all(needs(s, now).map(async u => { cache[u] = (await get(roomRef(ctx.code, 'hands/' + u))).val() || {}; }));
+      const now = Date.now(), cache = {};
+      await Promise.all(needs(s, now).map(async u => { cache[u] = (await get(gameRef(ctx.code, 'hands/' + u))).val() || {}; }));
       await ensureBullets(s);
       const r = step(s, { hand: u => cache[u]?.h, pl: (u, pid) => cache[u]?.pl?.[pid], bullet: u => bullets[u] }, now);
       if (r) { const k = s.seq + ':' + s.ph; tries[k] = (tries[k] || 0) + 1; if (tries[k] <= 6) await applyHost(s, r); }
@@ -728,7 +726,7 @@ async function hostTick() {
 }
 function hostSchedule() {
   clearTimeout(hostT); if (!ctx.isHost || !st) return;
-  const wait = st.ph === 'ready' || st.ph === 'challenge' || !st.endAt ? 1200 : Math.min(Math.max(150, st.endAt - serverNow() + 60), 3000);
+  const wait = st.ph === 'ready' || st.ph === 'challenge' || !st.endAt ? 1200 : Math.min(Math.max(150, st.endAt - Date.now() + 60), 3000);
   hostT = setTimeout(hostTick, wait);
 }
 
@@ -743,12 +741,18 @@ function hostSchedule() {
   if (ctx.isHost) {
     try {
       const cur = (await get(gs())).val();
-      if (cur) bullets = (await get(roomRef(ctx.code, 'secret/b'))).val() || {};
+      if (cur) bullets = (await get(gameRef(ctx.code, 'secret/b'))).val() || {};
       else {
-        await remove(roomRef(ctx.code, 'hands')); await remove(roomRef(ctx.code, 'secret'));
+        await remove(gameRef(ctx.code, 'hands')); 
+        await remove(gameRef(ctx.code, 'secret'));
         await runTransaction(gs(), c => c || { ph: 'ready', seats: [], seq: 0 });
       }
-    } catch (e) { toast('تأكد من Firebase Rules', 'error'); abortGame(ctx); return; }
+    } catch (e) { 
+        console.error(e); 
+        toast('خطأ في الاتصال بقاعدة البيانات: ' + e.message, 'error'); 
+        setTimeout(() => goLobby(ctx.code), 2000); 
+        return; 
+    }
   }
 
   const ex = initGroupExit(ctx, {
@@ -758,7 +762,7 @@ function hostSchedule() {
     onLeave: () => { stopSnd(); }
   });
   
-  onValue(roomRef(ctx.code, `hands/${ctx.uid}`), s => {
+  onValue(gameRef(ctx.code, `hands/${ctx.uid}`), s => {
     const v = s.val() || {}; myPl = v.pl || {}; const h = Array.isArray(v.h) ? v.h : [], sig = h.join('');
     if (sig !== handSig || !handSig) { handSig = sig; myHand = h; renderHand(false); }
     reconcileHand();
