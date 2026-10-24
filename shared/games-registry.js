@@ -12,7 +12,7 @@ export const GAMES = [
   //العاب قريبا
   { id: "liars-bar",   name: "بار الكذّابين", icon: "🔫",     desc: "اكذب بذكاء أو مت بشرف",       min: 2, max: 4, ready: true },
   { id: "hot-cold",    name: "حار بارد",  icon: "🔥",     desc: "خمّن كلمتك السرية بمساعدة خصمك",  min: 2, max: 2, ready: false },
-  { id: "xo",          name: "X & O",  icon: "⚔️",      desc: "",                        min: 2, max: 2, ready: true },
-  { id: "codenames",   name: "الكلمات المشفرة",  icon: "🕵️‍♂️",  desc: "كلمات مشفرة وجواسيس",         min: 2, max: 2, ready: true }
+  { id: "xo",          name: "X & O",  icon: "⚔️",      desc: "",                        min: 2, max: 2, ready: false },
+  { id: "codenames",   name: "الكلمات المشفرة",  icon: "🕵️‍♂️",  desc: "كلمات مشفرة وجواسيس",         min: 2, max: 2, ready: false }
 
 ];
