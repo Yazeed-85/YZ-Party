@@ -12,6 +12,6 @@ export const GAMES = [
   
   { id: "hot-cold",     name: "حار بارد",  icon: "🔥", desc: "خمّن كلمتك السرية بمساعدة خصمك",     min: 2, max: 2, ready: true },
   { id: "xo",           name: "X & O",  icon: "⚔️", desc: "",     min: 2, max: 2, ready: true },
-  { id: "codenames",    name: "الكلمات المشفرة",  icon: "🕵️‍♂️", desc: "كلمات مشفرة وجواسيس",     min: 2, max: 2, ready: False }
+  { id: "codenames",    name: "الكلمات المشفرة",  icon: "🕵️‍♂️", desc: "كلمات مشفرة وجواسيس",     min: 2, max: 2, ready: true }
 
 ];
