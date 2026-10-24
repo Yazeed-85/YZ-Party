@@ -176,12 +176,13 @@ function render() {
     return b;
   }));
   if (imgsReady && !cardsShown) { cardsShown = true; if (G()) gsap.from('.gcard', { y: 18, opacity: 0, scale: .96, duration: .5, stagger: .07, ease: 'power3.out', clearProps: 'opacity,transform' }); }
-  const pick = GAMES.find(x => x.id === meta.pick), ok = pick && n >= pick.min && n <= pick.max;
+  const fits = (g, k) => (g.counts ? g.counts.includes(k) : k >= g.min && k <= g.max);
+  const pick = GAMES.find(x => x.id === meta.pick), ok = pick && fits(pick, n);
   $('#start').hidden = !isHost; $('#start').disabled = !ok;
   $('#hint').textContent = !isHost ? 'بانتظار المضيف ليختار اللعبة'
     : !GAMES.some(x => x.ready) ? 'الألعاب تُضاف تباعاً ولا توجد لعبة جاهزة بعد'
     : !pick ? 'اختر لعبة للبدء'
-    : ok ? '' : `هذه اللعبة تحتاج ${pick.min === pick.max ? pick.min : pick.min + ' إلى ' + pick.max} لاعبين`;
+    : ok ? '' : `هذه اللعبة تحتاج ${pick.counts ? pick.counts.join(' أو ') : pick.min === pick.max ? pick.min : pick.min + ' إلى ' + pick.max} لاعبين`;
 }
 
 function closed(msg, kind = 'info') {
