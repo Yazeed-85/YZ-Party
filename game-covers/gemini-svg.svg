@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0e1322" /><stop offset="1" stop-color="#05070d" /></linearGradient>
+<radialGradient id="redOrb" cx=".15" cy=".2" r=".7"><stop offset="0" stop-color="#ef4444" stop-opacity=".35" /><stop offset="1" stop-color="#ef4444" stop-opacity="0" /></radialGradient>
+<radialGradient id="blueOrb" cx=".85" cy=".8" r=".7"><stop offset="0" stop-color="#3b82f6" stop-opacity=".35" /><stop offset="1" stop-color="#3b82f6" stop-opacity="0" /></radialGradient>
+<linearGradient id="redCard" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fca5a5" /><stop offset="1" stop-color="#ef4444" /></linearGradient>
+<linearGradient id="blueCard" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bfdbfe" /><stop offset="1" stop-color="#3b82f6" /></linearGradient>
+<linearGradient id="neutralCard" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#475569" /><stop offset="1" stop-color="#1e293b" /></linearGradient>
+<linearGradient id="assassinCard" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#27272a" /><stop offset="1" stop-color="#09090b" /></linearGradient>
+<filter id="blur"><feGaussianBlur stdDeviation="12" /></filter>
+<filter id="glow"><feGaussianBlur stdDeviation="5" result="blur" /><feComposite in="SourceGraphic" in2="blur" operator="over" /></filter>
+</defs>
+
+<!-- الخلفية والأجرام المضيئة -->
+<rect width="600" height="400" fill="url(#bg)" />
+<rect width="600" height="400" fill="url(#redOrb)" />
+<rect width="600" height="400" fill="url(#blueOrb)" />
+
+<!-- شبكة تكتيكية خافتة في الخلفية -->
+<g stroke="rgba(255,255,255,0.03)" stroke-width="1">
+  <line x1="0" y1="100" x2="600" y2="100" />
+  <line x1="0" y1="200" x2="600" y2="200" />
+  <line x1="0" y1="300" x2="600" y2="300" />
+  <line x1="150" y1="0" x2="150" y2="400" />
+  <line x1="300" y1="0" x2="300" y2="400" />
+  <line x1="450" y1="0" x2="450" y2="400" />
+</g>
+
+<!-- بطاقات اللعبة الحقيقية بناءً على لوحة اللعب الفعلية -->
+<g transform="translate(300, 200) rotate(-10) scale(1, 0.9) translate(-300, -200)" filter="drop-shadow(0 25px 35px rgba(0,0,0,0.7))">
+  
+  <!-- بطاقة حمراء: قمر -->
+  <g transform="translate(170, 130) rotate(-10)">
+    <rect x="-50" y="-65" width="100" height="130" rx="12" fill="url(#redCard)" stroke="#f87171" stroke-width="2" filter="url(#glow)" />
+    <text x="0" y="8" font-family="&#39;Cairo&#39;, sans-serif" font-weight="900" font-size="22" fill="#fff" text-anchor="middle">قمر</text>
+  </g>
+
+  <!-- بطاقة زرقاء: سماء -->
+  <g transform="translate(290, 110) rotate(5)">
+    <rect x="-50" y="-65" width="100" height="130" rx="12" fill="url(#blueCard)" stroke="#60a5fa" stroke-width="2" filter="url(#glow)" />
+    <text x="0" y="8" font-family="&#39;Cairo&#39;, sans-serif" font-weight="900" font-size="22" fill="#fff" text-anchor="middle">سماء</text>
+  </g>
+
+  <!-- بطاقة محايدة: باب -->
+  <g transform="translate(410, 140) rotate(12)">
+    <rect x="-50" y="-65" width="100" height="130" rx="12" fill="url(#neutralCard)" stroke="#64748b" stroke-width="2" />
+    <text x="0" y="8" font-family="&#39;Cairo&#39;, sans-serif" font-weight="900" font-size="22" fill="#f1f5f9" text-anchor="middle">باب</text>
+  </g>
+
+  <!-- بطاقة حمراء: جذر -->
+  <g transform="translate(150, 260) rotate(5)">
+    <rect x="-50" y="-65" width="100" height="130" rx="12" fill="url(#redCard)" stroke="#f87171" stroke-width="2" filter="url(#glow)" />
+    <text x="0" y="8" font-family="&#39;Cairo&#39;, sans-serif" font-weight="900" font-size="22" fill="#fff" text-anchor="middle">جذر</text>
+  </g>
+
+  <!-- بطاقة زرقاء: جبل -->
+  <g transform="translate(270, 250) rotate(-6)">
+    <rect x="-50" y="-65" width="100" height="130" rx="12" fill="url(#blueCard)" stroke="#60a5fa" stroke-width="2" filter="url(#glow)" />
+    <text x="0" y="8" font-family="&#39;Cairo&#39;, sans-serif" font-weight="900" font-size="22" fill="#fff" text-anchor="middle">جبل</text>
+  </g>
+
+  <!-- بطاقة المغتال (الأسود) -->
+  <g transform="translate(390, 270) rotate(-4)">
+    <rect x="-50" y="-65" width="100" height="130" rx="12" fill="url(#assassinCard)" stroke="#ef4444" stroke-width="2" filter="url(#glow)" />
+    <text x="0" y="0" font-family="&#39;Cairo&#39;, sans-serif" font-weight="900" font-size="24" fill="#ef4444" text-anchor="middle">💀</text>
+    <text x="0" y="32" font-family="&#39;Cairo&#39;, sans-serif" font-weight="700" font-size="14" fill="#a1a1aa" text-anchor="middle">مغتال</text>
+  </g>
+</g>
+
+<!-- طبقة تظليل شاملة لضمان وضوح النص في القائمة الرئيسية -->
+<rect width="600" height="400" fill="#05070d" opacity="0.45" style="backdrop-filter: blur(2px);" />
+</svg>
