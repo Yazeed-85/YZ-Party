@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>بار الكذّابين</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+html,body{height:100%;overflow:hidden}
+body{background-image:radial-gradient(70% 40% at 50% 0%,rgba(255,107,129,.13),transparent),radial-gradient(60% 50% at 95% 0%,rgba(79,209,197,.13),transparent),radial-gradient(55% 45% at 0% 100%,rgba(255,180,84,.12),transparent)}
+main{max-width:520px;height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:6px;padding:8px 12px 10px}
+@media (pointer:coarse){main{padding-bottom:54px}}
+.scorebar{padding:5px 8px;flex:none;position:relative;z-index:120}.sb{padding:4px 10px;font-size:.88rem}
+/* شريط المعلومات */
+.info{display:flex;align-items:center;gap:6px;flex:none}
+.chip{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:.8rem;white-space:nowrap;color:var(--text)}
+.chip b{font:700 1rem 'Reem Kufi',sans-serif;color:var(--amber)}
+.chip.tg{padding:2px 10px 2px 7px}.chip.tg svg{width:20px;height:28px;display:block}
+.chip.sp{margin-inline-start:auto}
+.chip.btnc{cursor:pointer;font:inherit;width:34px;justify-content:center;padding:3px 0}
+.chip.warn{border-color:var(--rose);color:var(--rose)}
+.tbar{height:3px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;flex:none}
+.tbar i{display:block;height:100%;width:100%;background:var(--lagoon);transform-origin:right;transform:scaleX(0)}
+/* المشهد: يُصغَّر تلقائياً ليتسع بلا تمرير */
+.scene{position:relative;flex:1 1 0;min-height:110px}
+.stage{position:absolute;left:50%;top:0;width:340px;height:340px;margin-left:-170px;transform-origin:50% 0}
+.stage>*{position:absolute;left:0;top:0;width:340px;height:340px}
+#tableSvg{pointer-events:none}
+#pile{pointer-events:none;z-index:3}
+.pc{position:absolute;left:146px;top:126px;width:48px;height:67px;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}
+.pc svg,.fc svg,.hc svg{width:100%;height:100%;display:block}
+#seats{z-index:5}
+#fly{z-index:8;pointer-events:none}
+#fx{z-index:20;pointer-events:none}
+.seat{position:absolute;width:92px;transform:translate(-50%,-27px);display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;--pc:#4fd1c5;--pcg:rgba(79,209,197,.6)}
+.av{position:relative;width:54px;height:54px;border-radius:50%;border:3px solid var(--pc);background:#12172a;box-shadow:0 6px 14px rgba(0,0,0,.5)}
+.av .face{width:100%;height:100%;border-radius:50%;display:block}
+.seat.act .av{animation:glow 1.1s ease-in-out infinite}
+@keyframes glow{0%,100%{box-shadow:0 0 0 0 var(--pcg),0 6px 14px rgba(0,0,0,.5)}50%{box-shadow:0 0 16px 6px var(--pcg),0 6px 14px rgba(0,0,0,.5)}}
+.seat .hcb{position:absolute;top:-6px;inset-inline-end:-10px;min-width:22px;height:22px;padding:0 5px;border-radius:11px;background:var(--amber);color:#3a2605;font:700 .8rem 'Reem Kufi',sans-serif;display:flex;align-items:center;justify-content:center;gap:2px;border:2px solid #12172a}
+.seat .nm{font-size:.76rem;font-weight:700;max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 4px #000;color:var(--pc)}
+.seat.me .nm::after{content:' (أنت)';color:var(--mute);font-weight:400}
+.pips{display:flex;gap:3px;direction:ltr;height:7px}.pips i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.16)}.pips i.on{background:var(--rose);box-shadow:0 0 6px var(--rose)}
+.sk{position:absolute;inset:3px;display:none;border-radius:50%;background:rgba(8,10,20,.55)}.sk svg{width:100%;height:100%}
+.seat.dead .av{filter:grayscale(1) brightness(.55)}.seat.dead .sk{display:block}.seat.dead .nm{color:var(--mute);text-decoration:line-through}.seat.dead .hcb{display:none}
+.seat.off .av{opacity:.55}.seat.off .nm::before{content:'📡 '}
+.bub{position:absolute;bottom:calc(100% - 10px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;background:#12172a;border:1px solid var(--amber);font-size:.78rem;font-weight:700;white-space:nowrap;z-index:6;pointer-events:none}
+.bub svg{width:15px;height:21px}
+/* الأوراق والتأثيرات */
+.fc{perspective:700px;position:absolute}.fi{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+.ff,.fb{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;filter:drop-shadow(0 6px 10px rgba(0,0,0,.55))}.ff{transform:rotateY(180deg)}
+.dim{position:absolute;inset:0;background:radial-gradient(circle at 50% 47%,rgba(5,7,14,.88),rgba(5,7,14,.6))}
+.ban{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:9px 20px;border-radius:999px;font:700 1.2rem 'Reem Kufi',sans-serif;white-space:nowrap;background:#12172a;border:2px solid var(--amber);color:var(--amber);box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.ban.red{border-color:var(--rose);color:var(--rose)}.ban.grn{border-color:#34d399;color:#34d399}
+.say{position:absolute;left:0;width:340px;text-align:center;font:700 1.1rem 'Reem Kufi',sans-serif;text-shadow:0 2px 10px #000}
+.say small{display:block;font:400 .8rem 'Cairo',sans-serif;color:var(--mute);margin-top:2px}
+#gun{position:absolute;left:75px;top:75px;width:190px;height:190px;filter:drop-shadow(0 10px 18px rgba(0,0,0,.7))}
+.flash{position:absolute;inset:-60px;background:#fff;opacity:0}
+.vig{position:absolute;inset:-60px;background:radial-gradient(circle,rgba(255,107,129,0) 25%,rgba(180,20,50,.85));opacity:0}
+/* اليد والأزرار */
+.hand{flex:none;height:126px;position:relative;touch-action:manipulation}
+.hc{position:absolute;left:50%;top:16px;width:72px;height:101px;margin-left:-36px;cursor:pointer;transform-origin:50% 130%;filter:drop-shadow(0 6px 8px rgba(0,0,0,.55));-webkit-tap-highlight-color:transparent}
+.hc.sel{filter:drop-shadow(0 0 9px var(--amber)) drop-shadow(0 6px 8px rgba(0,0,0,.55))}
+.hand.off .hc{cursor:default}
+.ctl{display:flex;gap:10px;flex:none}
+.ctl .btn{padding:12px 8px}
+.btn.play{background:var(--amber);color:#3a2605;border-color:transparent;flex:1.35}
+.btn.liar{background:var(--rose);color:#2a0710;border-color:transparent;flex:1}
+.btn.pulse{animation:pulseb .8s ease-in-out infinite alternate}@keyframes pulseb{to{transform:scale(1.05);box-shadow:0 0 18px rgba(255,107,129,.7)}}
+.spec{flex:none;text-align:center;padding:12px;border-radius:16px;background:rgba(255,107,129,.1);border:1px solid rgba(255,107,129,.4);color:var(--rose);font-weight:700}
+/* شاشة الدخول */
+.enter{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:74px 20px 20px;background:radial-gradient(80% 60% at 50% 0%,#1d1530,#07090f 70%)}
+.ecard{width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.ecard .logo{width:150px;height:150px}
+.ecard h1{font:700 2.3rem 'Reem Kufi',sans-serif;letter-spacing:.02em;line-height:1.1}
+.ecard h1 em{font-style:normal;color:var(--rose)}
+.ecard .tag{color:var(--mute);font-size:.95rem}
+.plist{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.pchip{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:.85rem;--pc:#4fd1c5}
+.pchip i{width:9px;height:9px;border-radius:50%;background:var(--pc);opacity:.35}.pchip.ok i{opacity:1;box-shadow:0 0 8px var(--pc)}
+.ecard .btn{max-width:340px}
+.ecard .sm2{color:var(--mute);font-size:.82rem;min-height:1.2em}
+.rules{max-width:360px;text-align:right;align-items:stretch}
+.rules ol{padding-inline-start:20px;display:flex;flex-direction:column;gap:7px;font-size:.9rem;line-height:1.6;color:var(--text)}
+.rules ol b{color:var(--amber)}
+@media (prefers-reduced-motion:reduce){.seat.act .av,.btn.pulse{animation:none}}
+</style>
+</head>
+<body>
+<svg id="defs" width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <linearGradient id="g-paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#eadfc6"/></linearGradient>
+  <linearGradient id="g-back" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a3880"/><stop offset="1" stop-color="#0b1030"/></linearGradient>
+  <pattern id="p-lat" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0 0H14M0 0V14" stroke="#ffb454" stroke-opacity=".28" stroke-width="1"/></pattern>
+  <radialGradient id="g-felt" cx=".5" cy=".4" r=".75"><stop offset="0" stop-color="#14524f"/><stop offset=".7" stop-color="#0b3030"/><stop offset="1" stop-color="#071d1e"/></radialGradient>
+  <linearGradient id="g-rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd48a"/><stop offset=".5" stop-color="#c98a22"/><stop offset="1" stop-color="#6a4410"/></linearGradient>
+  <radialGradient id="g-steel" cx=".35" cy=".3" r=".9"><stop offset="0" stop-color="#cfd6e6"/><stop offset=".55" stop-color="#6c7794"/><stop offset="1" stop-color="#232a44"/></radialGradient>
+  <symbol id="s-spade" viewBox="0 0 100 100"><path d="M50 4C50 4 8 36 8 60c0 15 11 25 24 23 3-.4 6-1.6 8-3.2-1 8-5 14-11 17h42c-6-3-10-9-11-17 2 1.6 5 2.8 8 3.2 13 2 24-8 24-23C92 36 50 4 50 4Z"/></symbol>
+  <symbol id="s-heart" viewBox="0 0 100 100"><path d="M50 92C14 64 4 42 14 26c8-13 28-12 36 4 8-16 28-17 36-4 10 16 0 38-36 66Z"/></symbol>
+  <symbol id="s-diamond" viewBox="0 0 100 100"><path d="M50 4 92 50 50 96 8 50Z"/></symbol>
+  <symbol id="s-crown" viewBox="0 0 100 70"><path d="M8 58 4 14 30 38 50 6 70 38 96 14 92 58Z"/><circle cx="4" cy="12" r="5"/><circle cx="50" cy="5" r="5"/><circle cx="96" cy="12" r="5"/><rect x="8" y="60" width="84" height="8" rx="3"/></symbol>
+  <symbol id="s-tiara" viewBox="0 0 100 70"><path d="M8 60C10 36 26 22 40 38 44 20 56 20 60 38 74 22 90 36 92 60Z"/><circle cx="50" cy="12" r="7"/><circle cx="12" cy="30" r="4"/><circle cx="88" cy="30" r="4"/><rect x="8" y="62" width="84" height="7" rx="3"/></symbol>
+  <symbol id="s-joker" viewBox="0 0 100 100">
+    <path d="M50 60C20 60 4 40 10 12 22 28 34 42 50 48Z" fill="#4fd1c5"/><path d="M50 60C38 40 40 20 50 4 60 20 62 40 50 60Z" fill="#ffb454"/><path d="M50 60C80 60 96 40 90 12 78 28 66 42 50 48Z" fill="#ff6b81"/>
+    <circle cx="10" cy="11" r="6" fill="#ffd48a"/><circle cx="50" cy="4" r="6" fill="#ffd48a"/><circle cx="90" cy="11" r="6" fill="#ffd48a"/>
+    <rect x="22" y="58" width="56" height="12" rx="6" fill="#2a3a7a"/><circle cx="50" cy="84" r="15" fill="#ffe3b0"/><circle cx="44" cy="81" r="2.2" fill="#2a1305"/><circle cx="56" cy="81" r="2.2" fill="#2a1305"/><path d="M42 88Q50 96 58 88" stroke="#2a1305" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  </symbol>
+</defs>
+</svg>
+<main>
+  <div id="sb" class="glass scorebar"></div>
+  <div class="info">
+    <div class="chip" id="cRound">…</div>
+    <div class="chip tg" id="cTarget"></div>
+    <div class="chip" id="cAlive"></div>
+    <div class="chip sp" id="cTime" hidden></div>
+    <button class="chip btnc" id="bSnd" aria-label="الصوت">🔊</button>
+    <button class="chip btnc" id="bHelp" aria-label="القواعد">؟</button>
+  </div>
+  <div class="tbar"><i id="tbi"></i></div>
+  <div id="scene" class="scene">
+    <div id="stage" class="stage">
+      <svg id="tableSvg" viewBox="0 0 340 340">
+        <ellipse cx="170" cy="176" rx="132" ry="92" fill="#000" opacity=".4"/>
+        <ellipse cx="170" cy="160" rx="128" ry="88" fill="url(#g-rim)"/>
+        <ellipse cx="170" cy="160" rx="118" ry="78" fill="url(#g-felt)"/>
+        <ellipse cx="170" cy="160" rx="102" ry="63" fill="none" stroke="#ffb454" stroke-opacity=".3" stroke-dasharray="3 5"/>
+        <use href="#s-spade" x="150" y="140" width="40" height="40" fill="#ffb454" opacity=".07"/>
+      </svg>
+      <div id="pile"></div>
+      <div id="seats"></div>
+      <div id="fly"></div>
+      <div id="fx"></div>
+    </div>
+  </div>
+  <div id="spec" class="spec" hidden>💀 أنت خارج اللعبة — تتابع المشاهدة</div>
+  <div id="hand" class="hand off"></div>
+  <div id="ctl" class="ctl">
+    <button id="bPlay" class="btn play" disabled>اختر أوراقاً</button>
+    <button id="bLiar" class="btn liar" disabled>🤥 كذّاب</button>
+  </div>
+</main>
+<div id="enter" class="enter"></div>
+<script type="module">
+import { runTransaction, onValue, get, set, remove, serverNow } from '../../shared/firebase.js';
+import { enterRoom, watchRoom, gameRef, roomRef, goLobby, abortGame } from '../../shared/room.js';
+import { finishGame, makeResult } from '../../shared/result.js';
+import { countdown, deadline } from '../../shared/timer.js';
+import { toast, sfx, scoreBar, confirmDialog, showOverlay, isMuted, toggleMute } from '../../shared/ui.js';
+import { initGroupExit } from '../../shared/leave.js';
+
+// ===== محرّك القواعد (دوال نقية بلا شبكة، تُختبر بمحاكاة آلاف المباريات) =====
+const HAND = 5, MAX_PLAY = 3, TURN_S = 45, DEAL_S = 3.6, REVEAL_S = 4.8, ROUL_S = 8.8, REDEAL_S = 3.4, DONE_S = 6.5, STRIKES = 2, CH_S = 8;
+const CODES = ['A', 'K', 'Q'];
+const rnd = n => Math.floor(Math.random() * n);
+const A = (arr, i, v) => { const a = [...arr]; a[i] = v; return a; };
+const aliveIdx = al => al.map((a, i) => (a ? i : -1)).filter(i => i >= 0);
+const nextAlive = (al, from) => { const n = al.length; for (let k = 1; k <= n; k++) { const i = (from + k) % n; if (al[i]) return i; } return from; };
+const newPid = () => Math.random().toString(36).slice(2, 10);
+const newMeta = () => ({ r: Math.round(Math.random() * 60 - 30), x: Math.round(Math.random() * 20 - 10), y: Math.round(Math.random() * 20 - 10) });
+function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+// التوزيع كما في اللعبة القديمة: كل لاعب ورقة مطلوبة على الأقل، وجوكران لاثنين مختلفين، والباقي من بقية الأوراق
+function dealHands(uids, target) {
+  const COUNTS = { A: 6, K: 6, Q: 6 };
+  const targetCards = shuffle(Array(COUNTS[target]).fill(target)), otherCards = [];
+  CODES.forEach(c => { if (c !== target) for (let i = 0; i < COUNTS[c]; i++) otherCards.push(c); });
+  const hands = {}; uids.forEach(u => { hands[u] = []; });
+  shuffle(uids).forEach(u => { if (targetCards.length) hands[u].push(targetCards.pop()); });
+  shuffle(uids).slice(0, 2).forEach((u, i) => { if (hands[u].length < HAND) hands[u].push('J'); });
+  const pool = shuffle([...targetCards, ...shuffle(otherCards)]);
+  uids.forEach(u => { while (hands[u].length < HAND && pool.length) hands[u].push(pool.pop()); hands[u] = shuffle(hands[u]); });
+  return hands;
+}
+
+const newState = order => {
+  const n = order.length, z = () => Array(n).fill(0);
+  return { order, al: Array(n).fill(1), out: [], ch: z(), hc: z(), rd: z(), afk: z(), rnd: 0, tg: 'A', turn: 0, ph: 'ready', endAt: 0, seq: 0, pile: [], ev: { n: 0, t: '', i: 0 } };
+};
+const evOf = (s, t, i) => ({ n: (s.ev?.n || 0) + 1, t, i });
+
+// بدء جولة: أوراق جديدة وهدف جديد، أو (same) إعادة توزيع بالهدف نفسه بعد نفاد الأوراق
+function startRound(s, same) {
+  const idx = aliveIdx(s.al);
+  if (idx.length < 2) return { state: { ...s, ph: 'done', win: idx[0] ?? 0, endAt: deadline(DONE_S), seq: s.seq + 1 } };
+  const tg = same ? s.tg : CODES[rnd(3)], hands = dealHands(idx.map(i => s.order[i]), tg);
+  const turn = same ? (s.al[s.turn] ? s.turn : nextAlive(s.al, s.turn)) : idx[rnd(idx.length)];
+  const state = { ...s, rnd: same ? s.rnd : (s.rnd || 0) + 1, tg, turn, hc: s.order.map((_, i) => (s.al[i] ? HAND : 0)), pile: [], last: null, clg: null, rv: null, shot: null, ph: 'deal', endAt: deadline(DEAL_S), seq: s.seq + 1 };
+  return { state, post: { deal: hands } };
+}
+
+// نزول أوراق: يمرّر الدور، وإن فرغت أوراق الجميع تبدأ إعادة التوزيع بالهدف نفسه
+function playTx(c, by, n, pid, metas, afkVal = 0) {
+  const hc = A(c.hc, by, c.hc[by] - n);
+  const o = { ...c, hc, pile: [...(c.pile || []), ...metas], last: { by, n, pid }, turn: nextAlive(c.al, by), endAt: deadline(TURN_S), afk: A(c.afk, by, afkVal), seq: c.seq + 1 };
+  if (hc[by] === 0 && c.al.every((a, i) => !a || i === by || hc[i] === 0)) { o.ph = 'redeal'; o.endAt = deadline(REDEAL_S); }
+  return o;
+}
+const callTx = (c, by) => ({ ...c, ph: 'challenge', clg: { by, on: c.last.by }, endAt: deadline(CH_S), afk: A(c.afk, by, 0), seq: c.seq + 1 });
+
+// الإقصاء (انسحاب أو غياب): يُخرج اللاعب، وإن بقي واحد فاز، وإن كان دوره ينتقل الدور
+function forfeitTx(c, idx, why) {
+  if (!c.al[idx] || c.ph === 'done') return c;
+  const al = A(c.al, idx, 0), out = [...(c.out || []), idx], hc = A(c.hc, idx, 0), alive = aliveIdx(al);
+  const o = { ...c, al, out, hc, ev: evOf(c, why, idx), seq: c.seq + 1 };
+  if (alive.length <= 1) { o.ph = 'done'; o.win = alive[0] ?? idx; o.endAt = deadline(DONE_S); return o; }
+  if (c.turn === idx && (c.ph === 'turn' || c.ph === 'deal')) { o.turn = nextAlive(al, idx); if (c.ph === 'turn') o.endAt = deadline(TURN_S); }
+  if (c.ph === 'redeal' && c.turn === idx) o.turn = nextAlive(al, idx);
+  return o;
+}
+
+// حسم الاتهام: الورقة صادقة إن كانت كلها من الهدف أو جوكر. تعذّر إثبات الأوراق = كذب
+function challenge(s, io) {
+  const on = s.clg.on, cards = io.pl(s.order[on], s.last.pid);
+  const valid = Array.isArray(cards) && cards.length === s.last.n;
+  const liar = !valid || cards.some(x => x !== s.tg && x !== 'J'), vic = liar ? on : s.clg.by;
+  return { state: { ...s, ph: 'reveal', rv: { cards: valid ? cards : [], liar, vic, inv: !valid }, endAt: deadline(REVEAL_S), seq: s.seq + 1 } };
+}
+function toRoulette(s, io) {
+  const v = s.rv.vic;
+  if (!s.al[v]) return afterShot({ ...s, shot: null });                       // الضحية خرجت سابقاً: لا سحب للزناد
+  return { state: { ...s, ph: 'roulette', shot: { vic: v, died: s.ch[v] === io.bullet(s.order[v]), chm: s.ch[v] }, endAt: deadline(ROUL_S), seq: s.seq + 1 } };
+}
+function afterShot(s) {
+  const v = s.shot?.vic ?? s.rv?.vic, al = [...s.al], out = [...(s.out || [])], ch = [...s.ch], hc = [...s.hc];
+  if (v != null && al[v]) { if (s.shot?.died) { al[v] = 0; out.push(v); hc[v] = 0; } else ch[v]++; }
+  const alive = aliveIdx(al), base = { ...s, al, out, ch, hc, shot: null, rv: null, clg: null };
+  if (alive.length <= 1) return { state: { ...base, ph: 'done', win: alive[0] ?? v ?? 0, endAt: deadline(DONE_S), seq: s.seq + 1 } };
+  return startRound(base, false);
+}
+
+// انتهاء مهلة الدور: ورقة عشوائية تلقائياً (أو اتهام إن فرغت يده)، ثم الإقصاء عند تكرار الغياب
+function autoTurn(s, io) {
+  const i = s.turn, uid = s.order[i];
+  if ((s.afk[i] || 0) >= STRIKES - 1) return { state: forfeitTx(s, i, 'afk') };
+  const h = io.hand(uid) || [];
+  if (h.length) {
+    const k = rnd(h.length), pid = newPid();
+    return { pre: { pl: { [uid]: { pid, c: [h[k]] } } }, state: { ...playTx(s, i, 1, pid, [newMeta()], (s.afk[i] || 0) + 1), ev: evOf(s, 'auto', i) }, post: { h: { [uid]: h.filter((_, j) => j !== k) } } };
+  }
+  if (s.last) return { state: { ...callTx(s, i), afk: A(s.afk, i, (s.afk[i] || 0) + 1), ev: evOf(s, 'autoliar', i) } };
+  return { state: { ...s, turn: nextAlive(s.al, i), endAt: deadline(TURN_S), afk: A(s.afk, i, (s.afk[i] || 0) + 1), seq: s.seq + 1 } };
+}
+
+function step(s, io, now) {
+  if (s.ph === 'ready') { const idx = aliveIdx(s.al); if (idx.length < 2) return { state: { ...s, ph: 'done', win: idx[0] ?? 0, endAt: deadline(DONE_S), seq: s.seq + 1 } }; return idx.every(i => s.rd[i]) ? startRound(s, false) : null; }
+  if (s.ph === 'challenge') return challenge(s, io);
+  if (now < (s.endAt || 0)) return null;
+  switch (s.ph) {
+    case 'deal': return { state: { ...s, turn: s.al[s.turn] ? s.turn : nextAlive(s.al, s.turn), ph: 'turn', endAt: deadline(TURN_S), seq: s.seq + 1 } };
+    case 'turn': return autoTurn(s, io);
+    case 'reveal': return toRoulette(s, io);
+    case 'roulette': return afterShot(s);
+    case 'redeal': return startRound(s, true);
+    default: return null;
+  }
+}
+const needs = (s, now) => (s.ph === 'challenge' ? [s.order[s.clg.on]] : s.ph === 'turn' && now >= (s.endAt || 0) ? [s.order[s.turn]] : []);
+// ===== نهاية المحرّك =====
+
+// ===== أدوات DOM وبيانات الرسم =====
+const $ = s => document.querySelector(s);
+const div = (c, html) => { const e = document.createElement('div'); if (c) e.className = c; if (html != null) e.innerHTML = html; return e; };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (reduce) gsap.globalTimeline.timeScale(8);
+const PCOL = ['#4fd1c5', '#ffb454', '#ff6b81', '#a78bfa'], PGLOW = ['rgba(79,209,197,.6)', 'rgba(255,180,84,.6)', 'rgba(255,107,129,.6)', 'rgba(167,139,250,.6)'];
+const CNAME = { A: 'الآص', K: 'الملك', Q: 'الملكة', J: 'الجوكر' };
+const CLIMAX = 5.6;                                  // لحظة الطلقة/الكليك داخل ملفي الصوت kill وsafe
+
+// ----- الأوراق (SVG مرسومة، بلا صور خارجية) -----
+const SUIT = { A: ['s-spade', '#1a2552'], K: ['s-heart', '#d6354f'], Q: ['s-diamond', '#d6354f'] };
+function cardFace(code) {
+  const paper = '<rect x="2" y="2" width="96" height="136" rx="10" fill="url(#g-paper)" stroke="#c9b98f" stroke-width="1.5"/>';
+  if (code === 'J') return `<svg viewBox="0 0 100 140">${paper}<rect x="8" y="8" width="84" height="124" rx="6" fill="none" stroke="#2a3a7a" stroke-opacity=".25"/><text x="15" y="27" font-size="20" font-weight="700" fill="#2a3a7a" text-anchor="middle">★</text><g transform="rotate(180 50 70)"><text x="15" y="27" font-size="20" font-weight="700" fill="#2a3a7a" text-anchor="middle">★</text></g><use href="#s-joker" x="17" y="22" width="66" height="84"/><text x="50" y="124" font-size="14" font-weight="700" fill="#2a3a7a" text-anchor="middle" font-family="Reem Kufi,sans-serif">جوكر</text></svg>`;
+  const [sym, col] = SUIT[code] || SUIT.A;
+  const cor = `<text x="15" y="27" font-size="22" font-weight="700" fill="${col}" text-anchor="middle" font-family="Reem Kufi,Georgia,serif">${code}</text><use href="#${sym}" x="8" y="31" width="14" height="14" fill="${col}"/>`;
+  const em = code === 'A' ? `<circle cx="50" cy="72" r="31" fill="none" stroke="${col}" stroke-opacity=".2" stroke-width="2"/><use href="#s-spade" x="22" y="44" width="56" height="56" fill="${col}"/>`
+    : code === 'K' ? `<use href="#s-crown" x="22" y="30" width="56" height="39" fill="#e0a62e"/><use href="#s-heart" x="28" y="70" width="44" height="44" fill="${col}"/>`
+    : `<use href="#s-tiara" x="22" y="30" width="56" height="39" fill="#e0a62e"/><use href="#s-diamond" x="30" y="70" width="40" height="44" fill="${col}"/>`;
+  return `<svg viewBox="0 0 100 140">${paper}<rect x="8" y="8" width="84" height="124" rx="6" fill="none" stroke="${col}" stroke-opacity=".18"/>${cor}<g transform="rotate(180 50 70)">${cor}</g>${em}</svg>`;
+}
+const cardBack = () => '<svg viewBox="0 0 100 140"><rect x="2" y="2" width="96" height="136" rx="10" fill="url(#g-back)" stroke="#ffb454" stroke-width="2"/><rect x="9" y="9" width="82" height="122" rx="6" fill="url(#p-lat)" stroke="#ffb454" stroke-opacity=".5"/><circle cx="50" cy="70" r="21" fill="#0b1030" stroke="#ffb454" stroke-width="2"/><text x="50" y="78" text-anchor="middle" font-size="22" font-weight="700" fill="#ffb454" font-family="Reem Kufi,sans-serif">YZ</text></svg>';
+
+// ----- الشخصيات: ذئب، ثعلب، دب، قطة -----
+const FACES = [
+  { skin: '#8fa3c7', dark: '#5e7099', snout: '#dfe6f5', ears: '<path d="M16 40 22 6 46 26Z" fill="#5e7099"/><path d="M84 40 78 6 54 26Z" fill="#5e7099"/>' },
+  { skin: '#ff9a4a', dark: '#c2561a', snout: '#fff3e6', ears: '<path d="M14 42 22 4 48 26Z" fill="#c2561a"/><path d="M86 42 78 4 52 26Z" fill="#c2561a"/><path d="M22 30 25 14 38 26Z" fill="#2a1305"/><path d="M78 30 75 14 62 26Z" fill="#2a1305"/>' },
+  { skin: '#a26b45', dark: '#6e4529', snout: '#e7c9a4', ears: '<circle cx="24" cy="26" r="13" fill="#6e4529"/><circle cx="76" cy="26" r="13" fill="#6e4529"/><circle cx="24" cy="26" r="6" fill="#e7c9a4"/><circle cx="76" cy="26" r="6" fill="#e7c9a4"/>' },
+  { skin: '#a78bfa', dark: '#6f55c9', snout: '#ece5ff', ears: '<path d="M18 42 20 10 44 28Z" fill="#6f55c9"/><path d="M82 42 80 10 56 28Z" fill="#6f55c9"/><path d="M23 34 24 18 36 28Z" fill="#ffb3be"/><path d="M77 34 76 18 64 28Z" fill="#ffb3be"/>' }
+];
+const avatar = i => { const f = FACES[i % 4]; return `<svg class="face" viewBox="0 0 100 100"><rect width="100" height="100" fill="#12172a"/>${f.ears}<circle cx="50" cy="58" r="34" fill="${f.skin}"/><ellipse cx="50" cy="70" rx="17" ry="13" fill="${f.snout}"/><circle cx="38" cy="52" r="4.5" fill="#12172a"/><circle cx="62" cy="52" r="4.5" fill="#12172a"/><circle cx="39.6" cy="50.4" r="1.5" fill="#fff"/><circle cx="63.6" cy="50.4" r="1.5" fill="#fff"/><path d="M45 65h10l-5 6Z" fill="#12172a"/><path d="M50 71v4M44 77q6 4 12 0" stroke="#12172a" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`; };
+const SKULL = '<svg viewBox="0 0 100 100"><path d="M50 14C28 14 17 29 17 46c0 12 6 20 12 24v12h10v-6h6v6h10v-6h6v6h10V70c6-4 12-12 12-24C83 29 72 14 50 14Z" fill="#f2efe6"/><circle cx="36" cy="46" r="9" fill="#12172a"/><circle cx="64" cy="46" r="9" fill="#12172a"/><path d="M46 60l4-7 4 7Z" fill="#12172a"/></svg>';
+
+// ----- المسدس: أسطوانة بست خانات (الخانات المسحوبة سابقاً بنحاس مستهلك) -----
+function gunSVG(chm) {
+  const holes = [...Array(6)].map((_, k) => {
+    const a = k * Math.PI / 3, x = 100 + Math.sin(a) * 54, y = 100 - Math.cos(a) * 54, used = k < chm, cur = k === chm;
+    return `<g><circle cx="${x}" cy="${y}" r="18" fill="#0a0d1a" stroke="${cur ? '#ffb454' : used ? '#6b7494' : '#3a4160'}" stroke-width="${cur ? 3.5 : 2}"/>${used ? `<circle cx="${x}" cy="${y}" r="8" fill="#8a7648" opacity=".85"/><circle cx="${x}" cy="${y}" r="3" fill="#3a2f15"/>` : ''}<g id="bul${k}"></g></g>`;
+  }).join('');
+  return `<svg id="gun" viewBox="0 -12 200 212"><g id="cylG"><circle cx="100" cy="100" r="92" fill="url(#g-steel)" stroke="#0b0e1c" stroke-width="3"/><circle cx="100" cy="100" r="83" fill="none" stroke="#fff" stroke-opacity=".14"/>${holes}<circle cx="100" cy="100" r="16" fill="#232a44" stroke="#9aa4c0" stroke-width="2"/><circle cx="100" cy="100" r="5" fill="#0b0e1c"/></g><path d="M100 -4 87 16h26Z" fill="#ffb454" stroke="#3a2605" stroke-width="1.5"/></svg>`;
+}
+const LOGO = '<svg class="logo" viewBox="0 0 200 200"><defs><radialGradient id="lg" cx=".4" cy=".3" r=".9"><stop offset="0" stop-color="#ffd48a"/><stop offset=".5" stop-color="#ffb454"/><stop offset="1" stop-color="#ff6b81"/></radialGradient></defs><circle cx="100" cy="100" r="92" fill="#12172a" stroke="url(#lg)" stroke-width="5"/><circle cx="100" cy="100" r="74" fill="none" stroke="#ffb454" stroke-opacity=".3" stroke-dasharray="3 6"/>' +
+  [...Array(6)].map((_, k) => { const a = k * Math.PI / 3; return `<circle cx="${100 + Math.sin(a) * 44}" cy="${100 - Math.cos(a) * 44}" r="14" fill="#0a0d1a" stroke="#6b7494" stroke-width="2"/>`; }).join('') +
+  '<circle cx="144" cy="100" r="9" fill="#ff6b81"/><circle cx="100" cy="100" r="13" fill="url(#lg)"/><use href="#s-spade" x="91" y="91" width="18" height="18" fill="#3a1a0a"/></svg>';
+
+// ===== الصوت: أصوات لعبتك القديمة (sounds/) =====
+const SOUNDS = ['1A', '2A', '3A', '4A', '1K', '2K', '3K', '4K', '1Q', '2Q', '3Q', '4Q', 'kill', 'safe'];
+let ac = null, bufs = {}, curSrc = null, audioReady = false, audioLoading = null;
+const decodeBuf = ab => new Promise((res, rej) => { const p = ac.decodeAudioData(ab, res, rej); p?.then?.(res, rej); });
+async function unlockAudio() {                         // داخل لمسة المستخدم (يلزم iOS)
+  try { ac ??= new (window.AudioContext || window.webkitAudioContext)(); await ac.resume(); const b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch { /* نكمل بلا صوت */ }
+  if (!ac) return;
+  audioLoading ??= Promise.all(SOUNDS.map(async n => { try { const r = await fetch(`sounds/${n}.mp3`); bufs[n] = await decodeBuf(await r.arrayBuffer()); } catch { /* ملف مفقود: نتجاوزه */ } })).then(() => { audioReady = true; });
+  await audioLoading;
+}
+function playSnd(n) {                                  // يرجع مدة المقطع أو 0 إن لم يُشغَّل
+  if (isMuted() || !ac || !bufs[n]) return 0;
+  try { curSrc?.stop(); } catch { /* انتهى */ }
+  const s = ac.createBufferSource(); s.buffer = bufs[n]; s.connect(ac.destination); s.start(); curSrc = s; return bufs[n].duration;
+}
+const stopSnd = () => { try { curSrc?.stop(); } catch { /* */ } curSrc = null; };
+addEventListener('pointerdown', () => { if (!audioReady) unlockAudio(); }, { passive: true });   // لمن أعاد تحميل الصفحة وسط اللعب
+document.addEventListener('visibilitychange', () => { if (!document.hidden) ac?.resume?.(); });
+
+// ===== الحالة المحلية =====
+let ctx, st = null, prev = null, me = -1, players = {}, scores = {}, myHand = [], myPl = {}, sel = new Set(), busyAct = false, scale = 1;
+let seatSig = '', pileN = 0, handSig = '', pendingFly = null, bullets = {}, fxTl = null, stopT = null, timerKey = '', enterBuilt = false, enterAt = Date.now(), dealAt = 0, ex = null;
+const gs = () => gameRef(ctx.code, 's');
+const act = fn => runTransaction(gs(), cur => (cur ? fn(cur) : undefined)).catch(e => { console.error(e); });
+const nm = i => players[st.order[i]]?.name || 'لاعب';
+const nmY = i => (i === me ? 'أنت' : nm(i));
+const isAlive = i => !!(st && i >= 0 && st.al[i]);
+const canAct = () => !!st && st.ph === 'turn' && st.turn === me && isAlive(me) && !busyAct;
+const btn = (txt, cls, fn) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = txt; b.onclick = () => { sfx.click(); fn(); }; return b; };
+
+// ===== تصغير المشهد ليتسع بلا تمرير + تحويل الإحداثيات =====
+function fit() {
+  const r = $('#scene').getBoundingClientRect();
+  scale = Math.max(.35, Math.min(1.25, r.height / 340, r.width / 340));
+  $('#stage').style.transform = `scale(${scale})`;
+}
+const toStage = (cx, cy) => { const r = $('#stage').getBoundingClientRect(); return { x: (cx - r.left) / scale, y: (cy - r.top) / scale }; };
+function seatXY(i) { const n = st.order.length, r = (i - me + n) % n, a = Math.PI / 2 + r * 2 * Math.PI / n; return { x: 170 + Math.cos(a) * 138, y: 160 + Math.sin(a) * 118 }; }
+
+// ===== المقاعد والكومة =====
+function buildSeats() {
+  const box = $('#seats'); box.replaceChildren(); seatSig = st.order.join();
+  st.order.forEach((u, i) => {
+    const { x, y } = seatXY(i), el = div('seat' + (i === me ? ' me' : ''));
+    el.id = 'seat' + i; el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.setProperty('--pc', PCOL[i % 4]); el.style.setProperty('--pcg', PGLOW[i % 4]);
+    el.innerHTML = `<div class="av">${avatar(i)}<div class="sk">${SKULL}</div><div class="hcb"><svg width="9" height="12" viewBox="0 0 100 140"><rect x="6" y="6" width="88" height="128" rx="12" fill="#3a2605"/></svg><span>0</span></div></div><div class="nm"></div><div class="pips">${'<i></i>'.repeat(6)}</div>`;
+    box.append(el);
+    if (!reduce) gsap.from(el, { scale: 0, opacity: 0, duration: .6, delay: .1 * i, ease: 'back.out(2)' });
+  });
+}
+function updateSeats() {
+  st.order.forEach((u, i) => {
+    const el = $('#seat' + i); if (!el) return;
+    el.classList.toggle('dead', !st.al[i]); el.classList.toggle('act', st.ph === 'turn' && st.turn === i && !!st.al[i]);
+    el.classList.toggle('off', players[u]?.connected === false && !!st.al[i]);
+    el.querySelector('.nm').textContent = players[u]?.name || 'لاعب';
+    el.querySelector('.hcb span').textContent = st.hc[i] || 0;
+    el.querySelector('.hcb').style.display = st.al[i] && st.ph !== 'ready' ? '' : 'none';
+    [...el.querySelectorAll('.pips i')].forEach((p, k) => p.classList.toggle('on', k < (st.ch[i] || 0)));
+  });
+}
+function renderPile(keep) {
+  const box = $('#pile'), list = st.pile || [];
+  if (!keep || list.length < pileN) { box.replaceChildren(); pileN = 0; }
+  for (let k = pileN; k < list.length; k++) { const m = list[k], e = div('pc', cardBack()); e.style.transform = `translate(${m.x}px,${m.y}px) rotate(${m.r}deg)`; box.append(e); }
+  pileN = list.length;
+}
+function bubble(i, n, tg) {
+  const seat = $('#seat' + i); if (!seat) return; seat.querySelector('.bub')?.remove();
+  const b = div('bub', `<span>${n} ×</span>${cardFace(tg)}`); seat.append(b);
+  gsap.fromTo(b, { y: 10, opacity: 0, scale: .6 }, { y: 0, opacity: 1, scale: 1, duration: .35, ease: 'back.out(2)' });
+  gsap.to(b, { opacity: 0, y: -8, duration: .4, delay: 2.6, onComplete: () => b.remove() });
+}
+function flyCards(pts, metas, tail) {                  // أوراق مقلوبة تطير إلى الكومة
+  const lay = $('#fly');
+  pts.forEach((p, k) => {
+    const e = div('pc', cardBack()), m = metas[k] || { x: 0, y: 0, r: 0 }; e.style.left = '0'; e.style.top = '0'; lay.append(e);
+    gsap.set(e, { x: p.x - 24, y: p.y - 34, rotation: gsap.utils.random(-20, 20), scale: .85, opacity: 0 });
+    gsap.timeline({ delay: k * .12, onComplete: () => { e.remove(); if (k === pts.length - 1) tail?.(); } })
+      .to(e, { opacity: 1, duration: .1 }).to(e, { x: 146 + m.x, y: 126 + m.y, rotation: m.r, scale: 1, duration: .5, ease: 'power3.out' }, 0);
+  });
+}
+
+// ===== اليد والأزرار =====
+function renderHand(dealAnim) {
+  const wrap = $('#hand'); wrap.replaceChildren();
+  const n = myHand.length, W = wrap.clientWidth || 340, step = n > 1 ? Math.min(62, (W - 80) / (n - 1)) : 0;
+  myHand.forEach((code, i) => {
+    const d = div('hc', cardFace(code)); d.dataset.i = i; const k = i - (n - 1) / 2; d._b = { x: k * step, y: Math.abs(k) * 6, rotation: k * 5 };
+    gsap.set(d, { ...d._b, y: d._b.y + (sel.has(i) ? -26 : 0) }); if (sel.has(i)) d.classList.add('sel');
+    d.onclick = () => toggleSel(i); wrap.append(d);
+    if (dealAnim && !reduce) gsap.from(d, { y: 170, x: 0, rotation: 0, opacity: 0, duration: .55, delay: i * .09, ease: 'back.out(1.6)' });
+  });
+  updateControls();
+}
+function toggleSel(i) {
+  if (!canAct()) { const d = $(`.hc[data-i="${i}"]`); if (d && !reduce) gsap.fromTo(d, { x: d._b.x - 4 }, { x: d._b.x + 4, duration: .06, repeat: 3, yoyo: true, onComplete: () => gsap.set(d, { x: d._b.x }) }); return; }
+  if (sel.has(i)) sel.delete(i); else { if (sel.size >= MAX_PLAY) return toast(`الحد الأقصى ${MAX_PLAY} أوراق في الدور`, 'error'); sel.add(i); }
+  sfx.click(); const d = $(`.hc[data-i="${i}"]`); d.classList.toggle('sel', sel.has(i));
+  gsap.to(d, { y: d._b.y + (sel.has(i) ? -26 : 0), duration: .2, ease: 'power2.out' }); updateControls();
+}
+function updateControls() {
+  if (!st) return;
+  const can = canAct(), n = sel.size, bp = $('#bPlay'), bl = $('#bLiar'), dead = !isAlive(me) && st.ph !== 'ready';
+  $('#hand').classList.toggle('off', !can);
+  bp.disabled = !can || n === 0 || !myHand.length;
+  bp.textContent = !can ? (st.ph === 'turn' && st.turn !== me ? `دور ${nm(st.turn)}…` : st.ph === 'turn' ? '…' : 'انتظر') : !myHand.length ? 'أوراقك نفدت، اتهمه!' : n ? `نزّل ${n} ${n === 1 ? 'ورقة' : 'أوراق'}` : 'اختر أوراقاً';
+  bl.disabled = !can || !st.last; bl.classList.toggle('pulse', can && !!st.last && !myHand.length);
+  $('#spec').hidden = !dead; $('#ctl').hidden = dead; $('#hand').style.display = dead ? 'none' : '';
+}
+function reconcileHand() {                             // لو انقطعت الصفحة بين تسجيل النزول وتحديث اليد: نُزيل الأوراق المنزولة
+  if (!st || st.ph === 'ready' || !isAlive(me) || myHand.length <= st.hc[me] || st.last?.by !== me) return;
+  const played = myPl[st.last.pid]; if (!Array.isArray(played)) return;
+  const rest = [...myHand]; played.forEach(c => { const k = rest.indexOf(c); if (k >= 0) rest.splice(k, 1); });
+  if (rest.length === st.hc[me]) set(roomRef(ctx.code, `hands/${ctx.uid}/h`), rest).catch(() => {});
+}
+
+// ===== أفعال اللاعب =====
+const imReady = () => act(c => (c.ph === 'ready' && !c.rd[me]) ? { ...c, rd: A(c.rd, me, 1), seq: c.seq + 1 } : undefined);
+async function doPlay() {
+  if (!canAct() || !sel.size) return; busyAct = true; updateControls();
+  const idxs = [...sel].sort((a, b) => a - b), cards = idxs.map(i => myHand[i]), old = [...myHand], rest = old.filter((_, i) => !idxs.includes(i)), pid = newPid(), metas = cards.map(newMeta);
+  const pts = idxs.map(i => { const r = $(`.hc[data-i="${i}"]`).getBoundingClientRect(); return toStage(r.left + r.width / 2, r.top + r.height / 2); });
+  pendingFly = { pid, pts, metas };
+  try {
+    await set(roomRef(ctx.code, `hands/${ctx.uid}/pl/${pid}`), cards);          // الأوراق الحقيقية سرّاً قبل الإعلان العلني
+    const res = await act(c => (c.ph === 'turn' && c.turn === me && c.hc[me] === old.length) ? playTx(c, me, cards.length, pid, metas) : undefined);
+    if (res?.committed) { sel.clear(); await set(roomRef(ctx.code, `hands/${ctx.uid}/h`), rest); }
+    else { pendingFly = null; toast('تعذّر النزول (تغيّر الدور)، حاول مجدداً', 'error'); remove(roomRef(ctx.code, `hands/${ctx.uid}/pl/${pid}`)).catch(() => {}); }
+  } catch (e) { console.error(e); pendingFly = null; toast('تعذّر النزول، حاول مجدداً', 'error'); }
+  busyAct = false; updateControls();
+}
+async function doLiar() {
+  if (!canAct() || !st.last) return;
+  const ok = await confirmDialog(`إذا كان ${nm(st.last.by)} صادقاً فستسحب أنت الزناد. تتهمه بالكذب؟`, 'نعم، كذّاب', 'تراجع');
+  if (!ok || !canAct()) return;
+  busyAct = true; updateControls();
+  await act(c => (c.ph === 'turn' && c.turn === me && c.last) ? callTx(c, me) : undefined);
+  busyAct = false; updateControls();
+}
+
+// ===== التأثيرات (GSAP) =====
+function clearFx() { fxTl?.kill(); fxTl = null; $('#fx').replaceChildren(); }
+function mkFlip(code, w, h) { const e = div('fc'); e.style.width = w + 'px'; e.style.height = h + 'px'; e.innerHTML = `<div class="fi"><div class="ff">${cardFace(code)}</div><div class="fb">${cardBack()}</div></div>`; return e; }
+function dealCards(c) {
+  const lay = $('#fly');
+  aliveIdx(c.al).forEach(i => {
+    const to = i === me ? { x: 170, y: 335 } : seatXY(i);
+    for (let k = 0; k < HAND; k++) {
+      const e = div('pc', cardBack()); e.style.left = '0'; e.style.top = '0'; lay.append(e);
+      gsap.fromTo(e, { x: 146, y: 126, rotation: 0, scale: .9, opacity: 1 }, { x: to.x - 24, y: to.y - 34, rotation: gsap.utils.random(-25, 25), scale: .6, opacity: 0, duration: .5, delay: k * .07 + i * .04, ease: 'power2.in', onComplete: () => e.remove() });
+    }
+  });
+}
+function dealFx(c, quiet) {
+  clearFx(); pileN = 0; $('#pile').replaceChildren(); dealAt = Date.now();
+  const fx = $('#fx'), big = mkFlip(c.tg, 96, 134); big.style.left = '122px'; big.style.top = '93px';
+  const say = div('say', `ورقة هذه الجولة: ${CNAME[c.tg]}<small>أنزِل أوراقك مدّعياً أنها هذه الورقة</small>`); say.style.top = '240px'; say.style.opacity = 0; fx.append(big, say);
+  const tl = fxTl = gsap.timeline();
+  tl.fromTo(big, { scale: .2, rotation: -30, opacity: 0 }, { scale: 1.25, rotation: 0, opacity: 1, duration: .55, ease: 'back.out(1.8)' })
+    .to(big.querySelector('.fi'), { rotationY: 180, duration: .6, ease: 'power2.inOut' }, '+=.1')
+    .to(say, { opacity: 1, duration: .3 }, '<.3')
+    .to(big, { scale: 1.38, duration: .25, yoyo: true, repeat: 1 }, '+=.05')
+    .add(() => dealCards(c))
+    .to([big, say], { opacity: 0, scale: .3, duration: .35, ease: 'power2.in' }, '+=.5')
+    .add(() => { gsap.fromTo('#cTarget', { scale: 1.5 }, { scale: 1, duration: .6, ease: 'elastic.out(1,.5)' }); });
+  if (!quiet) sfx.turn(); else tl.progress(1);
+}
+function turnFx(c) {
+  if (c.turn !== me || !isAlive(me)) return; sfx.turn(); clearFx();
+  const b = div('ban', '🎯 دورك!'); $('#fx').append(b);
+  fxTl = gsap.timeline().fromTo(b, { scale: .3, opacity: 0 }, { scale: 1, opacity: 1, duration: .4, ease: 'back.out(2.2)' }).to(b, { opacity: 0, y: -20, duration: .3 }, '+=.7').add(() => b.remove());
+}
+function throwFx(c, quiet) {
+  const L = c.last, by = L.by, metas = (c.pile || []).slice(-L.n);
+  const pts = pendingFly?.pid === L.pid ? pendingFly.pts : Array(L.n).fill(by === me ? { x: 170, y: 345 } : seatXY(by));
+  if (pendingFly?.pid === L.pid) pendingFly = null;
+  flyCards(pts, metas, () => { if (st) renderPile(true); });
+  bubble(by, L.n, c.tg); if (!quiet) playSnd(`${Math.min(L.n, 4)}${c.tg}`);
+}
+function challengeFx(c, quiet) {
+  clearFx(); const by = c.clg.by, on = c.clg.on, fx = $('#fx'), dim = div('dim');
+  const ban = div('ban red', `🤥 ${nmY(by)} ${by === me ? 'تصرخ' : 'يصرخ'}: كذّاب!`), sub = div('say', `ضد ${nmY(on)}<small>تُكشف الأوراق الآن…</small>`); sub.style.top = '214px'; fx.append(dim, ban, sub);
+  const av = $(`#seat${on} .av`);
+  fxTl = gsap.timeline().from(dim, { opacity: 0, duration: .4 }).from(ban, { scale: .2, opacity: 0, duration: .5, ease: 'back.out(2.4)' }, 0)
+    .from(sub, { opacity: 0, y: 10, duration: .3 }, .3);
+  if (av) fxTl.fromTo(av, { x: -5 }, { x: 5, duration: .06, repeat: 7, yoyo: true, onComplete: () => gsap.set(av, { x: 0 }) }, .2);
+  if (!quiet) sfx.error(); else fxTl.progress(1);
+}
+function revealFx(c, quiet) {
+  clearFx(); const rv = c.rv, n = (rv.cards && rv.cards.length) || c.last.n, fx = $('#fx'), dim = div('dim'); fx.append(dim);
+  const W = 70, H = 98, gap = 12, x0 = 170 - (n * W + (n - 1) * gap) / 2, cards = [];
+  for (let k = 0; k < n; k++) {
+    const code = rv.cards?.[k] || 'J', fc = mkFlip(code, W, H); fc.style.left = (x0 + k * (W + gap)) + 'px'; fc.style.top = '86px'; fx.append(fc); cards.push({ fc, code });
+    const bad = !rv.inv && code !== c.tg && code !== 'J'; fc.dataset.bad = bad ? '1' : '0';
+  }
+  const head = div('ban ' + (rv.liar ? 'red' : 'grn'), rv.liar ? 'كاذب! 🤥' : 'صادق! 😇'); head.style.top = '232px'; head.style.opacity = 0;
+  const sub = div('say', rv.inv ? 'تعذّر إثبات الأوراق — يُعدّ كذباً' : `${CNAME[c.tg]} هي المطلوبة${rv.liar ? '' : ' (والجوكر يصلح لأي ورقة)'}`); sub.style.top = '262px'; sub.style.opacity = 0;
+  const who = div('say', `${nmY(rv.vic)} ${rv.vic === me ? 'ستسحب' : 'يسحب'} الزناد 🔫`); who.style.top = '292px'; who.style.opacity = 0; who.style.color = rv.liar ? 'var(--rose)' : 'var(--lagoon)';
+  fx.append(head, sub, who);
+  const tl = fxTl = gsap.timeline(); tl.from(dim, { opacity: 0, duration: .35 });
+  cards.forEach(({ fc, code }, k) => {
+    tl.from(fc, { x: 170 - (x0 + k * (W + gap)) - W / 2, y: 70, scale: .5, rotation: gsap.utils.random(-40, 40), opacity: 0, duration: .5, ease: 'power3.out' }, .2 + k * .1);
+    if (!rv.inv) tl.to(fc.querySelector('.fi'), { rotationY: 180, duration: .5, ease: 'power2.inOut' }, 1 + k * .3)
+      .to(fc, { filter: fc.dataset.bad === '1' ? 'drop-shadow(0 0 12px #ff6b81)' : 'drop-shadow(0 0 12px #34d399)', duration: .3 }, 1.4 + k * .3);
+  });
+  const t = 1.5 + n * .3;
+  tl.to(head, { opacity: 1, scale: 1.08, duration: .4, ease: 'back.out(2)' }, t).to(sub, { opacity: 1, duration: .3 }, t + .15).to(who, { opacity: 1, duration: .3 }, t + .5);
+  if (!quiet) { rv.liar ? sfx.lose() : sfx.win(); } else tl.progress(1);
+}
+function rouletteFx(c, quiet) {
+  clearFx(); const sh = c.shot, fx = $('#fx'), dim = div('dim'); fx.append(dim);
+  const holder = div('', gunSVG(sh.chm)); const gun = holder.firstChild; fx.append(gun);
+  const who = div('say', `${nmY(sh.vic)} ${sh.vic === me ? 'تسحب' : 'يسحب'} الزناد<small>السحبة ${sh.chm + 1} من 6${sh.chm === 5 ? ' — الطلقة في هذه الخانة حتماً!' : ' — هل ستنجو؟'}</small>`); who.style.top = '14px'; fx.append(who);
+  const out = div('say', ''); out.style.top = '278px'; out.style.fontSize = '1.5rem'; fx.append(out);
+  const flash = div('flash'), vig = div('vig'); fx.append(flash, vig);
+  const cyl = $('#cylG'), final = -(sh.chm * 60) - 1440, tl = fxTl = gsap.timeline(); let lastStep = 0;
+  gsap.set(cyl, { svgOrigin: '100 100', rotation: 0 });
+  const outcome = () => {
+    if (sh.died) {
+      const bl = $(`#bul${sh.chm}`); if (bl) bl.innerHTML = `<circle cx="${100 + Math.sin(sh.chm * Math.PI / 3) * 54}" cy="${100 - Math.cos(sh.chm * Math.PI / 3) * 54}" r="12" fill="#d79a3a" stroke="#6a4410" stroke-width="2"/>`;
+      out.innerHTML = 'بووم! 💥'; out.style.color = 'var(--rose)';
+      gsap.timeline().fromTo(flash, { opacity: .95 }, { opacity: 0, duration: .5 }).fromTo(vig, { opacity: 1 }, { opacity: .55, duration: 1.2 }, 0)
+        .fromTo('#stage', { x: -9, y: 5 }, { x: 9, y: -5, duration: .05, repeat: 9, yoyo: true, ease: 'none', onComplete: () => gsap.set('#stage', { x: 0, y: 0 }) }, 0)
+        .fromTo(out, { scale: 3, opacity: 0 }, { scale: 1, opacity: 1, duration: .35, ease: 'back.out(2)' }, 0);
+      const seat = $('#seat' + sh.vic); seat?.classList.add('dead'); const skull = seat?.querySelector('.sk'); if (skull) gsap.fromTo(skull, { scale: 2.2, opacity: 0 }, { scale: 1, opacity: 1, duration: .5, ease: 'back.out(2)' });
+    } else {
+      out.innerHTML = 'كليك… نجا 😮‍💨'; out.style.color = 'var(--lagoon)';
+      gsap.fromTo(out, { scale: .4, opacity: 0 }, { scale: 1, opacity: 1, duration: .5, ease: 'back.out(2.4)' });
+      const av = $(`#seat${sh.vic} .av`); if (av) gsap.fromTo(av, { scale: 1.25 }, { scale: 1, duration: .8, ease: 'elastic.out(1,.4)' });
+    }
+  };
+  tl.from(dim, { opacity: 0, duration: .4 }).from(gun, { scale: .3, opacity: 0, rotation: -40, duration: .6, ease: 'back.out(1.7)' }, .1)
+    .to(cyl, { rotation: final, duration: 5.1, ease: 'power3.out', onUpdate() { const k = Math.floor(Math.abs(gsap.getProperty(cyl, 'rotation')) / 60); if (k !== lastStep) { lastStep = k; if (!quiet) sfx.tick(); } } }, .5)
+    .add(outcome, CLIMAX);
+  if (!quiet) playSnd(sh.died ? 'kill' : 'safe');
+  else tl.progress(1);
+}
+function redealFx(quiet) { clearFx(); const b = div('ban', '🃏 نفدت الأوراق — إعادة توزيع'); $('#fx').append(b); fxTl = gsap.timeline().from(b, { scale: .3, opacity: 0, duration: .45, ease: 'back.out(2)' }); if (!quiet) sfx.turn(); }
+function doneFx(c, quiet) {
+  clearFx(); const w = c.win, mine = w === me; if (!quiet) (mine ? sfx.win() : sfx.lose());
+  showOverlay({ icon: '🏆', title: `الفائز: ${nmY(w)}`, sub: mine ? 'نجوتَ حتى النهاية 🎉' : 'بقي حياً حتى النهاية', confetti: true });
+}
+const EVT = { auto: i => `انتهى وقت ${nmY(i)} فنزّل ورقة تلقائياً`, autoliar: i => `انتهى وقت ${nmY(i)} فاتهم تلقائياً`, afk: i => `${nmY(i)} أُقصي لتأخره المتكرر`, gone: i => `${nmY(i)} غادر اللعبة`, noshow: i => `${nmY(i)} لم يدخل الطاولة` };
+function dispatchFx(p, c) {
+  const first = !p;
+  if (first) {                                            // أول لقطة (دخول أو إعادة تحميل): نعرض الحالة الحالية دون حركات
+    renderPile(false);
+    if (c.ph === 'challenge') challengeFx(c, true); else if (c.ph === 'reveal') revealFx(c, true);
+    else if (c.ph === 'roulette') rouletteFx(c, true); else if (c.ph === 'redeal') redealFx(true); else if (c.ph === 'done') doneFx(c, true);
+    return;
+  }
+  if (c.ph === 'deal' && (p.ph !== 'deal' || c.rnd !== p.rnd)) dealFx(c, false);
+  if (c.last && (!p.last || p.last.pid !== c.last.pid) && c.pile?.length) throwFx(c, false);
+  if (c.ph === 'turn' && (p.ph !== 'turn' || c.turn !== p.turn || (c.last?.pid !== p.last?.pid))) { if (p.ph !== 'challenge') turnFx(c); }
+  if (c.ph === 'challenge' && p.ph !== 'challenge') challengeFx(c, false);
+  if (c.ph === 'reveal' && p.ph !== 'reveal') revealFx(c, false);
+  if (c.ph === 'roulette' && p.ph !== 'roulette') rouletteFx(c, false);
+  if (c.ph === 'redeal' && p.ph !== 'redeal') redealFx(false);
+  if (c.ph === 'done' && p.ph !== 'done') doneFx(c, false);
+  if (c.ev && c.ev.n !== (p.ev?.n || 0) && EVT[c.ev.t]) toast(EVT[c.ev.t](c.ev.i), 'info');
+}
+
+// ===== المؤقت والمعلومات =====
+function startTimer() {
+  const key = st.seq + ':' + st.ph; if (key === timerKey) return; timerKey = key; stopT?.();
+  const tbi = $('#tbi'), ct = $('#cTime');
+  if (st.ph !== 'turn') { ct.hidden = true; tbi.style.transform = 'scaleX(0)'; return; }
+  ct.hidden = false; const tot = TURN_S * 1000;
+  stopT = countdown(st.endAt, (l, s) => { ct.textContent = '⏱ ' + s; ct.classList.toggle('warn', s <= 10); tbi.style.transform = `scaleX(${Math.min(1, l / tot)})`; tbi.style.background = s <= 10 ? 'var(--rose)' : 'var(--lagoon)'; if (s <= 5 && s > 0 && me === st.turn && l % 1000 < 110) sfx.tick(); }, () => {});
+}
+function renderInfo() {
+  $('#cRound').innerHTML = `الجولة <b>${st.rnd || 0}</b>`;
+  $('#cTarget').innerHTML = st.rnd ? `${cardFace(st.tg)}<span>المطلوب: ${CNAME[st.tg]}</span>` : '<span>—</span>';
+  $('#cAlive').innerHTML = `👥 <b>${aliveIdx(st.al).length}</b>/${st.order.length}`;
+}
+
+// ===== شاشة الدخول إلى الطاولة =====
+function showRules() {
+  const o = div('ovl'), c = div('ovl-card glass rules');
+  c.innerHTML = `<div class="ovl-t">كيف تُلعب؟</div><ol>
+    <li>لكل لاعب <b>5 أوراق</b> (آص، ملك، ملكة، وجوكر). في كل جولة تُحدَّد <b>ورقة مطلوبة</b>.</li>
+    <li>في دورك <b>أنزِل 1 إلى 3 أوراق مقلوبة</b> مدّعياً أنها الورقة المطلوبة. الجوكر يصلح لأي ورقة.</li>
+    <li>اللاعب التالي إمّا يكمل بتصديقك، أو يصرخ <b>«كذّاب!»</b> فتُكشف أوراقك.</li>
+    <li>إن كنتَ كاذباً <b>تسحب أنت الزناد</b>، وإن كنتَ صادقاً يسحبه من اتهمك ظلماً.</li>
+    <li>المسدس <b>6 خانات وطلقة واحدة</b>: كل سحبة تنجو منها تقرّب الطلقة.</li>
+    <li>آخر لاعب حيّ يفوز. وإن نفدت أوراق الجميع تُوزَّع من جديد.</li>
+    <li>لكل دور <b>${TURN_S} ثانية</b>؛ التأخر مرتين متتاليتين يُخرجك من اللعبة.</li></ol>
+    <div class="ovl-row"><button class="btn primary" id="rOk">فهمت</button></div>`;
+  o.append(c); document.body.append(o);
+  const close = () => { gsap.to(o, { opacity: 0, duration: .18, onComplete: () => o.remove() }); };
+  gsap.fromTo(o, { opacity: 0 }, { opacity: 1, duration: .2 }); gsap.fromTo(c, { scale: .75, y: 30, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: .45, ease: 'back.out(2)' });
+  c.querySelector('#rOk').onclick = close; o.onclick = e => { if (e.target === o) close(); };
+}
+function buildEnter() {
+  enterBuilt = true; const e = $('#enter');
+  e.innerHTML = `<div class="ecard">${LOGO}<h1>LIAR<em>'</em>S BAR</h1><div class="tag">اكذب بذكاء… أو مُت بشرف</div><div class="plist" id="plist"></div>
+    <div class="sm2" id="eMsg"></div><button class="btn primary" id="eBtn">ادخل الطاولة 🔫</button><button class="btn ghost" id="eForce" hidden>ابدأ بمن دخلوا</button><button class="btn ghost" id="eRules">كيف تُلعب؟</button></div>`;
+  $('#eRules').onclick = () => { sfx.click(); showRules(); };
+  $('#eBtn').onclick = onEnter; $('#eForce').onclick = forceStart;
+  if (!reduce) { gsap.from('.ecard > *', { y: 24, opacity: 0, duration: .6, stagger: .08, ease: 'power3.out' }); gsap.to('.ecard .logo', { rotation: 360, duration: 24, repeat: -1, ease: 'none' }); }
+}
+async function onEnter() {
+  const b = $('#eBtn'); if (b.disabled) return; b.disabled = true; b.textContent = '⏳ جارٍ تجهيز الأصوات…';
+  await unlockAudio(); sfx.click(); await imReady();
+}
+const forceStart = () => act(c => c.ph === 'ready' ? aliveIdx(c.al).filter(i => !c.rd[i]).reduce((s, i) => forfeitTx(s, i, 'noshow'), c) : undefined);
+function renderEnter() {
+  const e = $('#enter'); if (!enterBuilt) buildEnter();
+  if (st && st.ph !== 'ready') { if (!e.hidden && !e._closing) { e._closing = true; gsap.to(e, { opacity: 0, duration: .5, onComplete: () => { e.hidden = true; } }); } return; }
+  e.hidden = false; e._closing = false; gsap.set(e, { opacity: 1 });
+  const b = $('#eBtn'), msg = $('#eMsg');
+  if (!st) { b.disabled = true; b.textContent = 'جارٍ تجهيز الطاولة…'; $('#plist').replaceChildren(); return; }
+  me = st.order.indexOf(ctx.uid);
+  $('#plist').replaceChildren(...st.order.map((u, i) => { const c = div('pchip' + (st.rd[i] ? ' ok' : ''), `<i></i><span>${players[u]?.name || 'لاعب'}</span>`); c.style.setProperty('--pc', PCOL[i % 4]); return c; }));
+  const ready = aliveIdx(st.al).filter(i => st.rd[i]).length, total = aliveIdx(st.al).length;
+  if (st.rd[me]) { b.hidden = true; msg.textContent = `بانتظار الباقين… (${ready}/${total})`; } else { b.hidden = false; b.disabled = false; b.textContent = 'ادخل الطاولة 🔫'; msg.textContent = 'اضغط للدخول وتفعيل الصوت'; }
+  $('#eForce').hidden = !(ctx.isHost && ready >= 2 && ready < total && Date.now() - enterAt > 20000);
+}
+
+// ===== العرض الرئيسي =====
+function render() {
+  if (!st) { renderEnter(); return; }
+  me = st.order.indexOf(ctx.uid);
+  if (me < 0) { toast('لست ضمن هذه اللعبة', 'error'); abortGame(ctx); return; }
+  if (seatSig !== st.order.join()) buildSeats();
+  const p = prev; prev = st;
+  updateSeats(); renderInfo(); startTimer(); renderEnter();
+  if (!p || p.seq !== st.seq) dispatchFx(p, st);
+  if ((st.pile || []).length < pileN) renderPile(false);
+  if (!canAct() && sel.size) { sel.clear(); renderHand(false); }
+  reconcileHand(); updateControls();
+}
+
+// ===== المضيف: هو الموزّع والحكَم (يعرف الأوراق والرصاصات السرّية) =====
+let hostRunning = false, hostT = null, tries = {}, finishing = false;
+async function ensureBullets(s) { for (const u of s.order) if (bullets[u] == null) { bullets[u] = rnd(6); await set(roomRef(ctx.code, `secret/b/${u}`), bullets[u]); } }
+async function applyHost(s, r) {
+  if (r.pre?.pl) await Promise.all(Object.entries(r.pre.pl).map(([u, v]) => set(roomRef(ctx.code, `hands/${u}/pl/${v.pid}`), v.c)));
+  const res = await act(c => (c.seq === s.seq ? r.state : undefined));
+  if (res?.committed) {
+    if (r.post?.deal) await Promise.all(Object.entries(r.post.deal).map(([u, h]) => set(roomRef(ctx.code, 'hands/' + u), { h })));
+    if (r.post?.h) await Promise.all(Object.entries(r.post.h).map(([u, h]) => set(roomRef(ctx.code, `hands/${u}/h`), h)));
+  }
+}
+async function hostFinish(s) {
+  if (finishing) return; finishing = true;
+  try {
+    const present = Object.keys(players), rank = [s.order[s.win], ...[...(s.out || [])].reverse().map(i => s.order[i])];
+    const ranking = rank.filter((u, i) => present.includes(u) && rank.indexOf(u) === i);
+    await remove(roomRef(ctx.code, 'hands')).catch(() => {}); await remove(roomRef(ctx.code, 'secret')).catch(() => {});
+    await finishGame(ctx, makeResult('win', ranking.length ? ranking : [ctx.uid], { rounds: s.rnd }), players);
+  } catch (e) { console.error(e); finishing = false; }
+}
+async function hostTick() {
+  if (!ctx.isHost || !st || hostRunning) return; hostRunning = true; const s = st;
+  try {
+    if (s.ph === 'done') { if (serverNow() >= (s.endAt || 0)) await hostFinish(s); }
+    else {
+      const now = serverNow(), cache = {};
+      await Promise.all(needs(s, now).map(async u => { cache[u] = (await get(roomRef(ctx.code, 'hands/' + u))).val() || {}; }));
+      await ensureBullets(s);
+      const r = step(s, { hand: u => cache[u]?.h, pl: (u, pid) => cache[u]?.pl?.[pid], bullet: u => bullets[u] }, now);
+      if (r) { const k = s.seq + ':' + s.ph; tries[k] = (tries[k] || 0) + 1; if (tries[k] <= 6) await applyHost(s, r); }
+    }
+  } catch (e) { console.error(e); }
+  hostRunning = false; hostSchedule();
+}
+function hostSchedule() {
+  clearTimeout(hostT); if (!ctx.isHost || !st) return;
+  const wait = st.ph === 'ready' || st.ph === 'challenge' || !st.endAt ? 1200 : Math.min(Math.max(150, st.endAt - serverNow() + 60), 3000);
+  hostT = setTimeout(hostTick, wait);
+}
+
+// ===== التشغيل =====
+(async function main() {
+  try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); return; }
+  players = ctx.players;
+  const n = Object.keys(players).length;
+  if (n < 2 || n > 4) { toast('اللعبة تتسع لـ 2 إلى 4 لاعبين', 'error'); abortGame(ctx); return; }
+  fit(); new ResizeObserver(() => { fit(); if (myHand.length) renderHand(false); }).observe($('#scene')); addEventListener('resize', fit);
+  $('#bSnd').textContent = isMuted() ? '🔇' : '🔊';
+  $('#bSnd').onclick = () => { const m = toggleMute(); $('#bSnd').textContent = m ? '🔇' : '🔊'; if (m) stopSnd(); };
+  $('#bHelp').onclick = () => { sfx.click(); showRules(); };
+  $('#bPlay').onclick = () => { sfx.click(); doPlay(); }; $('#bLiar').onclick = () => { sfx.click(); doLiar(); };
+  buildEnter(); renderEnter();
+
+  if (ctx.isHost) {                                       // المضيف يُهيّئ الطاولة والرصاصات السرّية (ولا يمسحها عند إعادة التحميل)
+    try {
+      const cur = (await get(gs())).val();
+      if (cur) bullets = (await get(roomRef(ctx.code, 'secret/b'))).val() || {};
+      else {
+        await remove(roomRef(ctx.code, 'hands')); await remove(roomRef(ctx.code, 'secret'));
+        const order = Object.entries(players).sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0)).map(e => e[0]);
+        bullets = Object.fromEntries(order.map(u => [u, rnd(6)]));
+        await set(roomRef(ctx.code, 'secret/b'), bullets);
+        await runTransaction(gs(), c => c || newState(order));
+      }
+    } catch (e) { console.error(e); toast('حدّث قواعد Firebase بملف firebase.rules.json ثم أعد المحاولة', 'error'); abortGame(ctx); return; }
+  }
+
+  ex = initGroupExit(ctx, {
+    isOver: () => st?.ph === 'done',
+    onGone: uid => { if (!ctx.isHost) return; act(c => { const i = c.order.indexOf(uid); return i >= 0 && c.al[i] && c.ph !== 'done' ? forfeitTx(c, i, 'gone') : undefined; }); },
+    onHostGone: () => { stopSnd(); },
+    onLeave: () => { stopSnd(); }
+  });
+  onValue(roomRef(ctx.code, `hands/${ctx.uid}`), s => {
+    const v = s.val() || {}; myPl = v.pl || {}; const h = Array.isArray(v.h) ? v.h : [], sig = h.join('');
+    if (sig !== handSig || !handSig) { const newDeal = st?.ph === 'deal' && Date.now() - dealAt < 6000 && sig !== handSig; handSig = sig; myHand = h; renderHand(newDeal); }
+    reconcileHand();
+  }, () => {});
+  onValue(gs(), s => { st = s.val(); render(); if (ctx.isHost) hostTick(); });
+  watchRoom(ctx.code, {
+    meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },
+    players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) { updateSeats(); renderEnter(); } },
+    scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
+  });
+  setInterval(() => { if (ctx.isHost) hostTick(); }, 2000);   // احتياط: لا نعتمد على الأحداث وحدها
+  setInterval(() => { if (st && st.ph === 'ready') renderEnter(); }, 1000);   // يظهر زر «ابدأ بمن دخلوا» بعد 20 ثانية دون أي حدث جديد
+})();
+
+</script>
+</body>
+</html>

@@ -103,3 +103,76 @@ export function initGameExit(ctx, opts = {}) {
   }
   return { busy };
 }
+
+// ===== انسحاب جماعي (3 لاعبين فأكثر): من يغادر يُقصى ويكمل الباقون، وخروج المضيف (الحَكَم) يُنهي اللعبة للجميع =====
+// opts.isOver(): هل انتهت اللعبة؟   opts.onGone(uid, name): خروج لاعب آخر (يتصرف المضيف وحده في لعبتك)
+// opts.onHostGone(): المضيف أغلق الغرفة   opts.onLeave(): أنت تنسحب الآن
+// ترجع { busy() }: ألعابك تتجاهل إعادة التوجيه التلقائية للردهة ما دام busy() صحيحاً
+export function initGroupExit(ctx, opts = {}) {
+  const isOver = opts.isOver || (() => false);
+  const names = Object.fromEntries(Object.entries(ctx.players).map(([k, v]) => [k, v.name || "لاعب"]));
+  let players = ctx.players, handled = false, leaving = false, selfT = null, metaT = null, bar = null;
+  const miss = {}, dropT = {}, dropped = new Set(), seen = new Set(Object.keys(ctx.players));
+  const home = () => { location.href = "../../index.html"; };
+  const busy = () => handled || leaving;
+
+  function refreshBar() {                                  // شارة واحدة لكل من انقطع اتصالهم
+    const list = [...dropped].map(u => names[u] || "لاعب");
+    if (!list.length) { if (bar) { const b = bar; bar = null; window.gsap ? gsap.to(b, { opacity: 0, y: -12, duration: .25, onComplete: () => b.remove() }) : b.remove(); } return; }
+    if (!bar) {
+      bar = document.createElement("div"); bar.className = "dropbar"; bar.append(document.createElement("span")); document.body.append(bar);
+      if (window.gsap) gsap.fromTo(bar, { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: .4, ease: "back.out(2)" });
+    }
+    bar.querySelector("span").textContent = `انقطع اتصال ${list.join("، ")}… بانتظار العودة`;
+  }
+  const startDrop = uid => { if (dropT[uid] || dropped.has(uid) || handled || leaving) return; dropT[uid] = setTimeout(() => { delete dropT[uid]; dropped.add(uid); refreshBar(); }, SHOW_DROP_MS); };
+  const endDrop = uid => { clearTimeout(dropT[uid]); delete dropT[uid]; if (dropped.delete(uid)) refreshBar(); };
+
+  async function hostGone() {
+    if (handled || leaving) return;
+    handled = true; opts.onHostGone?.();
+    if (isOver()) toast("غادر المضيف الغرفة");
+    else showOverlay({ icon: "🏳️", title: "غادر المضيف", sub: "انتهت اللعبة وأُغلقت الغرفة" });
+    await new Promise(r => setTimeout(r, SHOW_MS));
+    await leaveRoom(ctx.code).catch(() => {});
+    home();
+  }
+  async function leave() {
+    if (handled || leaving) return;
+    const msg = isOver() ? "مغادرة الغرفة؟" : ctx.isHost ? "أنت المضيف: مغادرتك تُنهي اللعبة وتُغلق الغرفة للجميع. تخرج؟" : "هل تريد الانسحاب؟ ستخرج من اللعبة ولن تعود إليها.";
+    if (!(await confirmDialog(msg, "انسحاب", "ابقَ"))) return;
+    leaving = true; opts.onLeave?.();
+    try { await leaveRoom(ctx.code); } catch { /* نخرج على أي حال */ }
+    home();
+  }
+  setExitHandler(leave);
+
+  onValue(roomRef(ctx.code, "meta"), s => {
+    const m = s.val();
+    if (m && m.status !== "closed") { clearTimeout(metaT); metaT = null; return; }
+    const act = () => { if (ctx.isHost) { if (!leaving) home(); } else hostGone(); };
+    if (m) return act();                                   // أُغلقت صراحةً
+    metaT ??= setTimeout(async () => {                     // اختفاء مفاجئ: نتحقق بقراءة مباشرة قبل أي إجراء
+      metaT = null; try { if (!(await get(roomRef(ctx.code, "meta"))).exists()) act(); } catch { /* نتجاهل */ }
+    }, MISS_MS);
+  });
+  onValue(roomRef(ctx.code, "players"), s => {
+    const p = s.val();
+    if (!p || !p[ctx.uid]) {
+      selfT ??= setTimeout(async () => {
+        selfT = null;
+        try { if (!(await get(roomRef(ctx.code, `players/${ctx.uid}`))).exists() && !busy()) { handled = true; toast("أُخرجت من الغرفة", "error"); setTimeout(home, 1200); } } catch { /* نتجاهل */ }
+      }, MISS_MS);
+      return;
+    }
+    clearTimeout(selfT); selfT = null; players = p;
+    for (const [u, v] of Object.entries(p)) { names[u] = v.name || names[u] || "لاعب"; seen.add(u); }
+    for (const u of [...seen]) {
+      if (u === ctx.uid) continue;
+      if (!p[u]) { miss[u] ??= setTimeout(() => { delete miss[u]; seen.delete(u); endDrop(u); opts.onGone?.(u, names[u]); }, MISS_MS); continue; }   // أُزيل فعلاً: خروج صريح
+      clearTimeout(miss[u]); delete miss[u];
+      p[u].connected === false ? startDrop(u) : endDrop(u);
+    }
+  }, () => {});
+  return { busy };
+}
