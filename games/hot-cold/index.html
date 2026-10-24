@@ -65,7 +65,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .my-cat-badge{padding:3px 12px;border-radius:999px;background:rgba(52,211,153,.16);border:1px solid rgba(52,211,153,.45);color:#34d399;font-size:.8rem;font-weight:700}
 
 /* الترمومتر والمؤشر الحراري في وسط الطاولة */
-.thermo-wrap{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;flex:none;my:2px}
+.thermo-wrap{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;flex:none}
 .thermo-hub{display:flex;align-items:center;justify-content:center;gap:10px;padding:7px 22px;border-radius:999px;background:rgba(8,12,24,.92);border:2px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.6);min-width:175px;z-index:2;transition:border-color .3s,box-shadow .3s}
 .thermo-hub .em{font-size:1.55rem;line-height:1}
 .thermo-hub .lb{font:700 1.15rem 'Reem Kufi',sans-serif;color:var(--mute)}
@@ -111,15 +111,13 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
   <div id="card" class="glass card center-mode">جارٍ التحميل…</div>
 </main>
 <script type="module">
-import { runTransaction, onValue, update, serverNow } from '../../shared/firebase.js';
-import * as RoomMod from '../../shared/room.js';
+import { runTransaction, onValue, serverNow } from '../../shared/firebase.js';
+import { enterRoom, watchRoom, gameRef, goLobby, abortGame } from '../../shared/room.js';
 import { finishGame, makeResult } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
-import * as LeaveMod from '../../shared/leave.js';
+import { initGameExit } from '../../shared/leave.js';
 import { CATEGORY_LABELS, pickWordsPair } from './words.js';
-
-const { enterRoom, watchRoom, gameRef, roomRef, goLobby } = RoomMod;
 
 // ===== إعدادات اللعبة =====
 const ROUNDS = 3;
@@ -127,15 +125,20 @@ const REACT_S = 2.4;      // مدة استعراض الترمومتر قبل ا�
 const REROLL_S = 15;      // مهلة التصويت على تغيير الكلمات
 const REVEAL_S = 18;      // مهلة نافذة نتيجة الجولة
 const HINT_AFTER = 3;     // يظهر زر كشف التصنيف بعد 3 أسئلة
+const MAX_Q = 12;         // سقف الأسئلة لكل لاعب في الجولة: إن استُنفد عند الاثنين تنتهي الجولة بلا فائز
 
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.onclick = () => { sfx.click(); fn(); }; return b; };
 const sp = (t, c) => h('span', c, t);
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches || !window.gsap;   // بلا حركات إن مُنعت المكتبة أو فُضِّل تقليلها
 
 let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null;
 let panelKey = '', lastSeq = -1, prevPts = null, sfxSeq = -1;
+
+// إن بلغ الاثنان سقف الأسئلة تنتهي الجولة بلا فائز (حتى لا تدور اللعبة بلا نهاية)
+const capped = q => (q[0] || 0) >= MAX_Q && (q[1] || 0) >= MAX_Q;
+const toNoWinner = (c, qCount) => ({ ...c, qCount, lastEval: 'none', roundWinner: 'none', roundGain: 0, phase: 'reveal', endAt: deadline(REVEAL_S), seq: c.seq + 1 });
 
 // حساب وقت السؤال المتدرج حسب عدد الأسئلة في الجولة
 function turnSeconds(qCount = [0, 0]) {
@@ -182,7 +185,8 @@ const imReady = () => act(c => {
 
 // تقييم سؤال الخصم (بارد / دافئ / حار / إجابة صحيحة)
 const submitEval = type => act(c => {
-  if (c.phase !== 'ask' || c.turn === me) return;
+  if (me < 0 || c.phase !== 'ask' || c.order[1 - c.turn] !== ctx.uid) return;
+  if (!['cold', 'warm', 'hot', 'correct'].includes(type)) return;
   const guesser = c.turn;
   const qCount = [...(c.qCount || [0, 0])];
   qCount[guesser] = (qCount[guesser] || 0) + 1;
@@ -205,6 +209,7 @@ const submitEval = type => act(c => {
     };
   }
 
+  if (capped(qCount)) return toNoWinner(c, qCount);
   return {
     ...c,
     qCount,
@@ -217,9 +222,10 @@ const submitEval = type => act(c => {
 
 // تخطي الدور يدوياً من السائل
 const skipMyTurn = () => act(c => {
-  if (c.phase !== 'ask' || c.turn !== me) return;
+  if (me < 0 || c.phase !== 'ask' || c.order[c.turn] !== ctx.uid) return;
   const qCount = [...(c.qCount || [0, 0])];
   qCount[me] = (qCount[me] || 0) + 1;
+  if (capped(qCount)) return toNoWinner(c, qCount);
   const nextTurn = 1 - c.turn;
   return {
     ...c,
@@ -233,7 +239,7 @@ const skipMyTurn = () => act(c => {
 
 // استخدام وسيلة المساعدة لكشف التصنيف (بعد 3 أسئلة)
 const unlockMyHint = () => act(c => {
-  if (c.phase !== 'ask' || (c.qCount?.[me] || 0) < HINT_AFTER || c.hint?.[me]) return;
+  if (me < 0 || c.phase !== 'ask' || (c.qCount?.[me] || 0) < HINT_AFTER || c.hint?.[me]) return;
   const hint = [...(c.hint || [0, 0])];
   hint[me] = 1;
   return { ...c, hint, seq: c.seq + 1 };
@@ -241,7 +247,7 @@ const unlockMyHint = () => act(c => {
 
 // طلب تغيير الكلمات (مرة واحدة لكل لاعب في الجولة)
 const askReroll = () => act(c => {
-  if (c.phase !== 'ask' || c.rerollUsed?.[me]) return;
+  if (me < 0 || c.phase !== 'ask' || c.rerollUsed?.[me]) return;
   const rerollUsed = [...(c.rerollUsed || [0, 0])];
   rerollUsed[me] = 1;
   const savedLeft = Math.max(5000, c.endAt - serverNow());
@@ -258,7 +264,7 @@ const askReroll = () => act(c => {
 
 // التصويت على طلب تغيير الكلمات
 const voteReroll = accept => act(c => {
-  if (c.phase !== 'reroll' || c.rerollBy === me) return;
+  if (me < 0 || c.phase !== 'reroll' || c.rerollBy === me) return;
   if (accept) {
     const used = c.used || [];
     const { words, cats } = pickWordsPair(used);
@@ -302,6 +308,7 @@ const onTimeout = seq => act(c => {
   if (c.phase === 'ask') {
     const qCount = [...(c.qCount || [0, 0])];
     qCount[c.turn] = (qCount[c.turn] || 0) + 1;
+    if (capped(qCount)) return toNoWinner(c, qCount);
     return {
       ...c,
       qCount,
@@ -395,7 +402,7 @@ function renderTable(c) {
   const oppZone = h('div', 'table-zone');
   const oppHead = h('div', 'zone-head');
   oppHead.append(
-    h('div', 'who', `👤 ${nm(opp)} · ${st.qCount?.[opp] || 0} سؤال`),
+    h('div', 'who', `👤 ${nm(opp)} · ${st.qCount?.[opp] || 0}/${MAX_Q} سؤال`),
     h('span', 'turn-tag' + (!isMyTurn ? ' active' : ''), !isMyTurn ? '🎤 يسأل الآن' : '👂 يقيّمك')
   );
   const oppCard = h('div', 'playing-card card-opp' + (!isMyTurn ? ' asking' : ''));
@@ -418,7 +425,7 @@ function renderTable(c) {
   const myZone = h('div', 'table-zone');
   const myHead = h('div', 'zone-head');
   myHead.append(
-    h('div', 'who', `🙋 أنت (${nm(me)}) · ${st.qCount?.[me] || 0} سؤال`),
+    h('div', 'who', `🙋 أنت (${nm(me)}) · ${st.qCount?.[me] || 0}/${MAX_Q} سؤال`),
     h('span', 'turn-tag' + (isMyTurn ? ' active' : ''), isMyTurn ? '🎤 دورك لتسأل' : '👂 دورك للتقييم')
   );
   const myCard = h('div', 'playing-card card-mine' + (isMyTurn ? ' asking' : ''));
@@ -482,18 +489,18 @@ function renderTable(c) {
 
 function renderReveal(c) {
   c.className = 'glass card center-mode';
-  const w = st.roundWinner;
+  const w = st.roundWinner, none = w === 'none';
   const isW = w === me;
   const t = h('div', 'tm-pill'); t.style.position = 'absolute'; t.style.top = '12px'; t.style.left = '14px';
   const tv = sp('…'); tv.id = 't'; t.append(sp('⏱️'), tv);
 
-  const badge = h('div', 'badge', isW ? '🎯' : '👏');
-  const title = h('div', 'big ' + (isW ? 'ok' : 'am'), isW ? 'أحسنت! كشفت كلمتك' : `كشف ${nm(w)} كلمته!`);
-  const sub = h('div', 'sub', `حصل ${isW ? 'حسابك' : nm(w)} على +${st.roundGain || 2} نقطة في ${st.qCount?.[w] || 1} سؤال`);
+  const badge = h('div', 'badge', none ? '🤷' : isW ? '🎯' : '👏');
+  const title = h('div', 'big ' + (none ? 'mu' : isW ? 'ok' : 'am'), none ? 'انتهت الأسئلة دون إجابة' : isW ? 'أحسنت! كشفت كلمتك' : `كشف ${nm(w)} كلمته!`);
+  const sub = h('div', 'sub', none ? 'لا نقاط في هذه الجولة' : `حصل ${isW ? 'أنت' : nm(w)} على +${st.roundGain || 2} نقطة في ${st.qCount?.[w] || 1} سؤال`);
 
   const cards = h('div', 'rv-cards');
   [me, 1 - me].forEach(idx => {
-    const item = h('div', 'rv-item' + (idx === w ? ' winner' : ''));
+    const item = h('div', 'rv-item' + (!none && idx === w ? ' winner' : ''));
     item.append(
       h('span', 'sub', idx === me ? 'كلمتك السرية' : `كلمة ${nm(idx)}`),
       h('div', 'w', st.words?.[idx] || '—'),
@@ -517,7 +524,7 @@ function renderReveal(c) {
 }
 
 function renderPanel() {
-  if (!st) return;
+  if (!st || me < 0) return;
   const key = [
     st.seq, st.phase, st.round, st.turn, st.lastEval,
     st.qCount?.join(','), st.hint?.join(','), st.rerollUsed?.join(',')
@@ -613,66 +620,22 @@ function render() {
 }
 
 // ===== التشغيل والربط مع الغرفة والانسحاب =====
-const abort = async msg => {
-  const fn = RoomMod.abortGame || LeaveMod.abortGame;
-  if (fn) return fn(ctx, msg);
-  if (msg) toast(msg, 'error');
-  if (ctx?.isHost) await update(roomRef(ctx.code, 'meta'), { status: 'lobby', game: null }).catch(() => {});
-  setTimeout(() => goLobby(ctx?.code || ''), 1800);
-};
-
-try {
-  ctx = await enterRoom();
-} catch (e) {
-  toast(e.message, 'error');
-  setTimeout(() => goLobby(''), 1800);
-  throw e;
-}
+try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
 
 const ids = Object.keys(ctx.players || {});
-if (ids.length !== 2) {
-  abort('اللعبة تحتاج لاعبين اثنين');
-} else {
+if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); abortGame(ctx); }
+else {
   if (ctx.isHost) {
     const other = ids.find(i => i !== ctx.meta.host);
-    runTransaction(gameRef(ctx.code, 's'), cur => cur || {
-      order: [ctx.meta.host, other],
-      round: 0,
-      phase: 'ready',
-      rd: [0, 0],
-      pts: [0, 0],
-      used: [],
-      endAt: 0,
-      seq: 0
-    });
+    runTransaction(gameRef(ctx.code, 's'), cur => cur || { order: [ctx.meta.host, other], round: 0, phase: 'ready', rd: [0, 0], pts: [0, 0], used: [], endAt: 0, seq: 0 });
   }
-
-  // تفعيل نظام الانسحاب المشترك إن وجد في leave.js
-  const initLeave = LeaveMod.watchLeave || LeaveMod.setupLeave || LeaveMod.initLeave || LeaveMod.bindLeave || LeaveMod.default;
-  if (typeof initLeave === 'function') {
-    try { initLeave(ctx, () => !ended); } catch {}
-  }
-
   players = ctx.players;
-  onValue(gameRef(ctx.code, 's'), s => {
-    st = s.val();
-    if (st) {
-      me = st.order.indexOf(ctx.uid);
-      render();
-    }
-  });
-
+  const ex = initGameExit(ctx, { isOver: () => st?.phase === 'done', onGone: () => stopT?.() });
+  onValue(gameRef(ctx.code, 's'), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
   watchRoom(ctx.code, {
-    meta: m => { if (!m || m.status !== 'playing') goLobby(ctx.code); },
-    players: p => {
-      players = p || players;
-      scoreBar($('#sb'), players, scores, ctx.uid);
-      if (st) { panelKey = ''; render(); }
-    },
-    scores: s => {
-      scores = s || {};
-      scoreBar($('#sb'), players, scores, ctx.uid);
-    }
+    meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },
+    players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) { panelKey = ''; render(); } },
+    scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
   });
 }
 </script>
