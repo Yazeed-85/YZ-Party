@@ -135,10 +135,10 @@ main{max-width:520px;height:calc(100dvh - env(safe-area-inset-top,0px) - env(saf
       <div id="fx"></div>
     </div>
   </div>
-  <div id="spec" class="spec" hidden>💀 أنت خارج اللعبة — تتابع المشاهدة</div>
+  <div id="spec" class="spec" hidden>💀</div>
   <div id="hand" class="hand off"></div>
   <div id="ctl" class="ctl">
-    <button id="bPlay" class="btn play" disabled>اختر أوراقاً</button>
+    <button id="bPlay" class="btn play" disabled>نزّل</button>
     <button id="bLiar" class="btn liar" disabled>🤥 كذّاب</button>
   </div>
 </main>
@@ -152,7 +152,7 @@ import { toast, sfx, scoreBar, confirmDialog, showOverlay, isMuted, toggleMute }
 import { initGroupExit } from '../../shared/leave.js';
 
 // ===== محرّك القواعد (دوال نقية بلا شبكة، تُختبر بمحاكاة آلاف المباريات) =====
-const HAND = 5, MAX_PLAY = 3, TURN_S = 45, DEAL_S = 3.6, REVEAL_S = 4.8, ROUL_S = 8.8, REDEAL_S = 3.4, DONE_S = 6.5, STRIKES = 2, CH_S = 8;
+const HAND = 5, MAX_PLAY = 3, TURN_S = 45, DEAL_S = 3.6, REVEAL_S = 4.4, ROUL_S = 8.8, REDEAL_S = 2.4, DONE_S = 6.5, STRIKES = 2, CH_S = 1.8;
 const CODES = ['A', 'K', 'Q'];
 const rnd = n => Math.floor(Math.random() * n);
 const A = (arr, i, v) => { const a = [...arr]; a[i] = v; return a; };
@@ -246,8 +246,8 @@ function autoTurn(s, io) {
 
 function step(s, io, now) {
   if (s.ph === 'ready') { const idx = aliveIdx(s.al); if (idx.length < 2) return { state: { ...s, ph: 'done', win: idx[0] ?? 0, endAt: deadline(DONE_S), seq: s.seq + 1 } }; return idx.every(i => s.rd[i]) ? startRound(s, false) : null; }
-  if (s.ph === 'challenge') return challenge(s, io);
   if (now < (s.endAt || 0)) return null;
+  if (s.ph === 'challenge') return challenge(s, io);
   switch (s.ph) {
     case 'deal': return { state: { ...s, turn: s.al[s.turn] ? s.turn : nextAlive(s.al, s.turn), ph: 'turn', endAt: deadline(TURN_S), seq: s.seq + 1 } };
     case 'turn': return autoTurn(s, io);
@@ -402,7 +402,7 @@ function renderHand(dealAnim) {
 }
 function toggleSel(i) {
   if (!canAct()) { const d = $(`.hc[data-i="${i}"]`); if (d && !reduce) gsap.fromTo(d, { x: d._b.x - 4 }, { x: d._b.x + 4, duration: .06, repeat: 3, yoyo: true, onComplete: () => gsap.set(d, { x: d._b.x }) }); return; }
-  if (sel.has(i)) sel.delete(i); else { if (sel.size >= MAX_PLAY) return toast(`الحد الأقصى ${MAX_PLAY} أوراق في الدور`, 'error'); sel.add(i); }
+  if (sel.has(i)) sel.delete(i); else { if (sel.size >= MAX_PLAY) { sfx.error(); return; } sel.add(i); }
   sfx.click(); const d = $(`.hc[data-i="${i}"]`); d.classList.toggle('sel', sel.has(i));
   gsap.to(d, { y: d._b.y + (sel.has(i) ? -26 : 0), duration: .2, ease: 'power2.out' }); updateControls();
 }
@@ -411,7 +411,7 @@ function updateControls() {
   const can = canAct(), n = sel.size, bp = $('#bPlay'), bl = $('#bLiar'), dead = !isAlive(me) && st.ph !== 'ready';
   $('#hand').classList.toggle('off', !can);
   bp.disabled = !can || n === 0 || !myHand.length;
-  bp.textContent = !can ? (st.ph === 'turn' && st.turn !== me ? `دور ${nm(st.turn)}…` : st.ph === 'turn' ? '…' : 'انتظر') : !myHand.length ? 'أوراقك نفدت، اتهمه!' : n ? `نزّل ${n} ${n === 1 ? 'ورقة' : 'أوراق'}` : 'اختر أوراقاً';
+  bp.textContent = !can ? (st.ph === 'turn' && st.turn !== me ? nm(st.turn) : '…') : !myHand.length ? '—' : n ? `نزّل (${n})` : 'نزّل';
   bl.disabled = !can || !st.last; bl.classList.toggle('pulse', can && !!st.last && !myHand.length);
   $('#spec').hidden = !dead; $('#ctl').hidden = dead; $('#hand').style.display = dead ? 'none' : '';
 }
@@ -439,7 +439,7 @@ async function doPlay() {
 }
 async function doLiar() {
   if (!canAct() || !st.last) return;
-  const ok = await confirmDialog(`إذا كان ${nm(st.last.by)} صادقاً فستسحب أنت الزناد. تتهمه بالكذب؟`, 'نعم، كذّاب', 'تراجع');
+  const ok = await confirmDialog('تتهمه بالكذب؟', 'كذّاب', 'تراجع');
   if (!ok || !canAct()) return;
   busyAct = true; updateControls();
   await act(c => (c.ph === 'turn' && c.turn === me && c.last) ? callTx(c, me) : undefined);
@@ -462,20 +462,19 @@ function dealCards(c) {
 function dealFx(c, quiet) {
   clearFx(); pileN = 0; $('#pile').replaceChildren(); dealAt = Date.now();
   const fx = $('#fx'), big = mkFlip(c.tg, 96, 134); big.style.left = '122px'; big.style.top = '93px';
-  const say = div('say', `ورقة هذه الجولة: ${CNAME[c.tg]}<small>أنزِل أوراقك مدّعياً أنها هذه الورقة</small>`); say.style.top = '240px'; say.style.opacity = 0; fx.append(big, say);
+  fx.append(big);
   const tl = fxTl = gsap.timeline();
   tl.fromTo(big, { scale: .2, rotation: -30, opacity: 0 }, { scale: 1.25, rotation: 0, opacity: 1, duration: .55, ease: 'back.out(1.8)' })
     .to(big.querySelector('.fi'), { rotationY: 180, duration: .6, ease: 'power2.inOut' }, '+=.1')
-    .to(say, { opacity: 1, duration: .3 }, '<.3')
     .to(big, { scale: 1.38, duration: .25, yoyo: true, repeat: 1 }, '+=.05')
     .add(() => dealCards(c))
-    .to([big, say], { opacity: 0, scale: .3, duration: .35, ease: 'power2.in' }, '+=.5')
+    .to(big, { opacity: 0, scale: .3, duration: .35, ease: 'power2.in' }, '+=.5')
     .add(() => { gsap.fromTo('#cTarget', { scale: 1.5 }, { scale: 1, duration: .6, ease: 'elastic.out(1,.5)' }); });
   if (!quiet) sfx.turn(); else tl.progress(1);
 }
 function turnFx(c) {
   if (c.turn !== me || !isAlive(me)) return; sfx.turn(); clearFx();
-  const b = div('ban', '🎯 دورك!'); $('#fx').append(b);
+  const b = div('ban', '🎯'); $('#fx').append(b);
   fxTl = gsap.timeline().fromTo(b, { scale: .3, opacity: 0 }, { scale: 1, opacity: 1, duration: .4, ease: 'back.out(2.2)' }).to(b, { opacity: 0, y: -20, duration: .3 }, '+=.7').add(() => b.remove());
 }
 function throwFx(c, quiet) {
@@ -487,10 +486,10 @@ function throwFx(c, quiet) {
 }
 function challengeFx(c, quiet) {
   clearFx(); const by = c.clg.by, on = c.clg.on, fx = $('#fx'), dim = div('dim');
-  const ban = div('ban red', `🤥 ${nmY(by)} ${by === me ? 'تصرخ' : 'يصرخ'}: كذّاب!`), sub = div('say', `ضد ${nmY(on)}<small>تُكشف الأوراق الآن…</small>`); sub.style.top = '214px'; fx.append(dim, ban, sub);
+  const ban = div('ban red', '🤥 كذّاب!'); fx.append(dim, ban);
   const av = $(`#seat${on} .av`);
   fxTl = gsap.timeline().from(dim, { opacity: 0, duration: .4 }).from(ban, { scale: .2, opacity: 0, duration: .5, ease: 'back.out(2.4)' }, 0)
-    .from(sub, { opacity: 0, y: 10, duration: .3 }, .3);
+    ;
   if (av) fxTl.fromTo(av, { x: -5 }, { x: 5, duration: .06, repeat: 7, yoyo: true, onComplete: () => gsap.set(av, { x: 0 }) }, .2);
   if (!quiet) sfx.error(); else fxTl.progress(1);
 }
@@ -502,9 +501,7 @@ function revealFx(c, quiet) {
     const bad = !rv.inv && code !== c.tg && code !== 'J'; fc.dataset.bad = bad ? '1' : '0';
   }
   const head = div('ban ' + (rv.liar ? 'red' : 'grn'), rv.liar ? 'كاذب! 🤥' : 'صادق! 😇'); head.style.top = '232px'; head.style.opacity = 0;
-  const sub = div('say', rv.inv ? 'تعذّر إثبات الأوراق — يُعدّ كذباً' : `${CNAME[c.tg]} هي المطلوبة${rv.liar ? '' : ' (والجوكر يصلح لأي ورقة)'}`); sub.style.top = '262px'; sub.style.opacity = 0;
-  const who = div('say', `${nmY(rv.vic)} ${rv.vic === me ? 'ستسحب' : 'يسحب'} الزناد 🔫`); who.style.top = '292px'; who.style.opacity = 0; who.style.color = rv.liar ? 'var(--rose)' : 'var(--lagoon)';
-  fx.append(head, sub, who);
+  fx.append(head);
   const tl = fxTl = gsap.timeline(); tl.from(dim, { opacity: 0, duration: .35 });
   cards.forEach(({ fc, code }, k) => {
     tl.from(fc, { x: 170 - (x0 + k * (W + gap)) - W / 2, y: 70, scale: .5, rotation: gsap.utils.random(-40, 40), opacity: 0, duration: .5, ease: 'power3.out' }, .2 + k * .1);
@@ -512,13 +509,12 @@ function revealFx(c, quiet) {
       .to(fc, { filter: fc.dataset.bad === '1' ? 'drop-shadow(0 0 12px #ff6b81)' : 'drop-shadow(0 0 12px #34d399)', duration: .3 }, 1.4 + k * .3);
   });
   const t = 1.5 + n * .3;
-  tl.to(head, { opacity: 1, scale: 1.08, duration: .4, ease: 'back.out(2)' }, t).to(sub, { opacity: 1, duration: .3 }, t + .15).to(who, { opacity: 1, duration: .3 }, t + .5);
+  tl.to(head, { opacity: 1, scale: 1.08, duration: .4, ease: 'back.out(2)' }, t);
   if (!quiet) { rv.liar ? sfx.lose() : sfx.win(); } else tl.progress(1);
 }
 function rouletteFx(c, quiet) {
   clearFx(); const sh = c.shot, fx = $('#fx'), dim = div('dim'); fx.append(dim);
   const holder = div('', gunSVG(sh.chm)); const gun = holder.firstChild; fx.append(gun);
-  const who = div('say', `${nmY(sh.vic)} ${sh.vic === me ? 'تسحب' : 'يسحب'} الزناد<small>السحبة ${sh.chm + 1} من 6${sh.chm === 5 ? ' — الطلقة في هذه الخانة حتماً!' : ' — هل ستنجو؟'}</small>`); who.style.top = '14px'; fx.append(who);
   const out = div('say', ''); out.style.top = '278px'; out.style.fontSize = '1.5rem'; fx.append(out);
   const flash = div('flash'), vig = div('vig'); fx.append(flash, vig);
   const cyl = $('#cylG'), final = -(sh.chm * 60) - 1440, tl = fxTl = gsap.timeline(); let lastStep = 0;
@@ -526,13 +522,13 @@ function rouletteFx(c, quiet) {
   const outcome = () => {
     if (sh.died) {
       const bl = $(`#bul${sh.chm}`); if (bl) bl.innerHTML = `<circle cx="${100 + Math.sin(sh.chm * Math.PI / 3) * 54}" cy="${100 - Math.cos(sh.chm * Math.PI / 3) * 54}" r="12" fill="#d79a3a" stroke="#6a4410" stroke-width="2"/>`;
-      out.innerHTML = 'بووم! 💥'; out.style.color = 'var(--rose)';
+      out.innerHTML = '💥';
       gsap.timeline().fromTo(flash, { opacity: .95 }, { opacity: 0, duration: .5 }).fromTo(vig, { opacity: 1 }, { opacity: .55, duration: 1.2 }, 0)
         .fromTo('#stage', { x: -9, y: 5 }, { x: 9, y: -5, duration: .05, repeat: 9, yoyo: true, ease: 'none', onComplete: () => gsap.set('#stage', { x: 0, y: 0 }) }, 0)
         .fromTo(out, { scale: 3, opacity: 0 }, { scale: 1, opacity: 1, duration: .35, ease: 'back.out(2)' }, 0);
       const seat = $('#seat' + sh.vic); seat?.classList.add('dead'); const skull = seat?.querySelector('.sk'); if (skull) gsap.fromTo(skull, { scale: 2.2, opacity: 0 }, { scale: 1, opacity: 1, duration: .5, ease: 'back.out(2)' });
     } else {
-      out.innerHTML = 'كليك… نجا 😮‍💨'; out.style.color = 'var(--lagoon)';
+      out.innerHTML = '😮‍💨';
       gsap.fromTo(out, { scale: .4, opacity: 0 }, { scale: 1, opacity: 1, duration: .5, ease: 'back.out(2.4)' });
       const av = $(`#seat${sh.vic} .av`); if (av) gsap.fromTo(av, { scale: 1.25 }, { scale: 1, duration: .8, ease: 'elastic.out(1,.4)' });
     }
@@ -543,12 +539,12 @@ function rouletteFx(c, quiet) {
   if (!quiet) playSnd(sh.died ? 'kill' : 'safe');
   else tl.progress(1);
 }
-function redealFx(quiet) { clearFx(); const b = div('ban', '🃏 نفدت الأوراق — إعادة توزيع'); $('#fx').append(b); fxTl = gsap.timeline().from(b, { scale: .3, opacity: 0, duration: .45, ease: 'back.out(2)' }); if (!quiet) sfx.turn(); }
+function redealFx(quiet) { clearFx(); const b = div('ban', '🃏'); $('#fx').append(b); fxTl = gsap.timeline().from(b, { scale: .3, opacity: 0, duration: .45, ease: 'back.out(2)' }); if (!quiet) sfx.turn(); }
 function doneFx(c, quiet) {
   clearFx(); const w = c.win, mine = w === me; if (!quiet) (mine ? sfx.win() : sfx.lose());
-  showOverlay({ icon: '🏆', title: `الفائز: ${nmY(w)}`, sub: mine ? 'نجوتَ حتى النهاية 🎉' : 'بقي حياً حتى النهاية', confetti: true });
+  showOverlay({ icon: '🏆', title: nmY(w), sub: '', confetti: true });
 }
-const EVT = { auto: i => `انتهى وقت ${nmY(i)} فنزّل ورقة تلقائياً`, autoliar: i => `انتهى وقت ${nmY(i)} فاتهم تلقائياً`, afk: i => `${nmY(i)} أُقصي لتأخره المتكرر`, gone: i => `${nmY(i)} غادر اللعبة`, noshow: i => `${nmY(i)} لم يدخل الطاولة` };
+const EVT = { afk: i => `${nmY(i)} أُقصي لتأخره المتكرر`, gone: i => `${nmY(i)} غادر اللعبة`, noshow: i => `${nmY(i)} لم يدخل الطاولة` };
 function dispatchFx(p, c) {
   const first = !p;
   if (first) {                                            // أول لقطة (دخول أو إعادة تحميل): نعرض الحالة الحالية دون حركات
@@ -578,7 +574,7 @@ function startTimer() {
 }
 function renderInfo() {
   $('#cRound').innerHTML = `الجولة <b>${st.rnd || 0}</b>`;
-  $('#cTarget').innerHTML = st.rnd ? `${cardFace(st.tg)}<span>المطلوب: ${CNAME[st.tg]}</span>` : '<span>—</span>';
+  $('#cTarget').innerHTML = st.rnd ? `${cardFace(st.tg)}<span>${CNAME[st.tg]}</span>` : '<span>—</span>';
   $('#cAlive').innerHTML = `👥 <b>${aliveIdx(st.al).length}</b>/${st.order.length}`;
 }
 
@@ -601,14 +597,14 @@ function showRules() {
 }
 function buildEnter() {
   enterBuilt = true; const e = $('#enter');
-  e.innerHTML = `<div class="ecard">${LOGO}<h1>LIAR<em>'</em>S BAR</h1><div class="tag">اكذب بذكاء… أو مُت بشرف</div><div class="plist" id="plist"></div>
+  e.innerHTML = `<div class="ecard">${LOGO}<h1>LIAR<em>'</em>S BAR</h1><div class="plist" id="plist"></div>
     <div class="sm2" id="eMsg"></div><button class="btn primary" id="eBtn">ادخل الطاولة 🔫</button><button class="btn ghost" id="eForce" hidden>ابدأ بمن دخلوا</button><button class="btn ghost" id="eRules">كيف تُلعب؟</button></div>`;
   $('#eRules').onclick = () => { sfx.click(); showRules(); };
   $('#eBtn').onclick = onEnter; $('#eForce').onclick = forceStart;
   if (!reduce) { gsap.from('.ecard > *', { y: 24, opacity: 0, duration: .6, stagger: .08, ease: 'power3.out' }); gsap.to('.ecard .logo', { rotation: 360, duration: 24, repeat: -1, ease: 'none' }); }
 }
 async function onEnter() {
-  const b = $('#eBtn'); if (b.disabled) return; b.disabled = true; b.textContent = '⏳ جارٍ تجهيز الأصوات…';
+  const b = $('#eBtn'); if (b.disabled) return; b.disabled = true; b.textContent = '⏳';
   await unlockAudio(); sfx.click(); await imReady();
 }
 const forceStart = () => act(c => c.ph === 'ready' ? aliveIdx(c.al).filter(i => !c.rd[i]).reduce((s, i) => forfeitTx(s, i, 'noshow'), c) : undefined);
@@ -617,11 +613,11 @@ function renderEnter() {
   if (st && st.ph !== 'ready') { if (!e.hidden && !e._closing) { e._closing = true; gsap.to(e, { opacity: 0, duration: .5, onComplete: () => { e.hidden = true; } }); } return; }
   e.hidden = false; e._closing = false; gsap.set(e, { opacity: 1 });
   const b = $('#eBtn'), msg = $('#eMsg');
-  if (!st) { b.hidden = true; msg.textContent = '⏳ جارٍ تجهيز الطاولة…'; $('#plist').replaceChildren(); return; }
+  if (!st) { b.hidden = true; msg.textContent = '⏳'; $('#plist').replaceChildren(); return; }
   me = st.order.indexOf(ctx.uid);
   $('#plist').replaceChildren(...st.order.map((u, i) => { const c = div('pchip' + (st.rd[i] ? ' ok' : ''), `<i></i><span>${players[u]?.name || 'لاعب'}</span>`); c.style.setProperty('--pc', PCOL[i % 4]); return c; }));
   const ready = aliveIdx(st.al).filter(i => st.rd[i]).length, total = aliveIdx(st.al).length;
-  if (st.rd[me]) { b.hidden = true; msg.textContent = `بانتظار الباقين… (${ready}/${total})`; } else { b.hidden = false; b.disabled = false; b.textContent = 'ادخل الطاولة 🔫'; msg.textContent = 'اضغط للدخول وتفعيل الصوت'; }
+  if (st.rd[me]) { b.hidden = true; msg.textContent = `${ready}/${total}`; } else { b.hidden = false; b.disabled = false; b.textContent = 'ادخل الطاولة 🔫'; msg.textContent = ''; }
   $('#eForce').hidden = !(ctx.isHost && ready >= 2 && ready < total && Date.now() - enterAt > 20000);
 }
 
@@ -675,7 +671,7 @@ async function hostTick() {
 }
 function hostSchedule() {
   clearTimeout(hostT); if (!ctx.isHost || !st) return;
-  const wait = st.ph === 'ready' || st.ph === 'challenge' || !st.endAt ? 1200 : Math.min(Math.max(150, st.endAt - serverNow() + 60), 3000);
+  const wait = st.ph === 'ready' || !st.endAt ? 1200 : Math.min(Math.max(150, st.endAt - serverNow() + 60), 3000);
   hostT = setTimeout(hostTick, wait);
 }
 

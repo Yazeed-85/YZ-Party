@@ -9,10 +9,8 @@ export const GAMES = [
   { id: "reverse-echo", name: "التحدي العكسي",  icon: "🔁", desc: "قلّد الجملة وهي مقلوبة",     min: 2, max: 2, ready: true },
   { id: "truth-lie",    name: "صادق أم كاذب",  icon: "📦", desc: "اكشف من يكذب في الصندوق",    min: 2, max: 2, ready: true },
 
-  //العاب قريبا
   { id: "liars-bar",   name: "بار الكذّابين", icon: "🔫",     desc: "اكذب بذكاء أو مت بشرف",       min: 2, max: 4, ready: true },
-  { id: "hot-cold",    name: "حار بارد",  icon: "🔥",     desc: "خمّن كلمتك السرية بمساعدة خصمك",  min: 2, max: 2, ready: false },
-  { id: "xo",          name: "X & O",  icon: "⚔️",      desc: "",                        min: 2, max: 2, ready: false },
-  { id: "codenames",   name: "الكلمات المشفرة",  icon: "🕵️‍♂️",  desc: "كلمات مشفرة وجواسيس",         min: 2, max: 2, ready: false }
-
+  { id: "hot-cold",    name: "حار بارد",  icon: "🔥",     desc: "خمّن كلمتك السرية بمساعدة خصمك",  min: 2, max: 2, ready: true },
+  { id: "xo",          name: "X & O",  icon: "⚔️",      desc: "ثلاث قطع متتالية تحسم الجولة", min: 2, max: 2, ready: true },
+  { id: "codenames",   name: "الكلمات المشفرة",  icon: "🕵️‍♂️",  desc: "فريقان: قائد يلمّح وعميل يخمّن (4 لاعبين)", min: 4, max: 4, ready: true }
 ];

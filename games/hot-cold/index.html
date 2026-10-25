@@ -9,8 +9,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
 html,body{height:100%;overflow:hidden}
-main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:8px;padding:10px 14px 14px}
-@media (pointer:coarse){main{padding-bottom:58px}}
+main{height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:8px;padding:10px 14px 14px}
+@media (pointer:coarse){main{padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}}
 .scorebar{padding:6px 10px;flex:none}.sb{padding:5px 12px}
 .info{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}
 .dots{display:flex;gap:6px}.dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.16)}
@@ -21,7 +21,10 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 
 /* البطاقة الرئيسية والطاولة */
 .card{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 12px;text-align:center;border-radius:26px;position:relative;overflow:hidden;transition:box-shadow .45s,border-color .45s}
-.card.center-mode{justify-content:center;gap:14px}
+.card.center-mode{justify-content:center;justify-content:safe center;gap:14px;overflow-y:auto;overflow-x:hidden}
+.cbody{flex:1 1 auto;min-height:0;width:100%;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;align-items:center;justify-content:space-around;gap:10px;scrollbar-width:none}
+.cbody::-webkit-scrollbar{display:none}
+.cbody>*{flex:none}
 .card.glow-cold{box-shadow:inset 0 0 65px rgba(45,212,255,.18);border-color:rgba(45,212,255,.45)}
 .card.glow-warm{box-shadow:inset 0 0 65px rgba(255,180,84,.18);border-color:rgba(255,180,84,.45)}
 .card.glow-hot{box-shadow:inset 0 0 75px rgba(255,59,30,.24);border-color:rgba(255,80,60,.55)}
@@ -32,7 +35,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .ok{color:#34d399}.no2{color:#ff6b81}.am{color:var(--amber)}.mu{color:var(--mute)}.cy{color:#2dd4ff}
 
 /* المؤقت وأدوات أعلى الطاولة */
-.top-bar{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;z-index:2}
+.top-bar{width:100%;max-width:420px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;z-index:2}
 .tm-pill{display:flex;align-items:center;gap:6px;padding:4px 13px;border-radius:999px;background:rgba(0,0,0,.35);border:1px solid var(--line);font:700 1.1rem 'Reem Kufi',sans-serif;color:var(--text)}
 .tm-pill.warn{color:var(--rose);border-color:var(--rose);box-shadow:0 0 14px rgba(255,107,129,.35)}
 .reroll-btn{padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--mute);font:700 .78rem 'Cairo',sans-serif;cursor:pointer;transition:all .2s}
@@ -77,7 +80,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .thermo-bar i{display:block;height:100%;width:100%;transform-origin:right;transform:scaleX(.08);background:linear-gradient(90deg,#ff3b1e,var(--amber),#2dd4ff);transition:transform .4s cubic-bezier(.22,1,.36,1)}
 
 /* لوحة التقييم والأوامر السفلية */
-.ctrl-dock{width:100%;max-width:420px;display:flex;flex-direction:column;gap:8px;flex:none;z-index:2}
+.ctrl-dock{width:100%;max-width:420px;display:flex;flex-direction:column;gap:8px;flex:none;z-index:2;padding-bottom:4px}
 .prompt-txt{font-size:.9rem;font-weight:700;color:var(--text)}
 .eval-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%}
 .ev-btn{padding:11px 6px;border-radius:15px;border:1px solid transparent;font:900 .95rem 'Cairo',sans-serif;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:transform .12s,filter .15s}
@@ -85,7 +88,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .ev-btn.cold{background:linear-gradient(145deg,#0284c7,#1e3a8a);border-color:rgba(45,212,255,.35)}
 .ev-btn.warm{background:linear-gradient(145deg,#d97706,#92400e);border-color:rgba(255,180,84,.4)}
 .ev-btn.hot{background:linear-gradient(145deg,#dc2626,#7f1d1d);border-color:rgba(255,107,129,.45)}
-.ev-btn.win{grid-column:span 3;padding:12px;background:linear-gradient(145deg,#10b981,#047857);border-color:rgba(52,211,153,.5);font-size:1.05rem;box-shadow:0 6px 20px rgba(16,185,129,.28)}
+.ev-btn.win{grid-column:span 3;padding:12px 8px;line-height:1.3;background:linear-gradient(145deg,#10b981,#047857);border-color:rgba(52,211,153,.5);font-size:1.05rem;box-shadow:0 6px 20px rgba(16,185,129,.28)}
 
 .ask-box{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-radius:16px;background:rgba(255,180,84,.08);border:1px dashed rgba(255,180,84,.4)}
 .ask-box span{font-size:.88rem;font-weight:700;color:var(--amber);text-align:right}
@@ -102,6 +105,40 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .spin{width:54px;height:54px;border-radius:50%;border:5px solid rgba(255,255,255,.12);border-top-color:var(--lagoon);animation:sp .9s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
+
+/* ===== مقاسات الشاشات: ضغط تدريجي حتى لا يُقصّ أي زر ===== */
+@media (max-height:780px){
+  main{gap:6px;padding-top:8px}
+  .card{padding:10px 10px 8px;gap:6px;border-radius:22px}.cbody{gap:6px}
+  .playing-card{min-height:70px;padding:9px 12px;gap:3px}
+  .card-opp .secret-word{font-size:1.4rem}.card-mine .mystery{font-size:1.5rem}
+  .thermo-hub{padding:4px 18px;min-width:150px}.thermo-hub .em{font-size:1.3rem}.thermo-hub .lb{font-size:1.02rem}
+  .ctrl-dock{gap:6px}.ev-btn{padding:9px 4px;font-size:.88rem}.ev-btn.win{padding:9px 6px;font-size:.95rem}
+  .zone-head{font-size:.76rem}.prompt-txt{font-size:.82rem}.ask-box{padding:8px 12px}
+  .badge{width:72px;height:72px;font-size:2.3rem}.big{font-size:1.4rem}.ttl{font-size:1.25rem}
+  .rv-item{padding:9px 8px}.rv-item .w{font-size:1.1rem}
+}
+@media (max-height:640px){
+  .info{min-height:0}.scorebar{padding:3px 8px}.sb{padding:3px 10px;font-size:.8rem}.sb-exit{width:36px}
+  .card{padding:8px 8px 6px;gap:5px}
+  .playing-card{min-height:58px;padding:7px 10px}
+  .card-opp .secret-word{font-size:1.2rem}.card-mine .mystery{font-size:1.25rem;letter-spacing:4px}
+  .cat-chip,.my-cat-badge{font-size:.7rem}
+  .thermo-wrap{gap:4px}.thermo-hub{min-width:130px}.thermo-hub .em{font-size:1.15rem}
+  .ev-btn{padding:7px 3px;font-size:.82rem;border-radius:12px}.ev-btn.win{font-size:.88rem;padding:7px 6px}
+  .reroll-btn{padding:3px 10px;font-size:.72rem}.tm-pill{padding:2px 11px;font-size:1rem}
+  .badge{width:58px;height:58px;font-size:1.9rem}.sub{font-size:.82rem;line-height:1.5}
+}
+@media (max-height:520px) and (orientation:landscape){
+  main{max-width:860px}
+  .cbody{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;align-content:start;align-content:safe center;align-items:center;gap:6px 14px;overflow-y:auto}
+  .cbody .thermo-wrap{grid-column:1/-1;grid-row:2;max-width:none}
+  .cbody .table-zone{max-width:none}
+  .top-bar,.ctrl-dock{max-width:none}
+  .playing-card{min-height:52px}
+  .eval-grid{grid-template-columns:repeat(4,1fr)}.ev-btn.win{grid-column:auto;font-size:.8rem}.prompt-txt{display:none}
+}
+@media (max-width:360px){.eval-grid{gap:6px}.ev-btn{font-size:.8rem}.pill{padding:2px 8px;font-size:.78rem}}
 </style>
 </head>
 <body>
@@ -471,7 +508,8 @@ function renderTable(c) {
   }
 
   const tb = h('div', 'tb'); tb.id = 'tb'; tb.append(h('i'));
-  c.append(top, oppZone, thWrap, myZone, dock, tb);
+  const body = h('div', 'cbody'); body.append(oppZone, thWrap, myZone);
+  c.append(top, body, dock, tb);
 
   if (lastSeq !== st.seq) {
     const prevSeq = lastSeq;
@@ -527,7 +565,7 @@ function renderPanel() {
   if (!st || me < 0) return;
   const key = [
     st.seq, st.phase, st.round, st.turn, st.lastEval,
-    st.qCount?.join(','), st.hint?.join(','), st.rerollUsed?.join(',')
+    st.qCount?.join(','), st.hint?.join(','), st.rerollUsed?.join(','), nm(0), nm(1)
   ].join('|');
   if (key === panelKey) return;
   panelKey = key;
@@ -634,7 +672,7 @@ else {
   onValue(gameRef(ctx.code, 's'), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
   watchRoom(ctx.code, {
     meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },
-    players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) { panelKey = ''; render(); } },
+    players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) render(); },
     scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
   });
 }

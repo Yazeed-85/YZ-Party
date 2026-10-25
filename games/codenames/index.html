@@ -8,88 +8,188 @@
 <link rel="stylesheet" href="../../shared/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
+:root{--red:#d9552e;--red-d:#a63a1c;--red-l:#f08a62;--blue:#2d8fb3;--blue-d:#1d6a88;--blue-l:#69c4de;--paper:#f0e4c8;--paper-d:#cfc09a;--gold:#ffd54a}
 html,body{height:100%;overflow:hidden}
-main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:8px;padding:10px 14px 14px}
-@media (pointer:coarse){main{padding-bottom:58px}}
-.scorebar{padding:6px 10px;flex:none}.sb{padding:5px 12px}
-.ttl{font:700 1.6rem 'Reem Kufi',sans-serif;color:#fff}
-.sub{color:var(--mute);font-size:.9rem;line-height:1.6;white-space:pre-line}
-.ok{color:#34d399}.no2{color:#ff6b81}.am{color:var(--amber)}.mu{color:var(--mute)}
-.spin{width:50px;height:50px;border-radius:50%;border:5px solid rgba(255,255,255,.12);border-top-color:var(--lagoon);animation:sp .9s linear infinite}
+body{background-image:radial-gradient(60% 50% at 8% 0%,rgba(217,85,46,.2),transparent),radial-gradient(60% 50% at 92% 100%,rgba(45,143,179,.22),transparent)}
+main.app{max-width:none;width:100%;height:100vh;height:100dvh;min-height:0;justify-content:flex-start;gap:6px;padding:6px 10px calc(8px + env(safe-area-inset-bottom,0px))}
+.scorebar{padding:4px 8px;flex:none}.sb{padding:3px 10px;font-size:.82rem;min-width:0}.sb span{overflow:hidden;text-overflow:ellipsis}.sb-exit{width:38px}
+.ttl{font:700 1.7rem 'Reem Kufi',sans-serif;color:#fff}
+.sub{color:var(--mute);font-size:.9rem;line-height:1.7;white-space:pre-line}
+.am{color:var(--amber)}.mu{color:var(--mute)}
+.spin{width:44px;height:44px;border-radius:50%;border:5px solid rgba(255,255,255,.12);border-top-color:var(--lagoon);animation:sp .9s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.spin{animation:none}}
 
-/* شاشة الإعداد */
-.setup{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center;overflow-y:auto}
-.teams-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:400px}
-.team-col{background:rgba(0,0,0,.35);border-radius:16px;padding:12px;border:1px solid rgba(255,255,255,.06)}
-.team-col h3{margin-bottom:6px;font-size:1.05rem}
-.t-red{border-top:3px solid #ef4444}.t-red h3{color:#f87171}
-.t-blue{border-top:3px solid #3b82f6}.t-blue h3{color:#60a5fa}
-.slot{display:block;width:100%;background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.22);border-radius:10px;padding:12px 8px;margin-top:8px;cursor:pointer;font:700 .85rem 'Cairo',sans-serif;color:var(--mute)}
-.slot:active{transform:scale(.96)}
+/* ========== شاشة الإعداد ========== */
+.setup{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center;overflow-y:auto}
+.teams{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:520px;direction:ltr}
+.tcol{border-radius:18px;padding:12px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.08);direction:rtl}
+.tcol.red{border-top:4px solid var(--red)}.tcol.blue{border-top:4px solid var(--blue)}
+.tcol h3{font:700 1.15rem 'Reem Kufi',sans-serif;margin-bottom:6px}.tcol.red h3{color:var(--red-l)}.tcol.blue h3{color:var(--blue-l)}
+.slot{display:flex;flex-direction:column;gap:2px;align-items:center;width:100%;margin-top:8px;padding:10px 6px;border-radius:12px;background:rgba(255,255,255,.05);border:1px dashed rgba(255,255,255,.25);color:var(--mute);font:700 .85rem 'Cairo',sans-serif;cursor:pointer;min-height:64px;justify-content:center}
+.slot small{font-weight:400;font-size:.72rem;opacity:.8}
+.slot:active{transform:scale(.97)}
 .slot.filled{background:rgba(255,255,255,.1);border-style:solid;color:#fff;cursor:default}
-.slot.me{border-color:var(--amber);color:var(--amber);cursor:pointer}
-.row2{display:flex;gap:10px;width:100%;max-width:340px}.row2 .btn{flex:1}
+.slot.me{border-color:var(--gold);color:var(--gold);cursor:pointer}
+.row2{display:flex;gap:10px;width:100%;max-width:420px}.row2 .btn{flex:1}.setup>.btn{width:auto;padding-inline:36px}
+.toast{border-radius:16px;text-align:center;line-height:1.5;bottom:calc(90px + env(safe-area-inset-bottom,0px))}
 
-/* لوحة اللعب */
-.game{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
-.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;background:rgba(0,0,0,.35);padding:8px 12px;border-radius:16px;border:1px solid var(--line);flex:none}
-.score{font:700 1.3rem 'Reem Kufi',sans-serif;padding:2px 14px;border-radius:12px;min-width:48px;text-align:center}
-.score.r{color:#fca5a5;background:#7f1d1d;border:2px solid #ef4444}
-.score.b{color:#bfdbfe;background:#1e3a8a;border:2px solid #3b82f6}
-.score.g{color:#bbf7d0;background:#14532d;border:2px solid #22c55e}
-.score.t{color:var(--amber);background:rgba(255,180,84,.12);border:2px solid rgba(255,180,84,.5)}
-.mid{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
-.turn-badge{padding:4px 12px;border-radius:20px;font-weight:700;font-size:.82rem;background:var(--glass);border:1px solid var(--line);text-align:center}
-.turn-badge.r{background:#ef4444;color:#fff}.turn-badge.b{background:#3b82f6;color:#fff}.turn-badge.g{background:#16a34a;color:#fff}
-.tm{font:700 1rem 'Reem Kufi',sans-serif;color:var(--mute)}.tm.warn{color:var(--rose)}
+/* ========== شاشة اللعب ========== */
+.play{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px}
+.topline{display:flex;align-items:center;gap:6px;flex:none;min-height:36px}
+.status{flex:1;min-width:0;background:#fff;color:#14141a;font:800 clamp(.82rem,2.2vw,1.12rem) 'Cairo',sans-serif;text-align:center;padding:5px 12px;border-radius:9px;border-bottom:4px solid var(--paper-d);box-shadow:0 4px 14px rgba(0,0,0,.35);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status.red{border-bottom-color:var(--red)}.status.blue{border-bottom-color:var(--blue)}.status.end{background:#14141a;color:#fff}
+.tmpill{flex:none;min-width:62px;text-align:center;padding:5px 12px;border-radius:999px;background:rgba(0,0,0,.4);border:1px solid var(--line);font:700 1.05rem 'Reem Kufi',sans-serif;color:var(--text)}
+.tmpill.warn{color:var(--rose);border-color:var(--rose)}.tmpill:empty{display:none}
+.ibtn{flex:none;width:38px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--glass);color:var(--text);font:700 1rem 'Cairo',sans-serif;cursor:pointer;display:grid;place-items:center}
+.ibtn.logb{display:none;width:auto;padding:0 12px}
 
-.board{flex:1;min-height:0;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);gap:5px;perspective:800px}
-.b-card{background:#fdfbf7;border:2px solid #d0c8b6;border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;font:700 .82rem 'Cairo',sans-serif;color:#111;cursor:default;box-shadow:0 3px 8px rgba(0,0,0,.25);padding:2px;word-break:break-word;line-height:1.15;position:relative;min-height:0;transition:transform .15s}
-.b-card.can{cursor:pointer}.b-card.can:active{transform:scale(.93)}
-.b-card.rev{box-shadow:none}
-.b-card.rev.red{background:#ef4444;color:#fff;border-color:#b91c1c}
-.b-card.rev.blue{background:#3b82f6;color:#fff;border-color:#1d4ed8}
-.b-card.rev.neutral{background:#d4d4d8;color:#555;border-color:#a1a1aa}
-.b-card.rev.assassin{background:#18181b;color:#fff;border-color:#000}
-.b-card.rev.green{background:#22c55e;color:#fff;border-color:#15803d}
-/* رؤية القائد (فريقان) أو مفتاحك الخاص (تعاوني) */
-.b-card.sp-red{background:#fee2e2;border-color:#ef4444;color:#991b1b}
-.b-card.sp-blue{background:#dbeafe;border-color:#3b82f6;color:#1e3a8a}
-.b-card.sp-assassin{background:#3f3f46;border-color:#000;color:#fff}
-.b-card.sp-neutral{background:#f4f4f5;color:#555}
-.b-card.k-G{background:#dcfce7;border-color:#22c55e;color:#14532d}
-.b-card.k-A{background:#3f3f46;border-color:#000;color:#fff}
-.b-card.k-N{background:#f4f4f5;color:#555}
-.b-card.tn::after{content:'✕';position:absolute;top:1px;left:4px;font-size:.7rem;color:#71717a}
-.b-card.lost{outline:3px solid #ff6b81}
+.arena{flex:1;min-height:0;display:grid;direction:ltr;gap:8px;grid-template-columns:minmax(150px,236px) minmax(0,1fr) minmax(170px,270px);grid-template-areas:"red center side"}
+.arena>*{direction:rtl}
+#pRed{grid-area:red}.center{grid-area:center}.side{grid-area:side}
+.center{min-width:0;min-height:0;display:flex;flex-direction:column;gap:6px}
+.side{min-height:0;display:flex;flex-direction:column;gap:8px}
 
-.dock{background:rgba(0,0,0,.5);padding:10px;border-radius:16px;border:1px solid var(--line);flex:none;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
-.role-chip{font-size:.78rem;color:var(--mute)}
-.clue-form{display:flex;gap:8px;width:100%;max-width:380px}
-.clue-form input{flex:1;min-width:0;padding:10px;border-radius:10px;font-size:1rem}
-.clue-form select{background:#222;border:1px solid #444;color:#fff;padding:8px;border-radius:10px;font:inherit}
-.clue-form .btn{width:auto;padding:10px 16px}
-.clue-display{font:700 1.15rem 'Cairo',sans-serif;color:var(--amber);background:rgba(255,180,84,.1);padding:8px 16px;border-radius:12px;border:1px dashed var(--amber);width:100%}
-.tb{height:3px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;width:100%}
-.tb i{display:block;height:100%;background:var(--lagoon);transform-origin:right}
-@media (max-width:380px){.b-card{font-size:.72rem}}
+/* لوحة الفريق */
+.panel{--tc:var(--red);--tcd:var(--red-d);border-radius:14px;padding:10px 12px;color:#fff;background:linear-gradient(160deg,var(--tc),var(--tcd));box-shadow:0 6px 18px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:7px;align-self:start;width:100%;border:2px solid transparent;transition:box-shadow .3s,border-color .3s;align-self:start}
+.panel.blue{--tc:var(--blue);--tcd:var(--blue-d)}
+.panel.on{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,213,74,.28),0 6px 18px rgba(0,0,0,.35)}
+.panel .head{display:flex;align-items:center;gap:12px;direction:ltr}
+.panel .face{width:min(46%,104px);aspect-ratio:1.18;border-radius:9px;overflow:hidden;flex:none;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.panel .face svg{width:100%;height:100%;display:block}
+.panel .num{flex:1;text-align:center;font:900 clamp(2.4rem,5vw,3.6rem)/1 'Reem Kufi',sans-serif;text-shadow:0 2px 6px rgba(0,0,0,.35)}
+.panel .grp{display:flex;flex-direction:column;gap:3px}
+.panel .lbl{font-size:.78rem;opacity:.78}
+.panel .chips{display:flex;flex-wrap:wrap;gap:4px}
+.pchip{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:1px 9px;font-size:.84rem;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pchip.me{outline:2px solid var(--gold);outline-offset:1px}.pchip.off{opacity:.5}
+
+/* سجل اللعبة */
+.log{flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;color:#14141a;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.log h4{flex:none;text-align:center;font:800 .92rem 'Cairo',sans-serif;padding:5px;border-bottom:1px solid #e3dccb;position:relative}
+.log h4 button{position:absolute;inset-block:0;inset-inline-start:6px;border:0;background:none;font-size:1.1rem;cursor:pointer;display:none;color:#555}
+.log .list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.le{padding:4px 9px;font-size:.84rem;line-height:1.5;border-bottom:1px solid rgba(0,0,0,.04)}
+.le.red{background:#fdeee8}.le.blue{background:#e6f5fa}.le.sys{background:#f2efe6;color:#555;text-align:center}
+.le .w{font-weight:900;padding:0 3px}.le .w.red{color:var(--red-d)}.le .w.blue{color:var(--blue-d)}.le .w.neutral{color:#8a8470}.le .w.assassin{color:#000;background:#d4d4d8;border-radius:4px}
+.le b{font-weight:800}
+
+/* اللوح */
+.bw{flex:1;min-height:0;container-type:size;display:grid;place-items:center}
+.board{width:min(100cqw,calc(100cqh * 1.62));height:min(100cqh,100cqw);display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:repeat(5,minmax(0,1fr));gap:clamp(3px,.9cqw,10px);direction:rtl}
+.cn{position:relative;container-type:inline-size;min-width:0;min-height:0;border-radius:clamp(5px,1.3cqw,12px);background:var(--paper);border:2px solid var(--paper-d);overflow:hidden;cursor:default;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;box-shadow:0 3px 0 rgba(0,0,0,.28),0 7px 12px rgba(0,0,0,.28);transition:transform .15s,box-shadow .15s}
+.cn::before{content:'';position:absolute;top:11%;inset-inline-start:7%;width:30%;height:5%;border-radius:4px;background:rgba(0,0,0,.14)}
+.cn::after{content:'';position:absolute;top:8%;inset-inline-end:7%;width:21%;aspect-ratio:1;border-radius:20%;background:rgba(0,0,0,.1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='8.5' r='4' fill='%23000' fill-opacity='.35'/%3E%3Cpath d='M4 21c0-5 3.5-7.5 8-7.5s8 2.5 8 7.5Z' fill='%23000' fill-opacity='.35'/%3E%3C/svg%3E") center/70% no-repeat}
+.plate{position:absolute;inset-inline:5%;bottom:11%;height:34%;min-height:1.5em;background:#fff;border-radius:clamp(4px,1cqw,8px);display:grid;place-items:center;font:900 clamp(8px,12.5cqw,22px)/1.1 'Cairo',sans-serif;color:#14141a;white-space:nowrap;box-shadow:inset 0 -2px 0 rgba(0,0,0,.12)}
+.cn.long .plate{font-size:clamp(7.5px,10.6cqw,19px)}
+.cn.k-red{background:linear-gradient(var(--red-l),var(--red));border-color:var(--red-d)}
+.cn.k-blue{background:linear-gradient(var(--blue-l),var(--blue));border-color:var(--blue-d)}
+.cn.k-neutral{background:#e9dcb9}
+.cn.k-assassin{background:linear-gradient(#3a3a3d,#141416);border-color:#000}
+.cn.k-red::before,.cn.k-blue::before,.cn.k-assassin::before{background:rgba(255,255,255,.35)}
+.cn.k-assassin::after{background-color:rgba(255,255,255,.12)}
+.cn .art{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cn .art svg{width:100%;height:100%;display:block}
+.cn.rev{cursor:default;box-shadow:0 2px 0 rgba(0,0,0,.3)}
+.cn.rev::before,.cn.rev::after{display:none}
+.cn.rev .plate{inset-inline:0;bottom:0;height:24%;min-height:0;border-radius:0;background:rgba(10,10,14,.62);color:#fff;font-size:clamp(8px,9.5cqw,15px);font-weight:700;box-shadow:none}
+.cn.can{cursor:pointer}
+@media (hover:hover){.cn.can:hover{transform:translateY(-3px)}}
+.cn.can:active{transform:scale(.96)}
+.cn.sel{outline:3px solid var(--gold);outline-offset:1px;transform:translateY(-3px)}
+.cn.sel .plate::after{content:'✓';position:absolute;top:-155%;inset-inline-start:50%;transform:translateX(50%);background:var(--gold);color:#3a2605;border-radius:999px;padding:0 .5em;font-size:.9em}
+.cn.just{animation:flip .55s ease both}
+@keyframes flip{0%{transform:rotateY(90deg) scale(.9)}100%{transform:none}}
+.cn.hit{outline:3px solid var(--rose);outline-offset:-3px}
+@media (prefers-reduced-motion:reduce){.cn.just{animation:none}}
+
+/* شريط التلميح */
+.dock{flex:none;min-height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;padding:8px 8px 10px;border-radius:14px;background:rgba(0,0,0,.34);border:1px solid var(--line)}
+.dock>[hidden]{display:none!important}
+.cform{display:flex;gap:8px;width:100%;max-width:520px}
+.cform input{flex:1;min-width:0;padding:9px 12px;border-radius:10px;font-size:1rem}
+.cform select{flex:none;background:#1b1f31;border:1px solid var(--line);color:#fff;padding:0 8px;border-radius:10px;font:700 1rem 'Cairo',sans-serif;min-width:62px}
+.cform .btn{width:auto;padding:9px 18px;flex:none}
+.cshow{display:flex;gap:8px;align-items:stretch;justify-content:center;direction:ltr}
+.cchip{background:#fff;color:#14141a;font:800 clamp(1.1rem,3.4vw,1.9rem)/1.2 'Cairo',sans-serif;padding:3px .7em;border-radius:12px;box-shadow:0 0 0 3px rgba(255,255,255,.18),0 4px 12px rgba(0,0,0,.4);max-width:70vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cchip.num{min-width:2.1em;text-align:center;padding-inline:.4em}
+.cchip.red{box-shadow:0 0 0 3px var(--red),0 4px 12px rgba(0,0,0,.4)}.cchip.blue{box-shadow:0 0 0 3px var(--blue),0 4px 12px rgba(0,0,0,.4)}
+.dmsg{font-size:.86rem;color:var(--mute);text-align:center;line-height:1.4}.dmsg b{color:var(--amber)}
+.dock .btn{width:auto;padding:8px 22px;font-size:.95rem}
+.tb{position:absolute;inset-inline:10px;top:0;height:3px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
+.tb i{display:block;height:100%;background:var(--lagoon);transform-origin:right;transform:scaleX(0)}
+.endbox{display:flex;flex-direction:column;align-items:center;gap:2px}
+.endbox .ttl{font-size:1.5rem}
+
+.ovl-card.rules{max-width:420px;text-align:right;align-items:stretch;max-height:88dvh;overflow-y:auto}
+.rules ol{padding-inline-start:20px;display:flex;flex-direction:column;gap:6px;font-size:.9rem;line-height:1.6}.rules b{color:var(--amber)}
+
+/* ========== مقاسات الشاشات ========== */
+/* لوحي وهاتف عمودي: اللوحات صفّ مضغوط أعلى اللوح، والسجل ورقة منزلقة */
+@media (max-width:1000px){
+  .arena{grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"red blue" "center center";gap:6px}
+  .side{display:contents}#pBlue{grid-area:blue}
+  .panel{flex-direction:row;align-items:center;padding:6px 8px;gap:8px;border-radius:12px}
+  .panel .head{gap:8px}.panel .face{display:none}.panel .num{flex:none;font-size:2rem;min-width:1.2em}
+  .panel .names{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+  .panel .grp{flex-direction:row;align-items:center;gap:5px}.panel .lbl{font-size:.7rem;flex:none}
+  .pchip{font-size:.76rem;padding:0 6px}
+  .ibtn.logb{display:grid}
+  .log{position:fixed;inset-inline:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:56dvh;height:56dvh;z-index:90;transform:translateY(120%);transition:transform .3s;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
+  .log.open{transform:none}.log h4 button{display:block}
+}
+@media (max-width:520px){.cform{gap:6px}.cform .btn{padding:9px 12px}}
+/* هاتف أفقي (ارتفاع قصير): ثلاثة أعمدة مضغوطة */
+@media (max-height:520px) and (orientation:landscape){
+  main.app{gap:4px;padding-top:4px}
+  .scorebar{padding:2px 6px}.sb{padding:0 8px;font-size:.72rem;line-height:1.6}.sb-exit{width:32px;padding:0;font-size:.8rem;line-height:1.4}
+  .topline{min-height:30px}.status{padding:3px 10px;font-size:.84rem}.ibtn{height:30px}.tmpill{padding:3px 10px;font-size:.9rem}
+  .arena{grid-template-columns:minmax(104px,150px) minmax(0,1fr) minmax(104px,150px);grid-template-rows:minmax(0,1fr);grid-template-areas:"red center blue";gap:6px}
+  .side{display:contents}#pBlue{grid-area:blue}
+  .log{position:fixed;inset-inline:auto 10px;inset-inline-start:auto;right:10px;left:auto;width:min(340px,60vw);bottom:8px;height:calc(100dvh - 60px);max-height:none;z-index:90;transform:translateX(120%);transition:transform .3s}
+  .log.open{transform:none}.log h4 button{display:block}.ibtn.logb{display:grid}
+  .panel{flex-direction:column;align-items:stretch;padding:6px 8px;gap:4px}
+  .panel .num{font-size:1.8rem}.panel .head{justify-content:center}
+  .panel .names{display:flex;flex-direction:column;gap:2px}.panel .grp{flex-direction:column;align-items:flex-start;gap:1px}
+  .dock{min-height:44px;padding:5px 6px 6px;gap:3px;flex-direction:row;flex-wrap:wrap}.cchip{font-size:1rem;padding-block:1px}.dmsg{font-size:.72rem}.dock .btn{padding:4px 16px;font-size:.85rem}.cform input{padding:6px 10px}.cform .btn{padding:6px 14px}
+  .setup{padding:8px;gap:8px}.slot{min-height:46px;padding:6px;margin-top:5px}.ttl{font-size:1.3rem}.sub{font-size:.8rem;line-height:1.45}
+}
+/* شاشات عريضة جداً */
+@media (min-width:1500px){.arena{grid-template-columns:minmax(200px,280px) minmax(0,1fr) minmax(220px,320px)}}
 </style>
 </head>
 <body>
-<main>
+<main class="app">
   <div id="sb" class="glass scorebar"></div>
-  <div id="setup" class="glass setup"><div class="spin"></div><div class="sub">جارٍ التحميل…</div></div>
-  <div id="game" class="game" hidden>
-    <div class="hud">
-      <div id="hl" class="score"></div>
-      <div class="mid"><div id="badge" class="turn-badge"></div><div id="tm" class="tm"></div></div>
-      <div id="hr" class="score"></div>
+  <section id="setup" class="glass setup"><div class="spin"></div><div class="sub">جارٍ التحميل…</div></section>
+  <section id="play" class="play" hidden>
+    <div class="topline">
+      <div id="status" class="status"></div>
+      <div id="tmpill" class="tmpill"></div>
+      <button id="bLog" class="ibtn logb" aria-label="سجل اللعبة">📜 السجل</button>
+      <button id="bRules" class="ibtn" aria-label="القواعد">؟</button>
     </div>
-    <div id="board" class="board"></div>
-    <div id="dock" class="dock"></div>
-  </div>
+    <div class="arena">
+      <aside id="pRed" class="panel red"></aside>
+      <div class="center">
+        <div class="bw"><div id="board" class="board"></div></div>
+        <div id="dock" class="dock">
+          <div id="tb" class="tb"><i></i></div>
+          <div id="cform" class="cform" hidden>
+            <input id="ci" maxlength="20" autocomplete="off" placeholder="تلميح بكلمة واحدة…" enterkeyhint="send">
+            <select id="cn" aria-label="عدد البطاقات"></select>
+            <button id="cgo" class="btn primary">أرسل</button>
+          </div>
+          <div id="cshow" class="cshow" hidden><span id="cw" class="cchip"></span><span id="cnum" class="cchip num"></span></div>
+          <div id="dmsg" class="dmsg"></div>
+          <button id="bEnd" class="btn ghost" hidden>إنهاء التخمين</button>
+        </div>
+      </div>
+      <div class="side">
+        <aside id="pBlue" class="panel blue"></aside>
+        <div id="log" class="log"><h4><button id="bLogX" aria-label="إغلاق">✕</button>سجل اللعبة</h4><div id="logList" class="list"></div></div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <script type="module">
@@ -102,149 +202,144 @@ import { initTeamExit } from '../../shared/leave.js';
 import { WORDS } from './words.js';
 
 // ===== إعدادات قابلة للتعديل =====
-const CLUE_S = 75, GUESS_S = 100;       // وقت إعطاء التلميح ووقت التخمين
-const TURNS = 9;                        // عدد أدوار الوضع التعاوني (لاعبان)
+const CLUE_S = 100, GUESS_S = 120;      // مهلة إعطاء التلميح ومهلة التخمين (تتجدد مع كل تخمين صحيح)
+const END_MS = 7000;                    // مدة عرض النتيجة قبل العودة إلى الردهة
+const INF = 10;                         // قيمة «بلا حد» في عدد التلميح (الصفر كذلك بلا حد)
+const LOG_MAX = 80;
 const SLOTS = ['red-spy', 'red-op', 'blue-spy', 'blue-op'];
 const TEAM_AR = { red: 'الأحمر', blue: 'الأزرق' }, ROLE_AR = { spy: 'القائد', op: 'العميل' };
-const INF = 9;                          // القيمة التي تعني «بلا حد» في عدد التلميح
 
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.onclick = () => { sfx.click(); fn(); }; return b; };
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches || !window.gsap;   // بلا حركات إن مُنعت المكتبة أو فُضِّل تقليلها
 const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const setCh = (s, i, ch) => s.slice(0, i) + ch + s.slice(i + 1);
-const normW = s => (s || '').replace(/[\u064B-\u065F\u0670\u0640]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').replace(/^ال(?=.{2,})/, '');
-const maxGuesses = n => (n >= INF ? 99 : n + 1);
+const normW = s => (s || '').replace(/[ً-ٰٟـ]/g, '').replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').replace(/^ال(?=.{2,})/, '');
+const other = t => (t === 'red' ? 'blue' : 'red');
+const maxGuesses = n => (n <= 0 || n >= INF ? 99 : n + 1);
+const coarse = matchMedia('(pointer:coarse)').matches;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, viewKey = '', draft = { w: '', n: '1' }, prevSig = '', boardShown = false;
-const nm = u => players[u]?.name || 'لاعب';
-const nmI = i => nm(st?.order?.[i]);
-const act = fn => runTransaction(gameRef(ctx.code, 's'), cur => (cur ? fn(cur) : undefined)).catch(() => {});
+let ctx, st = null, players = {}, scores = {}, ended = false, stopT = null, viewKey = '', prevBoard = '', prevLogSeq = -1, pend = -1, pendT = null, lastSeq = -1, seatSig = '';
+
+// ===== رسومات الشخصيات (مرسومة بالكود) =====
+const SKIN = ['#f2c9a0', '#d9a273', '#9a6444', '#f7d8b8'], HAIR = ['#1b1b1b', '#4a2f1a', '#bdbdbd', '#2a2a2a'];
+const city = (c, o) => `<g fill="${c}" opacity="${o}"><rect x="0" y="22" width="16" height="44"/><rect x="18" y="12" width="14" height="54"/><rect x="68" y="16" width="16" height="50"/><rect x="86" y="26" width="14" height="40"/></g>`;
+function bust(kind, v) {
+  const sk = SKIN[v % 4], hr = HAIR[v % 4];
+  const T = { red: { b1: '#6d2410', b2: '#c8481f', suit: ['#26262b', '#1d1d22', '#34201c', '#222029'][v % 4], tie: '#d9552e' },
+              blue: { b1: '#0e2c52', b2: '#2b78b0', suit: ['#202733', '#1b2230', '#162033', '#252a36'][v % 4], tie: '#3fb0d4' },
+              neutral: { b1: '#6c6958', b2: '#a9a48f', suit: ['#7d8660', '#8a7355', '#667a8a', '#8c6b6b'][v % 4], tie: null } }[kind];
+  const hair = [`<path d="M37 24c0-10 6-15 13-15s13 5 13 15c-3-5-8-7-13-7s-10 2-13 7Z" fill="${hr}"/>`,
+    `<path d="M36 27c-2-13 6-19 14-19s16 6 14 19c-2-6-6-9-14-9s-12 3-14 9Z" fill="${hr}"/><rect x="62" y="22" width="4" height="14" rx="2" fill="${hr}"/>`,
+    `<path d="M38 22c2-7 7-10 12-10s10 3 12 10c-4-3-8-4-12-4s-8 1-12 4Z" fill="${hr}"/>`,
+    `<path d="M33 20h34l-4-10H37Z" fill="${hr}"/><rect x="30" y="19" width="40" height="4" rx="2" fill="${hr}"/>`][v % 4];
+  const eyes = kind === 'neutral'
+    ? `<circle cx="44.5" cy="27" r="1.7" fill="#14141a"/><circle cx="55.5" cy="27" r="1.7" fill="#14141a"/><path d="M41 22l7 2M59 22l-7 2" stroke="#14141a" stroke-width="1.3" stroke-linecap="round"/><ellipse cx="50" cy="36" rx="2.4" ry="3" fill="#5a2b2b"/>`
+    : (v % 2 === 0 ? `<rect x="39.5" y="24.5" width="9.5" height="5.5" rx="2.5" fill="#111"/><rect x="51" y="24.5" width="9.5" height="5.5" rx="2.5" fill="#111"/><rect x="48" y="25.8" width="4" height="1.5" fill="#111"/><path d="M45 36h10" stroke="#5a2b2b" stroke-width="1.4" stroke-linecap="round"/>`
+      : `<circle cx="44.5" cy="27" r="1.7" fill="#14141a"/><circle cx="55.5" cy="27" r="1.7" fill="#14141a"/><path d="M45 35.5q5 3 10 0" stroke="#5a2b2b" stroke-width="1.4" fill="none" stroke-linecap="round"/>`);
+  const tie = T.tie ? `<path d="M42 45l8 9 8-9Z" fill="#f4f4f4"/><path d="M48 47h4l1.6 14h-7.2Z" fill="${T.tie}"/>` : `<path d="M42 45l8 7 8-7Z" fill="rgba(255,255,255,.35)"/>`;
+  return `<svg viewBox="0 0 100 66" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="100" height="66" fill="${T.b1}"/><rect width="100" height="66" fill="${T.b2}" opacity=".4"/>${city('#000', .22)}<path d="M12 66c2-15 14-21 38-21s36 6 38 21Z" fill="${T.suit}"/>${tie}<rect x="44" y="36" width="12" height="10" fill="${sk}"/><ellipse cx="50" cy="26" rx="13" ry="15" fill="${sk}"/>${hair}${eyes}</svg>`;
+}
+const SKULL = `<svg viewBox="0 0 100 66" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="100" height="66" fill="#0c0c0e"/><circle cx="50" cy="30" r="40" fill="#1c1c20"/><path d="M50 8C34 8 25 19 25 31c0 9 4 14 9 17v10h8v-5h4v5h8v-5h4v5h8V48c5-3 9-8 9-17C75 19 66 8 50 8Z" fill="#ececec"/><ellipse cx="40" cy="32" rx="6.5" ry="7.5" fill="#0c0c0e"/><ellipse cx="60" cy="32" rx="6.5" ry="7.5" fill="#0c0c0e"/><path d="M50 40l-3.5 7h7Z" fill="#0c0c0e"/></svg>`;
+const artCache = {};
+const artFor = (c, i) => (artCache[c + i % 4] ??= c === 'assassin' ? SKULL : bust(c, i % 4));
 
 // ===== التوزيع =====
-const dealWords = () => shuffle(WORDS).slice(0, 25);
-function dealTeam() {                                  // 9 للفريق البادئ و8 للآخر و7 محايدة ومغتال واحد
-  const start = Math.random() < .5 ? 'red' : 'blue', other = start === 'red' ? 'blue' : 'red';
-  const colors = shuffle([...Array(9).fill(start), ...Array(8).fill(other), ...Array(7).fill('neutral'), 'assassin']);
-  return { board: dealWords().map((w, i) => ({ w, c: colors[i], rev: false })), turn: start, left: { red: start === 'red' ? 9 : 8, blue: start === 'blue' ? 9 : 8 } };
+function deal() {                                       // 9 للفريق البادئ و8 للآخر و7 محايدة ومغتال واحد
+  const start = Math.random() < .5 ? 'red' : 'blue', o = other(start);
+  const colors = shuffle([...Array(9).fill(start), ...Array(8).fill(o), ...Array(7).fill('neutral'), 'assassin']);
+  return { board: shuffle(WORDS).slice(0, 25).map((w, i) => ({ w, c: colors[i], rev: false })), turn: start, left: { red: start === 'red' ? 9 : 8, blue: start === 'blue' ? 9 : 8 } };
 }
-function dealDuet() {                                  // لكل لاعب مفتاحه: 9 عملاء و3 مغتالين و13 محايدة، وبينهما 15 عميلاً مميزاً
-  const kinds = shuffle([...Array(3).fill('GG'), ...Array(5).fill('GN'), ...Array(5).fill('NG'), 'GA', 'AG', 'AA', 'NA', 'AN', ...Array(7).fill('NN')]);
-  return { words: dealWords(), keys: [kinds.map(k => k[0]).join(''), kinds.map(k => k[1]).join('')] };
-}
-const allFound = c => { for (let i = 0; i < 25; i++) if ((c.keys[0][i] === 'G' || c.keys[1][i] === 'G') && c.found[i] !== '1') return false; return true; };
-const foundCount = c => { let n = 0; for (let i = 0; i < 25; i++) if (c.found[i] === '1') n++; return n; };
 
-// ===== الإعداد =====
-const imReady = () => act(c => {
-  if (c.phase !== 'setup' || c.mode !== 'duet' || me < 0) return;
-  const rd = [...(c.rd || [0, 0])]; rd[me] = 1;
-  if (!(rd[0] && rd[1])) return { ...c, rd, seq: c.seq + 1 };
-  return { ...c, rd, phase: 'play', ...dealDuet(), found: '0'.repeat(25), touch: '0'.repeat(25), giver: 0, tPhase: 'clue', turnsLeft: TURNS,
-    clue: { w: '', n: 0 }, guesses: 0, endAt: deadline(CLUE_S), seq: c.seq + 1 };
-});
+// ===== المعاملات =====
+const act = fn => runTransaction(gameRef(ctx.code, 's'), cur => (cur ? fn(cur) : undefined)).catch(() => {});
+const addLog = (c, ...e) => [...(c.log || []), ...e].slice(-LOG_MAX);
+const teams = c => c.teams || {};
+
 const takeSlot = slot => act(c => {
-  if (c.phase !== 'setup' || c.mode !== 'team' || !SLOTS.includes(slot) || !c.order.includes(ctx.uid)) return;
-  const teams = { ...(c.teams || {}) };
-  if (teams[slot] && teams[slot] !== ctx.uid) return;                 // المقعد مشغول
-  const mine = teams[slot] === ctx.uid;
-  for (const k of Object.keys(teams)) if (teams[k] === ctx.uid) delete teams[k];
-  if (!mine) teams[slot] = ctx.uid;                                   // الضغط على مقعدك يخلّيه
-  return { ...c, teams, seq: c.seq + 1 };
+  if (c.phase !== 'setup' || !SLOTS.includes(slot) || !c.order.includes(ctx.uid)) return;
+  const t = { ...teams(c) };
+  if (t[slot] && t[slot] !== ctx.uid) return;                       // المقعد مشغول
+  const mine = t[slot] === ctx.uid;
+  for (const k of Object.keys(t)) if (t[k] === ctx.uid) delete t[k];
+  if (!mine) t[slot] = ctx.uid;                                      // لمس مقعدك مرة أخرى يخلّيه
+  return { ...c, teams: t, seq: c.seq + 1 };
 });
 const autoAssign = () => act(c => {
-  if (c.phase !== 'setup' || c.mode !== 'team' || c.order[0] !== ctx.uid) return;
-  const o = shuffle(c.order), teams = {}; SLOTS.forEach((s, i) => { teams[s] = o[i]; });
-  return { ...c, teams, seq: c.seq + 1 };
+  if (c.phase !== 'setup' || c.order[0] !== ctx.uid) return;
+  const o = shuffle(c.order), t = {}; SLOTS.forEach((s, i) => { t[s] = o[i]; });
+  return { ...c, teams: t, seq: c.seq + 1 };
 });
-const startTeam = () => act(c => {
-  if (c.phase !== 'setup' || c.mode !== 'team' || c.order[0] !== ctx.uid) return;
-  const t = c.teams || {}, vals = SLOTS.map(s => t[s]);
+const startGame = () => act(c => {
+  if (c.phase !== 'setup' || c.order[0] !== ctx.uid) return;
+  const t = teams(c), vals = SLOTS.map(s => t[s]);
   if (vals.some(v => !v) || new Set(vals).size !== 4 || !vals.every(v => c.order.includes(v))) return;
-  const d = dealTeam();
-  return { ...c, phase: 'play', board: d.board, turn: d.turn, left: d.left, tPhase: 'spy', clue: { w: '', n: 0 }, guesses: 0, endAt: deadline(CLUE_S), seq: c.seq + 1 };
+  const d = deal();
+  return { ...c, phase: 'play', board: d.board, turn: d.turn, start: d.turn, left: d.left, tPhase: 'spy', clue: { w: '', n: 0 }, guesses: 0, endAt: deadline(CLUE_S), log: [{ t: 'start', tm: d.turn }], seq: c.seq + 1 };
 });
 
-// ===== قواعد اللعب =====
-const other = t => (t === 'red' ? 'blue' : 'red');
-const teamTurnEnd = c => ({ ...c, turn: other(c.turn), tPhase: 'spy', clue: { w: '', n: 0 }, guesses: 0, endAt: deadline(CLUE_S), seq: c.seq + 1 });
-function duetTurnEnd(c, extra = {}) {                  // كل دور ينتهي يستهلك رمزاً، وإن نفدت الرموز دون إكمال العملاء تخسرون
-  const o = { ...c, ...extra }, left = c.turnsLeft - 1;
-  if (left <= 0) return { ...o, turnsLeft: 0, phase: 'done', win: false, reason: 'انتهت الأدوار قبل أن تكتشفا كل العملاء', seq: c.seq + 1 };
-  return { ...o, turnsLeft: left, giver: 1 - c.giver, tPhase: 'clue', clue: { w: '', n: 0 }, guesses: 0, endAt: deadline(CLUE_S), seq: c.seq + 1 };
-}
+const nextTurn = (c, ...entries) => ({ ...c, turn: other(c.turn), tPhase: 'spy', clue: { w: '', n: 0 }, guesses: 0, endAt: deadline(CLUE_S), log: addLog(c, ...entries), seq: c.seq + 1 });
 const clueOk = (c, w) => {
   if (!w || w.length > 20 || /\s/.test(w)) return false;
   const n = normW(w); if (n.length < 2) return false;
-  const words = c.mode === 'duet' ? c.words.filter((_, i) => c.found[i] !== '1') : c.board.filter(x => !x.rev).map(x => x.w);
-  return !words.some(x => { const m = normW(x); return m === n || (n.length >= 3 && m.length >= 3 && (m.includes(n) || n.includes(m))); });
+  return !c.board.filter(x => !x.rev).some(x => { const m = normW(x.w); return m === n || (n.length >= 3 && m.length >= 3 && (m.includes(n) || n.includes(m))); });
 };
 const submitClue = (w, n) => act(c => {
-  if (c.phase !== 'play' || !clueOk(c, w) || !(n >= 1 && n <= INF)) return;
-  if (c.mode === 'duet') { if (c.tPhase !== 'clue' || c.order[c.giver] !== ctx.uid) return; }
-  else if (c.tPhase !== 'spy' || c.teams[`${c.turn}-spy`] !== ctx.uid) return;
-  return { ...c, tPhase: c.mode === 'duet' ? 'guess' : 'op', clue: { w, n }, guesses: 0, endAt: deadline(GUESS_S), seq: c.seq + 1 };
+  if (c.phase !== 'play' || c.tPhase !== 'spy' || teams(c)[`${c.turn}-spy`] !== ctx.uid || !clueOk(c, w) || !(n >= 0 && n <= INF)) return;
+  return { ...c, tPhase: 'op', clue: { w, n }, guesses: 0, endAt: deadline(GUESS_S), log: addLog(c, { t: 'clue', u: ctx.uid, tm: c.turn, w, n }), seq: c.seq + 1 };
 });
 const passTurn = () => act(c => {
-  if (c.phase !== 'play') return;
-  if (c.mode === 'duet') { if (c.tPhase !== 'guess' || c.order[1 - c.giver] !== ctx.uid) return; return duetTurnEnd(c); }
-  if (c.tPhase !== 'op' || c.teams[`${c.turn}-op`] !== ctx.uid) return;
-  return teamTurnEnd(c);
+  if (c.phase !== 'play' || c.tPhase !== 'op' || teams(c)[`${c.turn}-op`] !== ctx.uid || !(c.guesses >= 1)) return;   // لا بد من تخمين واحد على الأقل
+  return nextTurn(c, { t: 'end', u: ctx.uid, tm: c.turn });
 });
 const pick = idx => act(c => {
-  if (c.phase !== 'play' || !Number.isInteger(idx) || idx < 0 || idx > 24) return;
-  if (c.mode === 'duet') {
-    if (c.tPhase !== 'guess' || c.order[1 - c.giver] !== ctx.uid || c.found[idx] === '1' || (+c.touch[idx] & (1 << c.giver))) return;
-    const k = c.keys[c.giver][idx];
-    if (k === 'A') return { ...c, phase: 'done', win: false, lostIdx: idx, reason: 'لمستما مغتالاً!', seq: c.seq + 1 };
-    if (k === 'N') return duetTurnEnd(c, { touch: setCh(c.touch, idx, String(+c.touch[idx] | (1 << c.giver))) });
-    const o = { ...c, found: setCh(c.found, idx, '1'), guesses: (c.guesses || 0) + 1 };
-    if (allFound(o)) return { ...o, phase: 'done', win: true, reason: 'اكتشفتما كل العملاء!', seq: c.seq + 1 };
-    return (o.guesses >= maxGuesses(c.clue.n)) ? duetTurnEnd(o) : { ...o, endAt: deadline(GUESS_S), seq: c.seq + 1 };
-  }
-  if (c.tPhase !== 'op' || c.teams[`${c.turn}-op`] !== ctx.uid || c.board[idx].rev) return;
+  if (c.phase !== 'play' || c.tPhase !== 'op' || !Number.isInteger(idx) || idx < 0 || idx > 24) return;
+  if (teams(c)[`${c.turn}-op`] !== ctx.uid || c.board[idx].rev) return;
   const board = c.board.map((x, i) => (i === idx ? { ...x, rev: true } : x)), card = board[idx], left = { ...c.left };
-  if (card.c === 'assassin') return { ...c, board, phase: 'done', winner: other(c.turn), reason: `لمس فريق ${TEAM_AR[c.turn]} المغتال!`, seq: c.seq + 1 };
+  const tap = { t: 'tap', u: ctx.uid, tm: c.turn, w: card.w, k: card.c };
+  const base = { ...c, board, left, last: idx, log: addLog(c, tap) };
+  if (card.c === 'assassin') return { ...base, phase: 'done', winner: other(c.turn), reason: `كشف فريق ${TEAM_AR[c.turn]} المغتال!`, seq: c.seq + 1 };
   if (card.c === 'red' || card.c === 'blue') left[card.c]--;
-  if (left.red === 0) return { ...c, board, left, phase: 'done', winner: 'red', reason: 'اكتشف الفريق الأحمر كل عملائه!', seq: c.seq + 1 };
-  if (left.blue === 0) return { ...c, board, left, phase: 'done', winner: 'blue', reason: 'اكتشف الفريق الأزرق كل عملائه!', seq: c.seq + 1 };
-  const o = { ...c, board, left, guesses: (c.guesses || 0) + 1 };
-  if (card.c !== c.turn || o.guesses >= maxGuesses(c.clue.n)) return teamTurnEnd(o);   // أخطأت أو استنفدت التخمينات
+  if (left.red === 0) return { ...base, phase: 'done', winner: 'red', reason: 'كشف الفريق الأحمر كل عملائه!', seq: c.seq + 1 };
+  if (left.blue === 0) return { ...base, phase: 'done', winner: 'blue', reason: 'كشف الفريق الأزرق كل عملائه!', seq: c.seq + 1 };
+  const guesses = (c.guesses || 0) + 1, o = { ...base, guesses };
+  if (card.c !== c.turn || guesses >= maxGuesses(c.clue.n)) return nextTurn(o);   // أخطأت أو استنفدت التخمينات
   return { ...o, endAt: deadline(GUESS_S), seq: c.seq + 1 };
 });
 const onTimeout = seq => act(c => {
   if (c.seq !== seq || c.phase !== 'play' || serverNow() < c.endAt - 500) return;
-  return c.mode === 'duet' ? duetTurnEnd(c) : teamTurnEnd(c);
+  return nextTurn(c, { t: 'time', tm: c.turn });
 });
 
-// ===== الواجهة =====
-const myTeamRole = () => { const e = Object.entries(st.teams || {}).find(([, v]) => v === ctx.uid); return e ? e[0].split('-') : [null, null]; };
+// ===== مساعدات العرض =====
+const nm = u => players[u]?.name || ctx.players[u]?.name || 'لاعب';
+const myPos = () => { const e = Object.entries(teams(st)).find(([, v]) => v === ctx.uid); return e ? e[0].split('-') : [null, null]; };   // [team, role]
+const tmSpy = t => teams(st)[`${t}-spy`], tmOp = t => teams(st)[`${t}-op`];
+const clueWord = x => (x.n >= INF ? '∞' : x.n);
 
 function startTimer() {
   stopT?.(); stopT = null;
-  const t = $('#tm'); if (!st || st.phase !== 'play') { if (t) t.textContent = ''; return; }
-  const seq = st.seq, tot = (st.tPhase === 'clue' || st.tPhase === 'spy' ? CLUE_S : GUESS_S) * 1000;
-  stopT = countdown(st.endAt, (l, s) => { t.textContent = '⏱ ' + s; t.classList.toggle('warn', s <= 10); const b = $('#tb i'); if (b) b.style.transform = `scaleX(${Math.min(1, l / tot)})`; if (s <= 3 && s > 0 && l % 1000 < 100) sfx.tick(); }, () => onTimeout(seq));
+  const pill = $('#tmpill'), bar = $('#tb i');
+  if (!st || st.phase !== 'play') { pill.textContent = ''; bar.style.transform = 'scaleX(0)'; return; }
+  const seq = st.seq, tot = (st.tPhase === 'spy' ? CLUE_S : GUESS_S) * 1000;
+  stopT = countdown(st.endAt, (l, s) => {
+    pill.textContent = '⏱ ' + s; pill.classList.toggle('warn', s <= 10);
+    bar.style.transform = `scaleX(${Math.min(1, l / tot)})`; bar.style.background = s <= 10 ? 'var(--rose)' : 'var(--lagoon)';
+    if (s <= 3 && s > 0 && l % 1000 < 100 && ((st.tPhase === 'spy' ? tmSpy(st.turn) : tmOp(st.turn)) === ctx.uid)) sfx.tick();
+  }, () => onTimeout(seq));
 }
 
+// ===== شاشة الإعداد =====
 function renderSetup() {
   const S = $('#setup'); S.replaceChildren();
-  if (st.mode === 'duet') {
-    S.append(h('div', 'ttl', 'الكلمات المشفرة 🕵️‍♂️'),
-      h('div', 'sub', `تعاون بين لاعبين: كل منكما يرى مفتاحه السري فقط.\nتتناوبان إعطاء التلميح (كلمة واحدة + رقم) ويخمّن الآخر.\nاكتشفا 15 عميلاً خلال ${TURNS} أدوار، واحذرا المغتالين!`));
-    if (st.rd?.[me]) S.append(h('div', 'spin'), h('div', 'sub', `بانتظار ${nmI(1 - me)}…`));
-    else S.append(btn('جاهز للمهمة 🕵️‍♂️', 'primary', imReady));
-    return;
-  }
-  const t = st.teams || {}, isHost = st.order[0] === ctx.uid;
+  const t = teams(st), isHost = st.order[0] === ctx.uid;
   S.append(h('div', 'ttl', 'الكلمات المشفرة 🕵️‍♂️'), h('div', 'sub', 'فريقان، ولكل فريق قائد يعطي التلميحات وعميل يخمّن.\nاختر مقعدك (المس مقعدك مرة أخرى لإخلائه).'));
-  const grid = h('div', 'teams-grid');
+  const grid = h('div', 'teams');
   for (const team of ['red', 'blue']) {
-    const col = h('div', 'team-col t-' + team); col.append(h('h3', '', 'الفريق ' + TEAM_AR[team]));
+    const col = h('div', 'tcol ' + team); col.append(h('h3', '', 'الفريق ' + TEAM_AR[team]));
     for (const role of ['spy', 'op']) {
       const slot = `${team}-${role}`, u = t[slot], b = h('button', 'slot' + (u ? ' filled' : '') + (u === ctx.uid ? ' me' : ''));
-      b.textContent = u ? `${role === 'spy' ? '🕵️‍♂️' : '🏃‍♂️'} ${nm(u)}` : `${ROLE_AR[role]} (اضغط)`;
+      b.append(h('span', '', `${role === 'spy' ? '🕵️‍♂️' : '🎯'} ${ROLE_AR[role]}`), h('small', '', u ? nm(u) + (u === ctx.uid ? ' (أنت)' : '') : 'اضغط للانضمام'));
       b.onclick = () => { sfx.click(); takeSlot(slot); };
       col.append(b);
     }
@@ -253,132 +348,190 @@ function renderSetup() {
   S.append(grid);
   const full = SLOTS.every(s => t[s]) && new Set(SLOTS.map(s => t[s])).size === 4;
   if (isHost) {
-    const row = h('div', 'row2'); const a = btn('🎲 توزيع عشوائي', 'ghost', autoAssign), s = btn('🚀 ابدأ', 'primary', startTeam); s.disabled = !full;
-    row.append(a, s); S.append(row);
+    const row = h('div', 'row2'), go = btn('🚀 ابدأ', 'primary', startGame); go.disabled = !full;
+    row.append(btn('🎲 توزيع عشوائي', 'ghost', autoAssign), go); S.append(row);
     S.append(h('div', 'sub am', full ? 'الفرق مكتملة، اضغط ابدأ!' : 'يجب أن يأخذ كل لاعب مقعداً مختلفاً'));
-  } else S.append(h('div', 'sub am', full ? `بانتظار ${nmI(0)} ليبدأ…` : 'اختر مقعدك وانتظر البقية…'));
+  } else S.append(h('div', 'sub am', full ? `بانتظار ${nm(st.order[0])} ليبدأ…` : 'اختر مقعدك وانتظر البقية…'));
+  S.append(btn('القواعد', 'ghost', showRules));
 }
 
-function cardEls() {
-  const duet = st.mode === 'duet', done = st.phase === 'done', [mt, mr] = duet ? [null, null] : myTeamRole();
-  const canPick = st.phase === 'play' && (duet ? st.tPhase === 'guess' && st.order[1 - st.giver] === ctx.uid : st.tPhase === 'op' && st.teams[`${st.turn}-op`] === ctx.uid);
-  return Array.from({ length: 25 }, (_, i) => {
-    const e = h('div', 'b-card');
-    if (duet) {
-      e.textContent = st.words[i];
-      const fnd = st.found[i] === '1', tb = +st.touch[i];
-      if (fnd) e.classList.add('rev', 'green'); else e.classList.add('k-' + st.keys[me][i]);
-      if (!fnd && tb) e.classList.add('tn');
-      if (st.lostIdx === i) e.classList.add('lost');
-      if (canPick && !fnd && !(tb & (1 << st.giver))) { e.classList.add('can'); e.onclick = () => pick(i); }
-    } else {
-      const c = st.board[i]; e.textContent = c.w;
-      if (c.rev) e.classList.add('rev', c.c); else if (mr === 'spy' || done) e.classList.add('sp-' + c.c);
-      if (canPick && !c.rev) { e.classList.add('can'); e.onclick = () => pick(i); }
-    }
-    return e;
+// ===== لوحات الفرق والسجل =====
+function renderPanel(team) {
+  const el = $(team === 'red' ? '#pRed' : '#pBlue'), done = st.phase === 'done';
+  el.classList.toggle('on', st.phase === 'play' && st.turn === team);
+  const chip = u => { const c = h('span', 'pchip' + (u === ctx.uid ? ' me' : '') + (players[u]?.connected === false ? ' off' : ''), nm(u)); return c; };
+  const grp = (lbl, u) => { const g = h('div', 'grp'); g.append(h('span', 'lbl', lbl), u ? chip(u) : h('span', 'pchip off', '—')); return g; };
+  const head = h('div', 'head'), face = h('div', 'face'), num = h('div', 'num', st.left?.[team] ?? '');
+  face.innerHTML = bust(team, 0); head.append(face, num);
+  const names = h('div', 'names'); names.append(grp('العملاء', tmOp(team)), grp('القائد', tmSpy(team)));
+  el.replaceChildren(head, names);
+}
+function entryText(e) {
+  const d = h('div', 'le ' + (e.tm || 'sys'));
+  const w = (txt, cls) => h('span', 'w ' + cls, txt);
+  if (e.t === 'start') { d.className = 'le sys'; d.textContent = `بدأت اللعبة — يبدأ الفريق ${TEAM_AR[e.tm]} (9 عملاء)`; }
+  else if (e.t === 'clue') d.append(h('b', '', nm(e.u)), ' يعطي تلميح ', w(e.w, e.tm), ` ${clueWord(e)}`);
+  else if (e.t === 'tap') d.append(h('b', '', nm(e.u)), ' يختار ', w(e.w, e.k));
+  else if (e.t === 'end') d.append(h('b', '', nm(e.u)), ' ينهي التخمين');
+  else if (e.t === 'time') { d.className = 'le sys'; d.textContent = `انتهى وقت الفريق ${TEAM_AR[e.tm]}`; }
+  return d;
+}
+function renderLog() {
+  const list = $('#logList'), L = st.log || [];
+  const k = st.seq + ':' + L.length + ':' + st.order.map(nm).join();
+  if (k === prevLogSeq) return; prevLogSeq = k;
+  const atEnd = list.scrollTop + list.clientHeight >= list.scrollHeight - 30;
+  list.replaceChildren(...L.map(entryText));
+  if (atEnd || L.length <= 1) list.scrollTop = list.scrollHeight;
+}
+
+// ===== اللوح =====
+let cards = [];
+function buildBoard() {
+  const B = $('#board'); B.replaceChildren(); cards = [];
+  for (let i = 0; i < 25; i++) {
+    const e = h('div', 'cn'), plate = h('div', 'plate'); e.append(plate); e.setAttribute('role', 'button');
+    e.onclick = () => onCard(i); B.append(e); cards.push(e);
+  }
+}
+const canPickNow = () => !!st && st.phase === 'play' && st.tPhase === 'op' && tmOp(st.turn) === ctx.uid;
+function onCard(i) {
+  if (!canPickNow() || st.board[i].rev) return;
+  if (coarse && pend !== i) { pend = i; clearTimeout(pendT); pendT = setTimeout(() => { pend = -1; patchBoard(); }, 4000); sfx.click(); patchBoard(); return; }   // على اللمس: لمسة للتحديد وأخرى للتأكيد
+  pend = -1; clearTimeout(pendT); patchBoard(); pick(i);
+}
+function patchBoard() {
+  const [, role] = myPos(), spyView = role === 'spy' || st.phase === 'done', can = canPickNow();
+  const sig = st.board.map(x => x.w + (x.rev ? '1' : '0')).join('|');
+  st.board.forEach((x, i) => {
+    const e = cards[i], plate = e.querySelector('.plate'), was = e.dataset.rev === '1';
+    if (plate.textContent !== x.w) plate.textContent = x.w;
+    const cls = ['cn'];
+    if (x.rev) cls.push('rev', 'k-' + x.c); else if (spyView) cls.push('k-' + x.c);
+    if (can && !x.rev) cls.push('can');
+    if (pend === i && can && !x.rev) cls.push('sel');
+    if (x.w.length > 7) cls.push('long');
+    if (st.phase === 'done' && st.last === i && st.winner && x.c === 'assassin') cls.push('hit');
+    if (x.rev && !was && prevBoard) cls.push('just');
+    e.className = cls.join(' ');
+    if (x.rev && !was) { const a = h('div', 'art'); a.innerHTML = artFor(x.c, i); e.insertBefore(a, e.firstChild); }
+    if (!x.rev && was) e.querySelector('.art')?.remove();
+    e.dataset.rev = x.rev ? '1' : '0';
+    e.setAttribute('aria-label', x.w);
   });
+  prevBoard = sig;
 }
 
-function renderDock() {
-  const D = $('#dock'), duet = st.mode === 'duet', done = st.phase === 'done'; D.replaceChildren();
-  if (done) {
-    const win = duet ? st.win : myTeamRole()[0] === st.winner;
-    D.append(h('div', 'ttl ' + (win ? 'ok' : 'no2'), duet ? (st.win ? 'نجحت المهمة! 🎉' : 'فشلت المهمة 💥') : `فاز الفريق ${TEAM_AR[st.winner]} ${st.winner === 'red' ? '🔴' : '🔵'}`), h('div', 'sub', st.reason || ''));
-    return;
-  }
-  const giverTurn = duet ? (st.tPhase === 'clue') : (st.tPhase === 'spy');
-  const iGive = duet ? giverTurn && st.order[st.giver] === ctx.uid : giverTurn && st.teams[`${st.turn}-spy`] === ctx.uid;
-  const iGuess = duet ? !giverTurn && st.order[1 - st.giver] === ctx.uid : !giverTurn && st.teams[`${st.turn}-op`] === ctx.uid;
-  if (!duet) { const [mt, mr] = myTeamRole(); D.append(h('div', 'role-chip', `أنت: ${ROLE_AR[mr]} · الفريق ${TEAM_AR[mt]}`)); }
-  if (iGive) {
-    const f = h('div', 'clue-form'), inp = h('input'), sel = h('select'), go = btn('إرسال', 'primary', () => {
-      const w = inp.value.trim(), n = +sel.value;
-      if (!clueOk(st, w)) { sfx.error(); return toast('تلميح غير صالح: كلمة واحدة، وليست من كلمات اللوح', 'error'); }
-      submitClue(w, n); draft = { w: '', n: '1' };
-    });
-    inp.placeholder = 'كلمة واحدة فقط…'; inp.maxLength = 20; inp.autocomplete = 'off'; inp.value = draft.w;
-    inp.oninput = () => { draft.w = inp.value; }; inp.onkeydown = e => { if (e.key === 'Enter') go.click(); };
-    [1, 2, 3, 4, 5].forEach(n => sel.append(new Option(n, n))); sel.append(new Option('∞', INF)); sel.value = draft.n; sel.onchange = () => { draft.n = sel.value; };
-    f.append(inp, sel, go); D.append(h('div', 'sub am', 'دورك لإعطاء التلميح'), f);
-  } else if (giverTurn) {
-    D.append(h('div', 'sub', duet ? `⏳ ${nmI(st.giver)} يكتب تلميحاً…` : `⏳ قائد الفريق ${TEAM_AR[st.turn]} يكتب تلميحاً…`));
-  } else {
-    D.append(h('div', 'clue-display', `التلميح: ${st.clue.w} (${st.clue.n >= INF ? '∞' : st.clue.n})`));
-    const used = st.guesses || 0, cap = maxGuesses(st.clue.n);
-    if (iGuess) { D.append(h('div', 'sub', cap > 50 ? 'خمّن ما تشاء، أو أنهِ الدور' : `تخمينات متبقية: ${cap - used}`), btn('إنهاء التخمين ⏭', 'ghost', passTurn)); }
-    else D.append(h('div', 'sub', duet ? `${nmI(1 - st.giver)} يخمّن…` : `فريق ${TEAM_AR[st.turn]} يخمّن…`));
-  }
-  const tb = h('div', 'tb'); tb.id = 'tb'; tb.append(h('i')); D.append(tb);
+// ===== شريط الحالة والتلميح =====
+function statusInfo() {
+  const [mt, mr] = myPos();
+  if (st.phase === 'done') return { t: `فاز الفريق ${TEAM_AR[st.winner]} ${st.winner === 'red' ? '🔴' : '🔵'}`, c: 'end' };
+  const T = TEAM_AR[st.turn], mine = mt === st.turn;
+  if (st.tPhase === 'spy') return mine && mr === 'spy' ? { t: 'دورك: أعطِ تلميحاً لعميلك', c: st.turn } : mine ? { t: 'قائدك يفكّر في تلميح…', c: st.turn } : { t: `قائد الفريق ${T} يفكّر في تلميح…`, c: st.turn };
+  return mine && mr === 'op' ? { t: 'دورك: خمّن البطاقات', c: st.turn } : mine ? { t: 'عميلك يخمّن الآن…', c: st.turn } : { t: `عميل الفريق ${T} يخمّن…`, c: st.turn };
+}
+function patchDock() {
+  const done = st.phase === 'done', spyTurn = st.tPhase === 'spy';
+  const iGive = !done && spyTurn && tmSpy(st.turn) === ctx.uid, iGuess = canPickNow();
+  const form = $('#cform'), show = $('#cshow'), msg = $('#dmsg'), end = $('#bEnd');
+  const wasForm = !form.hidden;
+  form.hidden = !iGive; show.hidden = done || spyTurn;
+  if (iGive && !wasForm) { $('#ci').value = ''; if (!coarse) $('#ci').focus({ preventScroll: true }); }
+  if (!show.hidden) { $('#cw').textContent = st.clue.w; $('#cnum').textContent = clueWord(st.clue); $('#cw').className = $('#cnum').className = 'cchip ' + st.turn; $('#cnum').classList.add('num'); }
+  end.hidden = !iGuess; end.disabled = !(st.guesses >= 1);
+  let m = '';
+  if (done) m = `<b>${st.reason || ''}</b>`;
+  else if (iGive) m = 'اكتب كلمة واحدة لا تطابق كلمات اللوح، ثم اختر عدد البطاقات (0 أو ∞ بلا حد)';
+  else if (iGuess) { const cap = maxGuesses(st.clue.n), left = cap - (st.guesses || 0); m = cap > 50 ? 'خمّن ما تشاء' : `تخمينات متبقية: <b>${left}</b>`; if (coarse) m += ' · المس البطاقة مرتين للتأكيد'; }
+  if (msg.innerHTML !== m) msg.innerHTML = m;
+  msg.hidden = !m;
 }
 
-function renderPlay() {
-  const duet = st.mode === 'duet', done = st.phase === 'done';
-  const hl = $('#hl'), hr = $('#hr'), bd = $('#badge');
-  if (duet) {
-    hl.className = 'score g'; hl.textContent = `🎯 ${foundCount(st)}/15`; hr.className = 'score t'; hr.textContent = `⏳ ${st.turnsLeft}`;
-    bd.className = 'turn-badge ' + (done ? '' : 'g'); bd.textContent = done ? 'انتهت المهمة' : (st.tPhase === 'clue' ? `🕵️‍♂️ ${nmI(st.giver)} يعطي تلميحاً` : `🏃‍♂️ ${nmI(1 - st.giver)} يخمّن`);
-  } else {
-    hl.className = 'score r'; hl.textContent = st.left.red; hr.className = 'score b'; hr.textContent = st.left.blue;
-    bd.className = 'turn-badge ' + (done ? '' : st.turn === 'red' ? 'r' : 'b');
-    bd.textContent = done ? 'انتهت اللعبة' : (st.tPhase === 'spy' ? `🕵️‍♂️ قائد ${TEAM_AR[st.turn]} يكتب تلميحاً` : `🏃‍♂️ عميل ${TEAM_AR[st.turn]} يخمّن`);
-  }
-  const B = $('#board'); B.replaceChildren(...cardEls());
-  if (!boardShown && !reduce && window.gsap) gsap.from(B.children, { rotationY: 90, opacity: 0, duration: .4, stagger: .02, ease: 'back.out' });
-  boardShown = true;
-  renderDock(); startTimer();
+function setupDockOnce() {
+  const sel = $('#cn');
+  [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(n => sel.append(new Option(n, n))); sel.append(new Option('0', 0), new Option('∞', INF)); sel.value = 1;
+  const go = () => {
+    const w = $('#ci').value.trim(), n = +sel.value;
+    if (!clueOk(st, w)) { sfx.error(); return toast('تلميح غير صالح: كلمة واحدة وليست على اللوح', 'error'); }
+    sfx.click(); submitClue(w, n); $('#ci').value = ''; sel.value = 1;
+  };
+  $('#cgo').onclick = go; $('#ci').onkeydown = e => { if (e.key === 'Enter') go(); };
+  $('#bEnd').onclick = () => { sfx.click(); passTurn(); };
+  $('#bRules').onclick = () => { sfx.click(); showRules(); };
+  $('#bLog').onclick = () => { sfx.click(); $('#log').classList.toggle('open'); };
+  $('#bLogX').onclick = () => $('#log').classList.remove('open');
 }
 
+function showRules() {
+  const o = h('div', 'ovl'), c = h('div', 'ovl-card glass rules');
+  c.innerHTML = `<div class="ovl-t">كيف تُلعب؟</div><ol>
+    <li>فريقان: <b>الأحمر</b> و<b>الأزرق</b>، ولكل فريق <b>قائد</b> و<b>عميل</b>.</li>
+    <li>على اللوح 25 كلمة. القائدان فقط يريان لون كل بطاقة (عملاء الفريقين، المحايدون، والمغتال).</li>
+    <li>في دور فريقه يعطي القائد <b>تلميحاً</b>: كلمة واحدة + رقم هو عدد البطاقات المرتبطة بها. لا يجوز أن يكون التلميح من كلمات اللوح.</li>
+    <li>يلمس العميل بطاقات فريقه. للعميل حتى <b>الرقم + 1</b> تخمينات، والصفر أو ∞ يعني بلا حد، ويجب تخمين بطاقة واحدة على الأقل.</li>
+    <li>بطاقة فريقك: واصل التخمين. بطاقة محايدة أو للخصم: ينتهي دورك. <b>المغتال: تخسر فوراً</b>.</li>
+    <li>الفريق الذي يكشف كل عملائه أولاً يفوز. الفريق البادئ عنده 9 عملاء والآخر 8.</li></ol>
+    <div class="ovl-row"><button class="btn primary" id="rOk">فهمت</button></div>`;
+  o.append(c); document.body.append(o);
+  const close = () => o.remove(); c.querySelector('#rOk').onclick = close; o.onclick = e => { if (e.target === o) close(); };
+}
+
+// ===== العرض الرئيسي =====
 function render() {
-  if (!st) return;
-  me = st.order.indexOf(ctx.uid);
-  const sig = st.order.map(nmI).join('|'), key = [st.seq, st.phase, sig].join('|');
-  if (key === viewKey) return;
-  const was = viewKey; viewKey = key;
+  if (!st || !ctx) return;
   const play = st.phase === 'play' || st.phase === 'done';
-  $('#setup').hidden = play; $('#game').hidden = !play;
-  if (!play) renderSetup(); else { renderPlay(); if (was && prevSig === sig) sfx.click(); }
-  prevSig = sig;
+  const names = st.order.map(nm).join('|'), conn = st.order.map(u => players[u]?.connected === false ? 0 : 1).join('');
+  const key = [st.seq, st.phase, names, conn].join('~');
+  if (key === viewKey) return;
+  const first = !viewKey; viewKey = key;
+  $('#setup').hidden = play; $('#play').hidden = !play;
+  if (!play) { renderSetup(); return; }
+  if (!cards.length) buildBoard();
+  renderPanel('red'); renderPanel('blue');
+  const s = statusInfo(), sEl = $('#status'); sEl.textContent = s.t; sEl.className = 'status ' + s.c;
+  patchBoard(); patchDock(); renderLog();
+  if (st.seq !== lastSeq) {
+    const turnChanged = !first && st.phase === 'play' && lastSeq >= 0;
+    lastSeq = st.seq;
+    if (turnChanged) { const mine = (st.tPhase === 'spy' ? tmSpy(st.turn) : tmOp(st.turn)) === ctx.uid; if (mine) sfx.turn(); }
+    const L = st.log || [], last = L[L.length - 1];
+    if (!first && last?.t === 'tap') last.k === last.tm ? sfx.click() : last.k === 'assassin' ? sfx.lose() : sfx.error();
+  }
+  startTimer();
   if (st.phase === 'done' && !ended) {
     ended = true; stopT?.();
-    const duet = st.mode === 'duet', win = duet ? st.win : myTeamRole()[0] === st.winner;
-    win ? sfx.win() : sfx.lose();
+    const win = myPos()[0] === st.winner; win ? sfx.win() : sfx.lose();
     if (ctx.isHost) setTimeout(() => {
-      if (duet) {
-        const bonus = st.win ? (st.turnsLeft >= 4 ? 2 : st.turnsLeft >= 2 ? 1 : 0) : 0;
-        finishGame(ctx, makeResult(st.win ? 'coop-win' : 'coop-lose', st.order, { turnsLeft: st.turnsLeft, bonus }));
-      } else {
-        const winners = Object.entries(st.teams).filter(([k]) => k.startsWith(st.winner + '-')).map(([, v]) => v);
-        finishGame(ctx, makeResult('team-win', winners, { winner: st.winner }));
-      }
-    }, 6000);
+      const winners = Object.entries(teams(st)).filter(([k]) => k.startsWith(st.winner + '-')).map(([, v]) => v);
+      finishGame(ctx, makeResult('team-win', winners, { winner: st.winner }));
+    }, END_MS);
   }
 }
 
 // ===== التشغيل =====
 try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
 const ids = Object.keys(ctx.players || {});
-if (ids.length !== 2 && ids.length !== 4) { toast('اللعبة تحتاج لاعبين أو أربعة', 'error'); abortGame(ctx); }
+if (ids.length !== 4) { toast('اللعبة تحتاج 4 لاعبين بالضبط', 'error'); abortGame(ctx); }
 else {
   if (ctx.isHost) {
     const order = [ctx.meta.host, ...ids.filter(i => i !== ctx.meta.host)];
-    runTransaction(gameRef(ctx.code, 's'), cur => cur || { mode: ids.length === 2 ? 'duet' : 'team', order, phase: 'setup', teams: {}, rd: [0, 0], seq: 0 });
+    runTransaction(gameRef(ctx.code, 's'), cur => cur || { order, phase: 'setup', seq: 0 });
   }
-  players = ctx.players;
+  players = ctx.players; setupDockOnce();
   const ex = initTeamExit(ctx, {
     isOver: () => st?.phase === 'done',
     onGone: () => stopT?.(),
-    resolve: u => {                                       // انسحاب أثناء لعب الفريقين: يخسر فريق المنسحب ويُحتسب الفوز للآخر
-      if (!st || st.phase !== 'play' || st.mode !== 'team') return null;
-      const e = Object.entries(st.teams || {}).find(([, v]) => v === u); if (!e) return null;
-      const win = other(e[0].split('-')[0]), winners = Object.entries(st.teams).filter(([k]) => k.startsWith(win + '-')).map(([, v]) => v);
+    resolve: u => {                                       // انسحاب أثناء اللعب: يخسر فريق المنسحب ويُحتسب الفوز للآخر
+      if (!st || st.phase !== 'play') return null;
+      const e = Object.entries(teams(st)).find(([, v]) => v === u); if (!e) return null;
+      const win = other(e[0].split('-')[0]), winners = Object.entries(teams(st)).filter(([k]) => k.startsWith(win + '-')).map(([, v]) => v);
       return { result: makeResult('team-win', winners, { forfeit: true }), sub: `فاز الفريق ${TEAM_AR[win]}` };
     }
   });
   onValue(gameRef(ctx.code, 's'), s => { st = s.val(); render(); });
   watchRoom(ctx.code, {
     meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },
-    players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) render(); },
+    players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); render(); },
     scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
   });
 }

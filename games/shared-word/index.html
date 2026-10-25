@@ -8,14 +8,19 @@
 <link rel="stylesheet" href="../../shared/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
-main{justify-content:flex-start;padding-top:14px}
+html,body{height:100%;overflow:hidden}
+main{justify-content:flex-start;padding-top:14px;height:100vh;height:100dvh;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scroll-behavior:auto}
 .harm{width:min(94vw,820px);align-self:center;display:flex;flex-direction:column;gap:6px}
 .harm .top{display:flex;justify-content:space-between;color:var(--mute);font-size:.8rem}.harm b{color:var(--text)}
 .track{direction:ltr;height:7px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;position:relative}
 .fill{height:100%;width:50%;border-radius:999px;transition:width .9s cubic-bezier(.2,.8,.2,1),background .9s}
 .track::after{content:'';position:absolute;inset:0 auto 0 50%;width:2px;background:rgba(255,255,255,.25)}
 .stage{padding:16px;display:flex;flex-direction:column;gap:12px;align-items:stretch;text-align:center}
-.pcard{padding:14px;border-radius:18px;background:rgba(0,0,0,.25);border:1px solid var(--line);display:flex;flex-direction:column;gap:8px;align-items:center;min-height:92px;justify-content:center}
+.pcard{padding:12px 14px;border-radius:18px;background:rgba(0,0,0,.25);border:1px solid var(--line);display:flex;flex-direction:column;gap:6px;align-items:center;height:104px;justify-content:center;overflow:hidden}
+.pcard .cb{height:50px;width:100%;display:flex;align-items:center;justify-content:center}
+.foot{height:84px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px}
+.rd{height:1.3em}
+.mid{height:1.15em;overflow:hidden;white-space:nowrap}
 .pcard .who{color:var(--mute);font-size:.85rem}
 .pcard .w{font:700 2rem 'Reem Kufi',sans-serif}
 .pcard.ok{border-color:var(--lagoon);background:rgba(79,209,197,.12)}
@@ -26,7 +31,7 @@ main{justify-content:flex-start;padding-top:14px}
 .t{font:700 1.6rem 'Reem Kufi',sans-serif;color:var(--lagoon)}
 .sent{color:var(--lagoon);font-weight:700}
 .sm{color:var(--mute);font-size:.9rem}
-.send{display:flex;gap:8px;width:100%}.send input{text-align:center;font-size:1.2rem}.send .btn{width:auto;padding-inline:22px}
+.send{display:flex;gap:8px;width:100%;height:50px}.send input{text-align:center;font-size:1.2rem;padding-block:0;height:50px}.send .btn{width:auto;padding:0 22px;height:50px}
 </style>
 </head>
 <body>
@@ -100,7 +105,7 @@ function startTimer() {
   stopT = countdown(st.endAt, (l, s) => { t.textContent = s; if (s <= 3 && s > 0 && l % 1000 < 100) sfx.tick(); }, () => timeout(seq));
 }
 
-function tryAdd(inp) {
+function tryAdd() {
   const n = norm(inp.value);
   if (n.length < 2) return toast('اكتب كلمة من حرفين على الأقل', 'error'), sfx.error();
   if (same(n, norm(st.word))) return toast('ممنوع كتابة الكلمة الظاهرة أو قريب منها', 'error'), sfx.error();
@@ -108,31 +113,46 @@ function tryAdd(inp) {
   sfx.click(); submit(inp.value); draft = '';
 }
 
-function card(i, show) {
-  const c = h('div', 'pcard'), sent = st['s' + i] != null;
-  c.append(h('span', 'who', nm(i) + (i === me ? ' (أنت)' : '')));
-  if (show) { c.append(h('span', 'w', st['s' + i] ?? '—')); c.classList.add(st.ok ? 'ok' : 'bad'); }
-  else if (i === me && !sent) {
-    const row = h('div', 'send'), inp = h('input'), b = h('button', 'btn primary', 'أرسل');
-    inp.maxLength = 20; inp.placeholder = 'أول كلمة تخطر ببالك'; inp.value = draft; inp.autocomplete = 'off';
-    inp.oninput = () => { draft = inp.value; };
-    inp.onkeydown = e => { if (e.key === 'Enter') tryAdd(inp); };
-    b.onclick = () => tryAdd(inp);
-    row.append(inp, b); c.append(row); setTimeout(() => inp.focus(), 50);
-  } else c.append(h('span', sent ? 'sent' : 'sm', sent ? '✔ أُرسلت' : '… يكتب'));
-  return c;
+// الواجهة تُبنى مرة واحدة ثم تُحدَّث عناصرها في أماكنها: لا إعادة بناء ولا تركيز تلقائي ولا حركة صفحة عند أي تحديث من الطرف الآخر
+let E = null, inp = null, myRow = null, builtRound = -1;
+function buildStage() {
+  const S = $('#stage'); S.replaceChildren();
+  const card = () => { const c = h('div', 'pcard'), who = h('span', 'who'), cb = h('div', 'cb'); c.append(who, cb); c._w = who; c._b = cb; return c; };
+  E = { rd: h('div', 'rd'), c: [card(), card()], mid: h('div', 'mid'), foot: h('div', 'foot') };
+  const t = h('div', 't', ''); t.id = 't'; E.t = t; E.msg = h('div', 'sm'); E.foot.append(t, E.msg);
+  S.append(E.rd, E.c[0], E.mid, E.c[1], E.foot);
+  inp = h('input'); inp.maxLength = 20; inp.placeholder = 'أول كلمة تخطر ببالك'; inp.autocomplete = 'off';
+  inp.oninput = () => { draft = inp.value; }; inp.onkeydown = e => { if (e.key === 'Enter') tryAdd(); };
+  const b = h('button', 'btn primary', 'أرسل'); b.onclick = tryAdd;
+  myRow = h('div', 'send'); myRow.append(inp, b);
 }
-
+function patchCard(i, show) {
+  const c = E.c[i], b = c._b, sent = st['s' + i] != null;
+  c._w.textContent = nm(i) + (i === me ? ' (أنت)' : '');
+  c.classList.toggle('ok', show && !!st.ok); c.classList.toggle('bad', show && !st.ok);
+  if (show) { if (b.firstChild !== b._w || b._w.textContent !== String(st['s' + i] ?? '—')) { b._w = h('span', 'w', st['s' + i] ?? '—'); b.replaceChildren(b._w); } return; }
+  b._w = null;
+  if (i === me && !sent) { if (b.firstChild !== myRow) b.replaceChildren(myRow); return; }
+  const txt = sent ? '✔ أُرسلت' : '… يكتب', cls = sent ? 'sent' : 'sm';
+  if (!(b.firstChild && b.firstChild._k === txt)) { const e = h('span', cls, txt); e._k = txt; b.replaceChildren(e); }
+}
 function renderStage() {
-  const key = [st.seq, st.phase, st.s0 != null, st.s1 != null].join('|');
-  if (key === stageKey) return; stageKey = key;
-  const S = $('#stage'), show = st.phase !== 'write';
-  S.replaceChildren(h('div', 'rd', `الجولة ${st.round}`), card(0, show), h('div', 'mid', st.word), card(1, show));
-  if (st.phase === 'write') { const t = h('div', 't', '…'); t.id = 't'; S.append(t, h('div', 'sm', 'اكتبا الكلمة المناسبة للكلمة التي في المنتصف، وتطابقا دون كلام')); }
-  else if (st.phase === 'reveal') { const t = h('div', 't', '…'); t.id = 't'; S.append(h('div', 'verdict', st.ok ? (st.exact ? `متطابقة! +${UP} 🔥` : `متقاربة ✨ +${UP}`) : `مختلفة −${DOWN}`), t); }
-  else S.append(h('div', 'verdict', st.win ? 'ربحتما! تناغم كامل 🎉' : 'انهار التناغم 💔'), h('div', 'sm', `عدد الجولات: ${(st.hist || []).length}`));
-  if (window.gsap && st.phase !== 'write') gsap.from(S.querySelectorAll('.pcard'), { y: 14, opacity: 0, duration: .4, stagger: .12 });
-  startTimer();
+  if (!E) buildStage();
+  const show = st.phase !== 'write', roundChanged = builtRound !== st.round;
+  E.rd.textContent = `الجولة ${st.round}`; E.mid.textContent = st.word;
+  if (roundChanged) { builtRound = st.round; draft = ''; inp.value = ''; }
+  patchCard(0, show); patchCard(1, show);
+  if (st.phase === 'write') { E.msg.textContent = 'اكتبا الكلمة المناسبة للكلمة التي في المنتصف، وتطابقا دون كلام'; E.msg.className = 'sm'; }
+  else if (st.phase === 'reveal') { E.msg.textContent = st.ok ? (st.exact ? `متطابقة! +${UP} 🔥` : `متقاربة ✨ +${UP}`) : `مختلفة −${DOWN}`; E.msg.className = 'verdict'; }
+  else { E.msg.textContent = st.win ? 'ربحتما! تناغم كامل 🎉' : 'انهار التناغم 💔'; E.msg.className = 'verdict'; }
+  if (st.phase === 'done') E.t.textContent = '';
+  const key = st.seq + '|' + st.phase;
+  if (key !== stageKey) {
+    stageKey = key;
+    if (window.gsap && st.phase !== 'write') gsap.from(E.c.map(c => c._b), { y: 8, opacity: 0, duration: .35, stagger: .1, clearProps: 'transform,opacity' });
+    startTimer();
+    if (st.phase === 'write' && st['s' + me] == null && roundChanged && !matchMedia('(pointer:coarse)').matches) setTimeout(() => inp.focus({ preventScroll: true }), 50);
+  }
 }
 
 function render() {
@@ -166,7 +186,7 @@ const ex = initGameExit(ctx, { isOver: () => st?.phase === 'done' });
 onValue(gameRef(ctx.code), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
 watchRoom(ctx.code, {
   meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },
-  players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) { stageKey = ''; render(); } },
+  players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) render(); },
   scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
 });
 </script>

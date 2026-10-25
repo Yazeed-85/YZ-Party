@@ -9,8 +9,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
 html,body{height:100%;overflow:hidden}
-main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:8px;padding:10px 14px 14px}
-@media (pointer:coarse){main{padding-bottom:58px}}
+main{height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:8px;padding:10px 14px 14px}
+@media (pointer:coarse){main{padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}}
 
 /* الشبكة الخلفية والأجرام المضيئة */
 .bg-grid{position:fixed;inset:0;background-image:linear-gradient(rgba(0,210,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,210,255,0.02) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
@@ -30,26 +30,37 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 
 /* البطاقة الرئيسية */
 .card{flex:1 1 0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px 20px;text-align:center;border-radius:28px;position:relative;overflow:hidden;z-index:2;background:rgba(15,25,40,0.85);border:1px solid rgba(0,210,255,0.12);box-shadow:0 30px 80px rgba(0,0,0,0.6)}
-.ttl{font:900 1.6rem 'Tajawal',sans-serif;color:white}
+.ttl{font:900 clamp(1.15rem,4.5vw,1.6rem) 'Tajawal',sans-serif;color:white}
 .sub{color:var(--mute);font-size:.92rem;line-height:1.6;white-space:pre-line}
 .badge{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;font-size:2.9rem;background:rgba(255,255,255,.06);border:2px solid var(--line);flex:none}
 .ok{color:#34d399}.no{color:#ff6b81}.am{color:var(--amber)}
 
 /* لوحة اللعب XO */
-.board-wrap{display:grid;grid-template-columns:repeat(3,95px);grid-template-rows:repeat(3,95px);gap:12px;margin:10px 0}
-@media (max-height: 700px) { .board-wrap{grid-template-columns:repeat(3,80px);grid-template-rows:repeat(3,80px);gap:10px} }
-
-.cell{background:rgba(22,32,50,0.6);border:1.5px solid rgba(255,255,255,0.06);border-radius:18px;display:flex;align-items:center;justify-content:center;font:900 3rem 'Tajawal',sans-serif;cursor:default;transition:0.15s;box-shadow:0 4px 15px rgba(0,0,0,0.3);user-select:none}
-.cell.clickable{cursor:pointer}
-.cell.clickable:active{transform:scale(0.92)}
-
-.cell.val-X{color:#ff6b81;background:rgba(255,107,129,0.08);border-color:rgba(255,107,129,0.25)}
-.cell.val-O{color:#34d399;background:rgba(52,211,153,0.08);border-color:rgba(52,211,153,0.25)}
-.cell.win{animation:winPulse 0.6s ease infinite alternate}
-.cell.win.val-X{background:rgba(255,107,129,0.2);box-shadow:0 0 25px rgba(255,107,129,0.4)}
-.cell.win.val-O{background:rgba(52,211,153,0.2);box-shadow:0 0 25px rgba(52,211,153,0.4)}
-
-@keyframes winPulse { from { transform:scale(1); } to { transform:scale(1.08); } }
+.card{overflow-y:auto;padding:18px 14px;gap:12px;justify-content:center;justify-content:safe center}
+.vs{display:flex;gap:10px;width:100%;max-width:380px;justify-content:center}
+.vs .pl{flex:1;display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:14px;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.08);font-weight:700;font-size:.9rem;min-width:0;transition:.25s}
+.vs .pl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:right}
+.vs .pl i{font:900 1.2rem 'Tajawal',sans-serif;font-style:normal;width:1.6em;height:1.6em;display:grid;place-items:center;border-radius:8px}
+.vs .pl.px i{color:#ff6b81;background:rgba(255,107,129,.14)}.vs .pl.po i{color:#34d399;background:rgba(52,211,153,.14)}
+.vs .pl.on.px{border-color:#ff6b81;box-shadow:0 0 18px rgba(255,107,129,.25)}.vs .pl.on.po{border-color:#34d399;box-shadow:0 0 18px rgba(52,211,153,.25)}
+.board-wrap{--s:min(84vw,380px,max(180px,calc(100vh - 330px)));--s:min(84vw,380px,max(180px,calc(100dvh - 330px)));width:var(--s);aspect-ratio:1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:clamp(6px,2.2vw,12px);margin:2px 0;position:relative}
+.cell{background:rgba(22,32,50,.7);border:1.5px solid rgba(255,255,255,.07);border-radius:clamp(12px,4vw,20px);display:flex;align-items:center;justify-content:center;cursor:default;transition:.15s;box-shadow:0 4px 15px rgba(0,0,0,.3);user-select:none;-webkit-tap-highlight-color:transparent;padding:16%}
+.cell svg{width:100%;height:100%;overflow:visible}
+.cell svg path,.cell svg circle{fill:none;stroke-width:11;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:0}
+.cell.val-X svg{stroke:#ff6b81}.cell.val-O svg{stroke:#34d399}
+.cell.pop svg path,.cell.pop svg circle{animation:draw .35s ease-out both}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.cell.clickable{cursor:pointer;background:rgba(0,210,255,.05);border-color:rgba(0,210,255,.18)}
+@media (hover:hover){.cell.clickable:hover{background:rgba(0,210,255,.13);transform:translateY(-2px)}}
+.cell.clickable:active{transform:scale(.93)}
+.cell.val-X{background:rgba(255,107,129,.08);border-color:rgba(255,107,129,.25)}
+.cell.val-O{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.25)}
+.cell.win{animation:winPulse .6s ease infinite alternate}
+.cell.win.val-X{background:rgba(255,107,129,.22);box-shadow:0 0 25px rgba(255,107,129,.4)}
+.cell.win.val-O{background:rgba(52,211,153,.22);box-shadow:0 0 25px rgba(52,211,153,.4)}
+@keyframes winPulse{from{transform:scale(1)}to{transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.cell.pop svg *,.cell.win{animation:none}}
+@media (max-height:520px) and (orientation:landscape){main{max-width:760px}.card{flex-direction:row;flex-wrap:wrap;gap:8px 18px;padding:8px}.card .ttl{font-size:1.1rem}.board-wrap{--s:min(46vw,calc(100vh - 150px))}}
 
 /* شريط الوقت */
 .tm{position:absolute;top:14px;left:18px;font:700 1.2rem 'Reem Kufi',sans-serif;color:var(--mute)}
@@ -90,10 +101,11 @@ const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.oncl
 const ROUNDS = 5;
 const TURN_S = 15;
 const REVEAL_S = 4;
+const MARK = { X: '<svg viewBox="0 0 100 100"><path pathLength="1" d="M14 14L86 86"/><path pathLength="1" d="M86 14L14 86" style="animation-delay:.12s"/></svg>', O: '<svg viewBox="0 0 100 100"><circle pathLength="1" cx="50" cy="50" r="36"/></svg>' };
 const WIN_PATTERNS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
 let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null;
-let panelKey = '', lastSeq = -1, prevPts = null;
+let panelKey = '', lastSeq = -1, prevPts = null, prevBoardSig = [];
 
 const nm = i => players[st?.order?.[i]]?.name || 'لاعب';
 const act = fn => runTransaction(gameRef(ctx.code, 's'), cur => (cur ? fn(cur) : undefined)).catch(() => {});
@@ -220,8 +232,9 @@ function renderPanel() {
       const cell = h('div', 'cell');
       const val = (st.board || [])[i] || '';
       if (val) {
-        cell.textContent = val;
+        cell.innerHTML = MARK[val];
         cell.classList.add(`val-${val}`);
+        if (!prevBoardSig[i] && lastSeq !== st.seq) cell.classList.add('pop');
         if (st.phase === 'reveal' && st.wPattern?.includes(i)) cell.classList.add('win');
       } else if (isMyTurn) {
         cell.classList.add('clickable');
@@ -229,7 +242,7 @@ function renderPanel() {
       }
       wrap.append(cell);
     }
-    c.append(wrap);
+    c.append(wrap); prevBoardSig = Array.from({ length: 9 }, (_, i) => (st.board || [])[i] || '');
 
     if (st.phase === 'play' && lastSeq !== st.seq && !reduce) {
       gsap.from(wrap, { scale: 0.95, opacity: 0.8, duration: 0.2 });
@@ -263,7 +276,7 @@ function render() {
   $('#dots').replaceChildren(...Array.from({ length: ROUNDS }, (_, i) => h('i', (i + 1 < st.round || done ? 'on' : '') + (i + 1 === st.round && !done ? ' cur' : ''))));
   $('#gp').replaceChildren(...[0, 1].map(i => {
     const pl = h('div', 'pill ' + (i === 0 ? 'px' : 'po'));
-    pl.append(sp(nm(i) + (!done && st.round && st.phase === 'play' && i === st.turn ? ' ✨' : '')), h('b', '', st.pts[i]));
+    pl.append(sp((i === 0 ? '✕ ' : '◯ ') + nm(i) + (!done && st.round && st.phase === 'play' && i === st.turn ? ' ✨' : '')), h('b', '', st.pts[i]));
     if (prevPts && prevPts[i] !== st.pts[i] && !reduce) gsap.fromTo(pl, { scale: 1.25 }, { scale: 1, duration: 0.6, ease: 'elastic.out(1, 0.5)' });
     return pl;
   }));
@@ -291,7 +304,7 @@ else {
   onValue(gameRef(ctx.code, 's'), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
   watchRoom(ctx.code, {
     meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },
-    players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) { panelKey = ''; render(); } },
+    players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) render(); },
     scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
   });
 }
