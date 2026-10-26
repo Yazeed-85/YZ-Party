@@ -71,7 +71,7 @@ main{max-width:520px;height:calc(100dvh - env(safe-area-inset-top,0px) - env(saf
 .btn.pulse{animation:pulseb .8s ease-in-out infinite alternate}@keyframes pulseb{to{transform:scale(1.05);box-shadow:0 0 18px rgba(255,107,129,.7)}}
 .spec{flex:none;text-align:center;padding:12px;border-radius:16px;background:rgba(255,107,129,.1);border:1px solid rgba(255,107,129,.4);color:var(--rose);font-weight:700}
 /* شاشة الدخول */
-.enter{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:74px 20px 20px;background:radial-gradient(80% 60% at 50% 0%,#1d1530,#07090f 70%)}
+.enter{display:none!important;position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:74px 20px 20px;background:radial-gradient(80% 60% at 50% 0%,#1d1530,#07090f 70%)}
 .ecard{width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
 .ecard .logo{width:150px;height:150px}
 .ecard h1{font:700 2.3rem 'Reem Kufi',sans-serif;letter-spacing:.02em;line-height:1.1}
@@ -310,7 +310,7 @@ const SOUNDS = ['1A', '2A', '3A', '4A', '1K', '2K', '3K', '4K', '1Q', '2Q', '3Q'
 let ac = null, bufs = {}, curSrc = null, audioReady = false, audioLoading = null;
 const decodeBuf = ab => new Promise((res, rej) => { const p = ac.decodeAudioData(ab, res, rej); p?.then?.(res, rej); });
 async function unlockAudio() {                         // داخل لمسة المستخدم (يلزم iOS)
-  try { ac ??= new (window.AudioContext || window.webkitAudioContext)(); await ac.resume(); const b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch { /* نكمل بلا صوت */ }
+  try { ac ??= new (window.AudioContext || window.webkitAudioContext)(); ac.resume?.().catch?.(() => {}); const b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch { /* نكمل بلا صوت */ }
   if (!ac) return;
   audioLoading ??= Promise.all(SOUNDS.map(async n => { try { const r = await fetch(`sounds/${n}.mp3`); bufs[n] = await decodeBuf(await r.arrayBuffer()); } catch { /* ملف مفقود: نتجاوزه */ } })).then(() => { audioReady = true; });
   await audioLoading;
@@ -321,7 +321,7 @@ function playSnd(n) {                                  // يرجع مدة الم
   const s = ac.createBufferSource(); s.buffer = bufs[n]; s.connect(ac.destination); s.start(); curSrc = s; return bufs[n].duration;
 }
 const stopSnd = () => { try { curSrc?.stop(); } catch { /* */ } curSrc = null; };
-addEventListener('pointerdown', () => { if (!audioReady) unlockAudio(); }, { passive: true });   // لمن أعاد تحميل الصفحة وسط اللعب
+addEventListener('pointerdown', () => { ac?.resume?.(); if (!audioReady) unlockAudio(); }, { passive: true });   // لمن أعاد تحميل الصفحة وسط اللعب
 document.addEventListener('visibilitychange', () => { if (!document.hidden) ac?.resume?.(); });
 
 // ===== الحالة المحلية =====
@@ -628,7 +628,7 @@ function render() {
   if (me < 0) { toast('لست ضمن هذه اللعبة', 'error'); abortGame(ctx); return; }
   if (seatSig !== st.order.join()) buildSeats();
   const p = prev; prev = st;
-  updateSeats(); renderInfo(); startTimer(); renderEnter();
+  updateSeats(); renderInfo(); startTimer(); if (st.ph === 'ready' && me >= 0 && !st.rd[me]) imReady();
   if (!p || p.seq !== st.seq) dispatchFx(p, st);
   if ((st.pile || []).length < pileN) renderPile(false);
   if (!canAct() && sel.size) { sel.clear(); renderHand(false); }
@@ -686,7 +686,7 @@ function hostSchedule() {
   $('#bSnd').onclick = () => { const m = toggleMute(); $('#bSnd').textContent = m ? '🔇' : '🔊'; if (m) stopSnd(); };
   $('#bHelp').onclick = () => { sfx.click(); showRules(); };
   $('#bPlay').onclick = () => { sfx.click(); doPlay(); }; $('#bLiar').onclick = () => { sfx.click(); doLiar(); };
-  buildEnter(); renderEnter();
+  buildEnter(); unlockAudio();
 
   if (ctx.isHost) {                                       // المضيف يُهيّئ الطاولة والرصاصات السرّية (ولا يمسحها عند إعادة التحميل)
     try {
@@ -726,7 +726,7 @@ function hostSchedule() {
     scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
   });
   setInterval(() => { if (ctx.isHost) hostTick(); }, 2000);   // احتياط: لا نعتمد على الأحداث وحدها
-  setInterval(() => { if (st && st.ph === 'ready') renderEnter(); }, 1000);   // يظهر زر «ابدأ بمن دخلوا» بعد 20 ثانية دون أي حدث جديد
+  setInterval(() => { if (!st || st.ph !== 'ready') return; if (me >= 0 && !st.rd[me]) imReady(); if (ctx.isHost && Date.now() - enterAt > 8000) { const al = aliveIdx(st.al), r = al.filter(i => st.rd[i]).length; if (r >= 2 && r < al.length) forceStart(); } }, 700);   // يظهر زر «ابدأ بمن دخلوا» بعد 20 ثانية دون أي حدث جديد
 })();
 
 </script>

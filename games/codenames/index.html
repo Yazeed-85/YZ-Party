@@ -35,19 +35,12 @@ main.app{max-width:none;width:100%;height:100vh;height:100dvh;min-height:0;justi
 
 /* ========== شاشة اللعب ========== */
 .play{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px}
-.topline{display:flex;align-items:center;gap:6px;flex:none;min-height:36px}
-.status{flex:1;min-width:0;background:#fff;color:#14141a;font:800 clamp(.82rem,2.2vw,1.12rem) 'Cairo',sans-serif;text-align:center;padding:5px 12px;border-radius:9px;border-bottom:4px solid var(--paper-d);box-shadow:0 4px 14px rgba(0,0,0,.35);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.status.red{border-bottom-color:var(--red)}.status.blue{border-bottom-color:var(--blue)}.status.end{background:#14141a;color:#fff}
-.tmpill{flex:none;min-width:62px;text-align:center;padding:5px 12px;border-radius:999px;background:rgba(0,0,0,.4);border:1px solid var(--line);font:700 1.05rem 'Reem Kufi',sans-serif;color:var(--text)}
-.tmpill.warn{color:var(--rose);border-color:var(--rose)}.tmpill:empty{display:none}
 .ibtn{flex:none;width:38px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--glass);color:var(--text);font:700 1rem 'Cairo',sans-serif;cursor:pointer;display:grid;place-items:center}
-.ibtn.logb{display:none;width:auto;padding:0 12px}
 
-.arena{flex:1;min-height:0;display:grid;direction:ltr;gap:8px;grid-template-columns:minmax(150px,236px) minmax(0,1fr) minmax(170px,270px);grid-template-areas:"red center side"}
+.arena{flex:1;min-height:0;display:grid;direction:ltr;gap:8px;grid-template-columns:minmax(150px,230px) minmax(0,1fr) minmax(150px,230px);grid-template-areas:"red center blue"}
 .arena>*{direction:rtl}
-#pRed{grid-area:red}.center{grid-area:center}.side{grid-area:side}
+#pRed{grid-area:red}#pBlue{grid-area:blue}.center{grid-area:center}
 .center{min-width:0;min-height:0;display:flex;flex-direction:column;gap:6px}
-.side{min-height:0;display:flex;flex-direction:column;gap:8px}
 
 /* لوحة الفريق */
 .panel{--tc:var(--red);--tcd:var(--red-d);border-radius:14px;padding:10px 12px;color:#fff;background:linear-gradient(160deg,var(--tc),var(--tcd));box-shadow:0 6px 18px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:7px;align-self:start;width:100%;border:2px solid transparent;transition:box-shadow .3s,border-color .3s;align-self:start}
@@ -62,16 +55,6 @@ main.app{max-width:none;width:100%;height:100vh;height:100dvh;min-height:0;justi
 .panel .chips{display:flex;flex-wrap:wrap;gap:4px}
 .pchip{background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:1px 9px;font-size:.84rem;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pchip.me{outline:2px solid var(--gold);outline-offset:1px}.pchip.off{opacity:.5}
-
-/* سجل اللعبة */
-.log{flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;color:#14141a;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.35)}
-.log h4{flex:none;text-align:center;font:800 .92rem 'Cairo',sans-serif;padding:5px;border-bottom:1px solid #e3dccb;position:relative}
-.log h4 button{position:absolute;inset-block:0;inset-inline-start:6px;border:0;background:none;font-size:1.1rem;cursor:pointer;display:none;color:#555}
-.log .list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
-.le{padding:4px 9px;font-size:.84rem;line-height:1.5;border-bottom:1px solid rgba(0,0,0,.04)}
-.le.red{background:#fdeee8}.le.blue{background:#e6f5fa}.le.sys{background:#f2efe6;color:#555;text-align:center}
-.le .w{font-weight:900;padding:0 3px}.le .w.red{color:var(--red-d)}.le .w.blue{color:var(--blue-d)}.le .w.neutral{color:#8a8470}.le .w.assassin{color:#000;background:#d4d4d8;border-radius:4px}
-.le b{font-weight:800}
 
 /* اللوح */
 .bw{flex:1;min-height:0;container-type:size;display:grid;place-items:center}
@@ -102,23 +85,28 @@ main.app{max-width:none;width:100%;height:100vh;height:100dvh;min-height:0;justi
 .cn.hit{outline:3px solid var(--rose);outline-offset:-3px}
 @media (prefers-reduced-motion:reduce){.cn.just{animation:none}}
 
-/* شريط التلميح */
-.dock{flex:none;min-height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;padding:8px 8px 10px;border-radius:14px;background:rgba(0,0,0,.34);border:1px solid var(--line)}
-.dock>[hidden]{display:none!important}
-.cform{display:flex;gap:8px;width:100%;max-width:520px}
-.cform input{flex:1;min-width:0;padding:9px 12px;border-radius:10px;font-size:1rem}
-.cform select{flex:none;background:#1b1f31;border:1px solid var(--line);color:#fff;padding:0 8px;border-radius:10px;font:700 1rem 'Cairo',sans-serif;min-width:62px}
-.cform .btn{width:auto;padding:9px 18px;flex:none}
-.cshow{display:flex;gap:8px;align-items:stretch;justify-content:center;direction:ltr}
-.cchip{background:#fff;color:#14141a;font:800 clamp(1.1rem,3.4vw,1.9rem)/1.2 'Cairo',sans-serif;padding:3px .7em;border-radius:12px;box-shadow:0 0 0 3px rgba(255,255,255,.18),0 4px 12px rgba(0,0,0,.4);max-width:70vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cchip.num{min-width:2.1em;text-align:center;padding-inline:.4em}
-.cchip.red{box-shadow:0 0 0 3px var(--red),0 4px 12px rgba(0,0,0,.4)}.cchip.blue{box-shadow:0 0 0 3px var(--blue),0 4px 12px rgba(0,0,0,.4)}
-.dmsg{font-size:.86rem;color:var(--mute);text-align:center;line-height:1.4}.dmsg b{color:var(--amber)}
-.dock .btn{width:auto;padding:8px 22px;font-size:.95rem}
-.tb{position:absolute;inset-inline:10px;top:0;height:3px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
-.tb i{display:block;height:100%;background:var(--lagoon);transform-origin:right;transform:scaleX(0)}
-.endbox{display:flex;flex-direction:column;align-items:center;gap:2px}
-.endbox .ttl{font-size:1.5rem}
+/* الشريط السفلي الحي: لون فريق اللاعب، ويخبره بدوره وبكل ما يهمه */
+.dock{--tc:#3a3f55;--tcd:#23263a;flex:none;display:flex;flex-direction:column;gap:6px;position:relative;padding:10px 12px 9px;border-radius:14px;background:linear-gradient(160deg,var(--tc),var(--tcd));border:2px solid transparent;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:border-color .25s,box-shadow .25s,filter .25s}
+.dock.red{--tc:var(--red);--tcd:var(--red-d)}.dock.blue{--tc:var(--blue);--tcd:var(--blue-d)}
+.dock.wait{filter:saturate(.55) brightness(.82)}
+.dock.mine{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,213,74,.28),0 6px 18px rgba(0,0,0,.35)}
+.dock>[hidden],.drow>[hidden]{display:none!important}
+.drow{display:flex;align-items:center;gap:8px;min-height:30px}
+.dmsg{flex:1;min-width:0;font:800 clamp(.95rem,2.6vw,1.2rem)/1.3 'Cairo',sans-serif}
+.tmpill{flex:none;padding:2px 10px;border-radius:999px;background:rgba(0,0,0,.3);font:700 1rem 'Reem Kufi',sans-serif}.tmpill.warn{background:var(--rose);color:#2a0710}.tmpill:empty{display:none}
+.ibtn{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.25);color:#fff;font:700 .95rem 'Cairo',sans-serif;cursor:pointer;display:grid;place-items:center}
+.cshow{display:flex;gap:6px;direction:ltr;flex:none}
+.cchip{background:#fff;color:#14141a;font:800 clamp(1rem,3vw,1.5rem)/1.2 'Cairo',sans-serif;padding:1px .65em;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.35);max-width:46vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cchip.num{min-width:1.9em;text-align:center;padding-inline:.35em}
+.cform{display:flex;gap:6px;width:100%}
+.cform input{flex:1;min-width:0;padding:8px 12px;border-radius:10px;font-size:1rem;background:rgba(255,255,255,.95);color:#14141a;border:0}
+.cform select{flex:none;background:#fff;border:0;color:#14141a;padding:0 6px;border-radius:10px;font:700 1rem 'Cairo',sans-serif;min-width:58px}
+.dock .btn{width:auto;flex:none;padding:7px 18px;font-size:.92rem;background:#fff;color:#14141a;border:0}
+.dock .btn:disabled{opacity:.45;filter:none}
+.dsub{font-size:.8rem;opacity:.92;line-height:1.35;min-height:1.1em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsub .w{font-weight:900;background:rgba(255,255,255,.92);color:#14141a;border-radius:5px;padding:0 5px}
+.tb{position:absolute;inset-inline:12px;top:-1px;height:3px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.tb i{display:block;height:100%;background:#fff;transform-origin:right;transform:scaleX(0)}
 
 .ovl-card.rules{max-width:420px;text-align:right;align-items:stretch;max-height:88dvh;overflow-y:auto}
 .rules ol{padding-inline-start:20px;display:flex;flex-direction:column;gap:6px;font-size:.9rem;line-height:1.6}.rules b{color:var(--amber)}
@@ -127,30 +115,22 @@ main.app{max-width:none;width:100%;height:100vh;height:100dvh;min-height:0;justi
 /* لوحي وهاتف عمودي: اللوحات صفّ مضغوط أعلى اللوح، والسجل ورقة منزلقة */
 @media (max-width:1000px){
   .arena{grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"red blue" "center center";gap:6px}
-  .side{display:contents}#pBlue{grid-area:blue}
-  .panel{flex-direction:row;align-items:center;padding:6px 8px;gap:8px;border-radius:12px}
-  .panel .head{gap:8px}.panel .face{display:none}.panel .num{flex:none;font-size:2rem;min-width:1.2em}
+  .panel{flex-direction:row;align-items:center;padding:5px 9px;gap:8px;border-radius:12px}
+  .panel .head{gap:8px}.panel .face{display:none}.panel .num{flex:none;font-size:1.9rem;min-width:1.1em}
   .panel .names{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
-  .panel .grp{flex-direction:row;align-items:center;gap:5px}.panel .lbl{font-size:.7rem;flex:none}
+  .panel .grp{flex-direction:row;align-items:center;gap:5px}.panel .lbl{font-size:.8rem;flex:none}
   .pchip{font-size:.76rem;padding:0 6px}
-  .ibtn.logb{display:grid}
-  .log{position:fixed;inset-inline:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:56dvh;height:56dvh;z-index:90;transform:translateY(120%);transition:transform .3s;box-shadow:0 -10px 40px rgba(0,0,0,.6)}
-  .log.open{transform:none}.log h4 button{display:block}
 }
 @media (max-width:520px){.cform{gap:6px}.cform .btn{padding:9px 12px}}
 /* هاتف أفقي (ارتفاع قصير): ثلاثة أعمدة مضغوطة */
 @media (max-height:520px) and (orientation:landscape){
   main.app{gap:4px;padding-top:4px}
   .scorebar{padding:2px 6px}.sb{padding:0 8px;font-size:.72rem;line-height:1.6}.sb-exit{width:32px;padding:0;font-size:.8rem;line-height:1.4}
-  .topline{min-height:30px}.status{padding:3px 10px;font-size:.84rem}.ibtn{height:30px}.tmpill{padding:3px 10px;font-size:.9rem}
   .arena{grid-template-columns:minmax(104px,150px) minmax(0,1fr) minmax(104px,150px);grid-template-rows:minmax(0,1fr);grid-template-areas:"red center blue";gap:6px}
-  .side{display:contents}#pBlue{grid-area:blue}
-  .log{position:fixed;inset-inline:auto 10px;inset-inline-start:auto;right:10px;left:auto;width:min(340px,60vw);bottom:8px;height:calc(100dvh - 60px);max-height:none;z-index:90;transform:translateX(120%);transition:transform .3s}
-  .log.open{transform:none}.log h4 button{display:block}.ibtn.logb{display:grid}
   .panel{flex-direction:column;align-items:stretch;padding:6px 8px;gap:4px}
   .panel .num{font-size:1.8rem}.panel .head{justify-content:center}
   .panel .names{display:flex;flex-direction:column;gap:2px}.panel .grp{flex-direction:column;align-items:flex-start;gap:1px}
-  .dock{min-height:44px;padding:5px 6px 6px;gap:3px;flex-direction:row;flex-wrap:wrap}.cchip{font-size:1rem;padding-block:1px}.dmsg{font-size:.72rem}.dock .btn{padding:4px 16px;font-size:.85rem}.cform input{padding:6px 10px}.cform .btn{padding:6px 14px}
+  .dock{padding:6px 8px 6px;gap:4px}.drow{min-height:26px}.dmsg{font-size:.88rem}.dsub{font-size:.72rem}.dock .btn{padding:4px 14px}.cform input{padding:5px 10px}
   .setup{padding:8px;gap:8px}.slot{min-height:46px;padding:6px;margin-top:5px}.ttl{font-size:1.3rem}.sub{font-size:.8rem;line-height:1.45}
 }
 /* شاشات عريضة جداً */
@@ -162,32 +142,23 @@ main.app{max-width:none;width:100%;height:100vh;height:100dvh;min-height:0;justi
   <div id="sb" class="glass scorebar"></div>
   <section id="setup" class="glass setup"><div class="spin"></div><div class="sub">جارٍ التحميل…</div></section>
   <section id="play" class="play" hidden>
-    <div class="topline">
-      <div id="status" class="status"></div>
-      <div id="tmpill" class="tmpill"></div>
-      <button id="bLog" class="ibtn logb" aria-label="سجل اللعبة">📜 السجل</button>
-      <button id="bRules" class="ibtn" aria-label="القواعد">؟</button>
-    </div>
     <div class="arena">
       <aside id="pRed" class="panel red"></aside>
       <div class="center">
         <div class="bw"><div id="board" class="board"></div></div>
         <div id="dock" class="dock">
           <div id="tb" class="tb"><i></i></div>
+          <div class="drow"><div id="dmsg" class="dmsg"></div><div id="cshow" class="cshow" hidden><span id="cw" class="cchip"></span><span id="cnum" class="cchip num"></span></div><div id="tmpill" class="tmpill"></div><button id="bRules" class="ibtn" aria-label="القواعد">؟</button></div>
           <div id="cform" class="cform" hidden>
             <input id="ci" maxlength="20" autocomplete="off" placeholder="تلميح بكلمة واحدة…" enterkeyhint="send">
             <select id="cn" aria-label="عدد البطاقات"></select>
-            <button id="cgo" class="btn primary">أرسل</button>
+            <button id="cgo" class="btn">أرسل</button>
           </div>
-          <div id="cshow" class="cshow" hidden><span id="cw" class="cchip"></span><span id="cnum" class="cchip num"></span></div>
-          <div id="dmsg" class="dmsg"></div>
-          <button id="bEnd" class="btn ghost" hidden>إنهاء التخمين</button>
+          <button id="bEnd" class="btn" hidden>إنهاء التخمين</button>
+          <div id="dsub" class="dsub"></div>
         </div>
       </div>
-      <div class="side">
-        <aside id="pBlue" class="panel blue"></aside>
-        <div id="log" class="log"><h4><button id="bLogX" aria-label="إغلاق">✕</button>سجل اللعبة</h4><div id="logList" class="list"></div></div>
-      </div>
+      <aside id="pBlue" class="panel blue"></aside>
     </div>
   </section>
 </main>
@@ -219,7 +190,7 @@ const maxGuesses = n => (n <= 0 || n >= INF ? 99 : n + 1);
 const coarse = matchMedia('(pointer:coarse)').matches;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let ctx, st = null, players = {}, scores = {}, ended = false, stopT = null, viewKey = '', prevBoard = '', prevLogSeq = -1, pend = -1, pendT = null, lastSeq = -1, seatSig = '';
+let ctx, st = null, players = {}, scores = {}, ended = false, stopT = null, viewKey = '', prevBoard = '', pend = -1, pendT = null, lastSeq = -1, seatSig = '';
 
 // ===== رسومات الشخصيات (مرسومة بالكود) =====
 const SKIN = ['#f2c9a0', '#d9a273', '#9a6444', '#f7d8b8'], HAIR = ['#1b1b1b', '#4a2f1a', '#bdbdbd', '#2a2a2a'];
@@ -323,7 +294,7 @@ function startTimer() {
   if (!st || st.phase !== 'play') { pill.textContent = ''; bar.style.transform = 'scaleX(0)'; return; }
   const seq = st.seq, tot = (st.tPhase === 'spy' ? CLUE_S : GUESS_S) * 1000;
   stopT = countdown(st.endAt, (l, s) => {
-    pill.textContent = '⏱ ' + s; pill.classList.toggle('warn', s <= 10);
+    pill.textContent = s; pill.classList.toggle('warn', s <= 10);
     bar.style.transform = `scaleX(${Math.min(1, l / tot)})`; bar.style.background = s <= 10 ? 'var(--rose)' : 'var(--lagoon)';
     if (s <= 3 && s > 0 && l % 1000 < 100 && ((st.tPhase === 'spy' ? tmSpy(st.turn) : tmOp(st.turn)) === ctx.uid)) sfx.tick();
   }, () => onTimeout(seq));
@@ -363,28 +334,9 @@ function renderPanel(team) {
   const grp = (lbl, u) => { const g = h('div', 'grp'); g.append(h('span', 'lbl', lbl), u ? chip(u) : h('span', 'pchip off', '—')); return g; };
   const head = h('div', 'head'), face = h('div', 'face'), num = h('div', 'num', st.left?.[team] ?? '');
   face.innerHTML = bust(team, 0); head.append(face, num);
-  const names = h('div', 'names'); names.append(grp('العملاء', tmOp(team)), grp('القائد', tmSpy(team)));
+  const names = h('div', 'names'); names.append(grp('🎯', tmOp(team)), grp('🕵️', tmSpy(team)));
   el.replaceChildren(head, names);
 }
-function entryText(e) {
-  const d = h('div', 'le ' + (e.tm || 'sys'));
-  const w = (txt, cls) => h('span', 'w ' + cls, txt);
-  if (e.t === 'start') { d.className = 'le sys'; d.textContent = `بدأت اللعبة — يبدأ الفريق ${TEAM_AR[e.tm]} (9 عملاء)`; }
-  else if (e.t === 'clue') d.append(h('b', '', nm(e.u)), ' يعطي تلميح ', w(e.w, e.tm), ` ${clueWord(e)}`);
-  else if (e.t === 'tap') d.append(h('b', '', nm(e.u)), ' يختار ', w(e.w, e.k));
-  else if (e.t === 'end') d.append(h('b', '', nm(e.u)), ' ينهي التخمين');
-  else if (e.t === 'time') { d.className = 'le sys'; d.textContent = `انتهى وقت الفريق ${TEAM_AR[e.tm]}`; }
-  return d;
-}
-function renderLog() {
-  const list = $('#logList'), L = st.log || [];
-  const k = st.seq + ':' + L.length + ':' + st.order.map(nm).join();
-  if (k === prevLogSeq) return; prevLogSeq = k;
-  const atEnd = list.scrollTop + list.clientHeight >= list.scrollHeight - 30;
-  list.replaceChildren(...L.map(entryText));
-  if (atEnd || L.length <= 1) list.scrollTop = list.scrollHeight;
-}
-
 // ===== اللوح =====
 let cards = [];
 function buildBoard() {
@@ -422,29 +374,31 @@ function patchBoard() {
   prevBoard = sig;
 }
 
-// ===== شريط الحالة والتلميح =====
-function statusInfo() {
-  const [mt, mr] = myPos();
-  if (st.phase === 'done') return { t: `فاز الفريق ${TEAM_AR[st.winner]} ${st.winner === 'red' ? '🔴' : '🔵'}`, c: 'end' };
-  const T = TEAM_AR[st.turn], mine = mt === st.turn;
-  if (st.tPhase === 'spy') return mine && mr === 'spy' ? { t: 'دورك: أعطِ تلميحاً لعميلك', c: st.turn } : mine ? { t: 'قائدك يفكّر في تلميح…', c: st.turn } : { t: `قائد الفريق ${T} يفكّر في تلميح…`, c: st.turn };
-  return mine && mr === 'op' ? { t: 'دورك: خمّن البطاقات', c: st.turn } : mine ? { t: 'عميلك يخمّن الآن…', c: st.turn } : { t: `عميل الفريق ${T} يخمّن…`, c: st.turn };
-}
+// ===== الشريط السفلي الحي =====
 function patchDock() {
-  const done = st.phase === 'done', spyTurn = st.tPhase === 'spy';
-  const iGive = !done && spyTurn && tmSpy(st.turn) === ctx.uid, iGuess = canPickNow();
-  const form = $('#cform'), show = $('#cshow'), msg = $('#dmsg'), end = $('#bEnd');
+  const [mt, mr] = myPos(), done = st.phase === 'done', spyTurn = st.tPhase === 'spy', T = TEAM_AR[st.turn];
+  const iGive = !done && spyTurn && tmSpy(st.turn) === ctx.uid, iGuess = canPickNow(), mine = !done && mt === st.turn;
+  const dock = $('#dock'), form = $('#cform'), show = $('#cshow'), end = $('#bEnd');
+  dock.className = 'dock ' + mt + (mine ? ' mine' : '') + (!done && !mine ? ' wait' : '');
   const wasForm = !form.hidden;
   form.hidden = !iGive; show.hidden = done || spyTurn;
   if (iGive && !wasForm) { $('#ci').value = ''; if (!coarse) $('#ci').focus({ preventScroll: true }); }
-  if (!show.hidden) { $('#cw').textContent = st.clue.w; $('#cnum').textContent = clueWord(st.clue); $('#cw').className = $('#cnum').className = 'cchip ' + st.turn; $('#cnum').classList.add('num'); }
+  if (!show.hidden) { $('#cw').textContent = st.clue.w; $('#cnum').textContent = clueWord(st.clue); }
   end.hidden = !iGuess; end.disabled = !(st.guesses >= 1);
-  let m = '';
-  if (done) m = `<b>${st.reason || ''}</b>`;
-  else if (iGive) m = 'اكتب كلمة واحدة لا تطابق كلمات اللوح، ثم اختر عدد البطاقات (0 أو ∞ بلا حد)';
-  else if (iGuess) { const cap = maxGuesses(st.clue.n), left = cap - (st.guesses || 0); m = cap > 50 ? 'خمّن ما تشاء' : `تخمينات متبقية: <b>${left}</b>`; if (coarse) m += ' · المس البطاقة مرتين للتأكيد'; }
-  if (msg.innerHTML !== m) msg.innerHTML = m;
-  msg.hidden = !m;
+  let m;
+  if (done) m = st.winner === mt ? 'فاز فريقك 🎉' : 'خسر فريقك';
+  else if (iGive) m = 'دورك: أعطِ تلميحاً لعميلك';
+  else if (iGuess) { const cap = maxGuesses(st.clue.n); m = cap > 50 ? 'دورك: خمّن' : `دورك: خمّن (${cap - (st.guesses || 0)})`; }
+  else if (mine) m = spyTurn ? 'قائدك يكتب التلميح…' : (mr === 'spy' ? 'عميلك يخمّن…' : 'دور فريقك');
+  else m = `الفريق ${T} يلعب…`;
+  const dm = $('#dmsg'); if (dm.textContent !== m) dm.textContent = m;
+  // آخر حدث
+  const L = st.log || [], e = L[L.length - 1], sub = $('#dsub'); sub.replaceChildren();
+  if (done) sub.textContent = st.reason || '';
+  else if (e?.t === 'tap') { const ok = e.k === e.tm; sub.append(`${nm(e.u)} كشف `, h('span', 'w', e.w), e.k === 'assassin' ? ' 💀' : ok ? ' ✓' : e.k === 'neutral' ? ' ✗ محايدة' : ' ✗ للخصم'); }
+  else if (e?.t === 'end') sub.textContent = `${nm(e.u)} أنهى التخمين`;
+  else if (e?.t === 'time') sub.textContent = `انتهى وقت الفريق ${TEAM_AR[e.tm]}`;
+  else if (e?.t === 'clue') sub.textContent = '';
 }
 
 function setupDockOnce() {
@@ -458,8 +412,6 @@ function setupDockOnce() {
   $('#cgo').onclick = go; $('#ci').onkeydown = e => { if (e.key === 'Enter') go(); };
   $('#bEnd').onclick = () => { sfx.click(); passTurn(); };
   $('#bRules').onclick = () => { sfx.click(); showRules(); };
-  $('#bLog').onclick = () => { sfx.click(); $('#log').classList.toggle('open'); };
-  $('#bLogX').onclick = () => $('#log').classList.remove('open');
 }
 
 function showRules() {
@@ -488,8 +440,7 @@ function render() {
   if (!play) { renderSetup(); return; }
   if (!cards.length) buildBoard();
   renderPanel('red'); renderPanel('blue');
-  const s = statusInfo(), sEl = $('#status'); sEl.textContent = s.t; sEl.className = 'status ' + s.c;
-  patchBoard(); patchDock(); renderLog();
+  patchBoard(); patchDock();
   if (st.seq !== lastSeq) {
     const turnChanged = !first && st.phase === 'play' && lastSeq >= 0;
     lastSeq = st.seq;

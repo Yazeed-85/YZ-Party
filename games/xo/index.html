@@ -297,7 +297,7 @@ if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين',
 else {
   if (ctx.isHost) {
     const other = ids.find(i => i !== ctx.meta.host);
-    runTransaction(gameRef(ctx.code, 's'), cur => cur || { order: [ctx.meta.host, other], round: 0, phase: 'ready', rd: [0, 0], pts: [0, 0], seq: 0 });
+    runTransaction(gameRef(ctx.code, 's'), cur => cur || toRound({ order: [ctx.meta.host, other], round: 0, rd: [1, 1], pts: [0, 0], seq: 0 }, 1));
   }
   players = ctx.players;
   const ex = initGameExit(ctx, { isOver: () => st?.phase === 'done', onGone: () => stopT?.() });
