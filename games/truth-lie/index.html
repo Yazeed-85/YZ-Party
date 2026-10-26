@@ -17,7 +17,8 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 .info{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}
 .dots{display:flex;gap:6px}.dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.16)}
 .dots i.on{background:var(--amber)}.dots i.cur{background:var(--text);box-shadow:0 0 0 3px rgba(255,255,255,.18)}
-.gp{display:flex;gap:6px}
+.gp{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.info{flex-wrap:wrap}
+.gp.m .pill{padding:2px 8px;gap:5px;font-size:.78rem}.gp.m .pill span{max-width:5.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pill.gone{opacity:.4}
 .pill{display:flex;gap:8px;align-items:center;padding:3px 12px;border-radius:999px;background:var(--glass);border:1px solid var(--line);font-size:.85rem}
 .pill b{color:var(--amber);font:700 1.05rem 'Reem Kufi',sans-serif}
 /* ===== المشهد: يُصغَّر تلقائياً ليتسع في الشاشة بلا تمرير ===== */
@@ -85,42 +86,76 @@ import { enterRoom, watchRoom, gameRef, roomRef, goLobby, abortGame } from '../.
 import { finishGame, makeResult } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
-import { initGameExit } from '../../shared/leave.js';
+import { initGameExit, initGroupExit } from '../../shared/leave.js';
 
 // إعدادات قابلة للتعديل
-const ROUNDS = 6, CHOOSE_S = 20, ASK_S = 30, JUDGE_S = 10, REVEAL_S = 7, DECK = 14, IDLE_MS = 3000; // IDLE_MS: يعود المجسم للصندوق بعد هذا الخمول
+const CHOOSE_S = 20, ASK_S = 30, ASK_MULTI_S = 60, JUDGE_S = 10, REVEAL_S = 7, DECK = 14, IDLE_MS = 3000; // IDLE_MS: يعود المجسم للصندوق بعد هذا الخمول
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const btn = (txt, cls, fn) => { const b = h('button', 'btn ' + cls, txt); b.onclick = () => { sfx.click(); fn(); }; return b; };
 const T = { honest: 'صادق', liar: 'كاذب' };
-const TOT = { choose: CHOOSE_S, ask: ASK_S, judge: JUDGE_S, reveal: REVEAL_S };
+const TOT = { choose: CHOOSE_S, judge: JUDGE_S, reveal: REVEAL_S };
+const MAX_MODELS = 500;                                   // يبحث اللعب عن 1.glb … 500.glb الموجودة فعلاً (إضافة مجسم = رفع ملفه فقط)
 let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, panelKey = '', boxOpen = false, boxOpenedManually = false, inactivityTimer = null, tl = null, bob = null, preKey = '', lastSeq = -1, seen = false, seenRound = -1, prevPts = null;
 
 // ===== القواعد =====
-const holderOf = r => (r - 1) % 2;                       // المضيف يحمل الصندوق في الجولات الفردية
+// لاعبان: 6 جولات بالتناوب (كما كانت). 3-4 لاعبين: جولتان لكل لاعب، يسأل الجميع صاحب الصندوق معاً ثم يحكم كل واحد منهم
+const roundsFor = n => (n === 2 ? 6 : n * 2);
+const askFor = n => (n === 2 ? ASK_S : ASK_MULTI_S);
+const nOf = c => c.order.length;
+const isGone = (c, i) => !!(c.gone && c.gone[c.order[i]]);
+const aliveOf = c => c.order.map((_, i) => i).filter(i => !isGone(c, i));
+const holderAt = (c, r) => { const n = nOf(c); let i = (r - 1) % n; for (let k = 0; k < n && isGone(c, i); k++) i = (i + 1) % n; return i; };
+const hOf = c => holderAt(c, c.round);                    // المضيف يحمل الصندوق في الجولات الفردية
+const guessersOf = c => aliveOf(c).filter(i => i !== hOf(c));
+const gUids = c => guessersOf(c).map(i => c.order[i]);
 const prod = c => c.deck[(c.round - 1) % c.deck.length];
 const act = fn => runTransaction(gameRef(ctx.code), cur => (cur ? fn(cur) : undefined)).catch(() => {});
-const toAsk = (c, pick) => ({ ...c, pick, phase: 'ask', endAt: deadline(ASK_S), seq: c.seq + 1 });
-const choose = p => act(c => (c.phase === 'choose' && c.order[holderOf(c.round)] === ctx.uid) ? toAsk(c, p) : undefined);
-const toJudge = c => ({ ...c, phase: 'judge', endAt: deadline(JUDGE_S), seq: c.seq + 1 });
-const ready = () => act(c => (c.phase === 'ask' && c.order[1 - holderOf(c.round)] === ctx.uid) ? toJudge(c) : undefined);
-function reveal(c, v) {                                   // نقطة للمخمّن إن أصاب وإلا لصاحب الصندوق
-  const hh = holderOf(c.round), g = 1 - hh, ok = v === c.pick, pts = [...c.pts];
-  pts[ok ? g : hh]++;
-  return { ...c, verdict: v || 'none', ok, pts, phase: 'reveal', endAt: serverNow() + REVEAL_S * 1000, seq: c.seq + 1 };
+const toAsk = (c, pick) => ({ ...c, pick, rdy: {}, votes: {}, phase: 'ask', endAt: deadline(askFor(nOf(c))), seq: c.seq + 1 });
+const choose = p => act(c => (c.phase === 'choose' && c.order[hOf(c)] === ctx.uid) ? toAsk(c, p) : undefined);
+const toJudge = c => ({ ...c, phase: 'judge', votes: {}, endAt: deadline(JUDGE_S), seq: c.seq + 1 });
+const ready = () => act(c => {
+  if (c.phase !== 'ask' || !gUids(c).includes(ctx.uid) || (c.rdy || {})[ctx.uid]) return;
+  const rdy = { ...(c.rdy || {}), [ctx.uid]: 1 };
+  return gUids(c).every(u => rdy[u]) ? toJudge({ ...c, rdy }) : { ...c, rdy };
+});
+function reveal(c) {                                      // نقطة لكل مخمّن أصاب، ونقطة لصاحب الصندوق عن كل مخمّن أخطأ أو لم يحكم
+  const hh = hOf(c), votes = c.votes || {}, pts = [...c.pts];
+  guessersOf(c).forEach(i => { pts[votes[c.order[i]] === c.pick ? i : hh]++; });
+  return { ...c, pts, phase: 'reveal', endAt: serverNow() + REVEAL_S * 1000, seq: c.seq + 1 };
 }
-const judge = v => act(c => (c.phase === 'judge' && c.order[1 - holderOf(c.round)] === ctx.uid) ? reveal(c, v) : undefined);
+const judge = v => act(c => {
+  if (c.phase !== 'judge' || !gUids(c).includes(ctx.uid) || (c.votes || {})[ctx.uid]) return;
+  const o = { ...c, votes: { ...(c.votes || {}), [ctx.uid]: v } };
+  return gUids(o).every(u => o.votes[u]) ? reveal(o) : o;
+});
+const topTie = c => { const v = aliveOf(c).map(i => c.pts[i]).sort((a, b) => b - a); return v.length > 1 && v[0] === v[1]; };
+function afterReveal(c) {
+  const r = c.round, n = nOf(c), R = roundsFor(n);
+  const more = n === 2 ? (r < R || (r === R && c.pts[0] === c.pts[1])) : (r < R || (r < R + 2 && topTie(c)));   // التعادل يُحسم بجولة فاصلة
+  if (more) return { ...c, round: r + 1, phase: 'choose', pick: null, rdy: {}, votes: {}, endAt: deadline(CHOOSE_S), seq: c.seq + 1 };
+  const top = aliveOf(c).sort((a, b) => c.pts[b] - c.pts[a])[0];
+  return { ...c, phase: 'done', winner: n === 2 ? (c.pts[0] > c.pts[1] ? 0 : 1) : (topTie(c) ? -1 : top), seq: c.seq + 1 };
+}
 const timeout = seq => act(c => {
   if (c.seq !== seq || serverNow() < c.endAt - 500) return;
   if (c.phase === 'choose') return toAsk(c, Math.random() < .5 ? 'honest' : 'liar');
   if (c.phase === 'ask') return toJudge(c);
-  if (c.phase === 'judge') return reveal(c, null);
-  if (c.phase === 'reveal') {
-    const r = c.round, tie = c.pts[0] === c.pts[1];
-    if (r < ROUNDS || (r === ROUNDS && tie))             // التعادل بعد الجولات الست يُحسم بجولة فاصلة
-      return { ...c, round: r + 1, phase: 'choose', pick: null, verdict: null, ok: null, endAt: deadline(CHOOSE_S), seq: c.seq + 1 };
-    return { ...c, phase: 'done', winner: c.pts[0] > c.pts[1] ? 0 : 1, seq: c.seq + 1 };
-  }
+  if (c.phase === 'judge') return reveal(c);
+  if (c.phase === 'reveal') return afterReveal(c);
+});
+// انسحاب لاعب (3-4 لاعبين): تستمر اللعبة بالباقين، وإن بقي واحد فاز
+const settle = c => {
+  if (c.phase === 'ask' && gUids(c).every(u => (c.rdy || {})[u])) return toJudge(c);
+  if (c.phase === 'judge' && gUids(c).every(u => (c.votes || {})[u])) return reveal(c);
+  return c;
+};
+const dropPlayer = uid => act(c => {
+  if (c.phase === 'done' || !c.order.includes(uid) || (c.gone || {})[uid]) return;
+  const wasH = c.order[hOf(c)] === uid, o = { ...c, gone: { ...(c.gone || {}), [uid]: 1 }, seq: c.seq + 1 }, al = aliveOf(o);
+  if (al.length < 2) return { ...o, phase: 'done', winner: al.length ? al[0] : -1, forfeit: true };
+  if (wasH && ['choose', 'ask', 'judge'].includes(c.phase)) return { ...o, round: c.round + 1, phase: 'choose', pick: null, rdy: {}, votes: {}, endAt: deadline(CHOOSE_S) };
+  return settle(o);
 });
 
 // ===== الصندوق التفاعلي (GSAP) =====
@@ -136,7 +171,7 @@ gsap.to('.rot', { y: -8, duration: 1.8, ease: 'sine.inOut', yoyo: true, repeat: 
 let nudgeT = null;
 function nudge() { if (!boxOpen) gsap.fromTo('.rot', { rotationZ: -5 }, { rotationZ: 5, duration: .09, yoyo: true, repeat: 5, ease: 'sine.inOut', onComplete: () => gsap.set('.rot', { rotationZ: 0 }) }); }
 function updateNudge() {
-  const need = st && st.phase === 'choose' && me === holderOf(st.round) && !seen && !boxOpen && !reduce;
+  const need = st && st.phase === 'choose' && me === hOf(st) && !seen && !boxOpen && !reduce;
   if (need && !nudgeT) nudgeT = setInterval(nudge, 3200);
   if (!need && nudgeT) { clearInterval(nudgeT); nudgeT = null; }
 }
@@ -165,7 +200,7 @@ function burst() {
   }
 }
 
-const canHold = () => st && me === holderOf(st.round) && ['choose', 'ask', 'judge'].includes(st.phase);
+const canHold = () => st && me === hOf(st) && ['choose', 'ask', 'judge'].includes(st.phase);
 
 const is3d = f => /\.(glb|gltf)$/i.test(f);
 function setProduct(f) {                                    // .glb/.gltf يُعرض مجسماً، وغيره صورة عادية
@@ -207,7 +242,7 @@ scene.addEventListener('contextmenu', e => e.preventDefault());
 const nm = i => players[st.order[i]]?.name || '؟';
 function startTimer() {
   stopT?.(); if (st.phase === 'done') return;
-  const t = $('#t'), b = $('#tb i'), seq = st.seq, tot = (TOT[st.phase] || 10) * 1000;
+  const t = $('#t'), b = $('#tb i'), seq = st.seq, tot = (st.phase === 'ask' ? askFor(nOf(st)) : TOT[st.phase] || 10) * 1000;
   stopT = countdown(st.endAt, (l, s) => {
     if (t) t.textContent = s;
     if (b) b.style.transform = `scaleX(${Math.min(1, l / tot)})`;
@@ -225,30 +260,45 @@ const acts = (...els) => { const r = h('div', 'acts'); r.append(...els); return 
 const bar = () => { const b = h('div', 'tb'); b.id = 'tb'; b.append(h('i')); return b; };
 function renderPanel() {
   if (!st) return;
-  const key = [st.seq, st.phase, st.endAt, seen].join('|');
+  const rdy = st.rdy || {}, votes = st.votes || {};
+  const key = [st.seq, st.phase, st.endAt, seen, Object.keys(rdy).length, Object.keys(votes).length].join('|');
   if (key === panelKey) return; panelKey = key;
-  const p = $('#panel'), hh = holderOf(st.round), g = 1 - hh, isH = me === hh, ph = st.phase;
+  const p = $('#panel'), hh = hOf(st), gs = guessersOf(st), gu = gs.map(i => st.order[i]), multi = nOf(st) > 2, g = gs[0], isH = me === hh, ph = st.phase;
   p.replaceChildren();
   if (ph === 'choose') {
     if (!isH) p.append(hd([sp(`${nm(hh)} يستعد…`, 'mu')]));
     else if (!seen) p.append(hd('المس الصندوق'));
     else p.append(hd('ستكون…؟'), acts(btn('صادق 😇', 'good', () => choose('honest')), btn('كاذب 😈', 'bad', () => choose('liar'))));
   } else if (ph === 'ask') {
-    if (isH) p.append(hd([sp(st.pick === 'honest' ? 'اخترت الصدق 😇' : 'اخترت الكذب 😈', st.pick === 'honest' ? 'ok' : 'no2')]), h('div', 'sub2', `يسألك ${nm(g)}`));
-    else p.append(hd(`اسأل ${nm(hh)} عن المنتج`), acts(btn('انتهيت، سأحكم', 'primary', ready)));
+    const k = gu.filter(u => rdy[u]).length;
+    if (isH) p.append(hd([sp(st.pick === 'honest' ? 'اخترت الصدق 😇' : 'اخترت الكذب 😈', st.pick === 'honest' ? 'ok' : 'no2')]), h('div', 'sub2', multi ? 'يسألك الجميع' : `يسألك ${nm(g)}`));
+    else if (!multi) p.append(hd(`اسأل ${nm(hh)} عن المنتج`), acts(btn('انتهيت، سأحكم', 'primary', ready)));
+    else if (rdy[ctx.uid]) p.append(hd([sp('جاهز ✓', 'ok')]), h('div', 'sub2', `بانتظار الباقين ${k}/${gu.length}`));
+    else p.append(hd(`اسألوا ${nm(hh)} عن المنتج`), acts(btn('جاهز للتخمين', 'primary', ready)), h('div', 'sub2', `${k}/${gu.length} جاهزون`));
   } else if (ph === 'judge') {
-    if (isH) p.append(hd([sp(`${nm(g)} يحكم الآن…`, 'mu')]));
+    const k = gu.filter(u => votes[u]).length;
+    if (isH) p.append(hd([sp(multi ? `الجميع يحكمون… ${k}/${gu.length}` : `${nm(g)} يحكم الآن…`, 'mu')]));
+    else if (votes[ctx.uid]) p.append(hd([sp(`حكمك: ${T[votes[ctx.uid]]}`, 'mu')]), h('div', 'sub2', `${k}/${gu.length}`));
     else p.append(hd(`هل ${nm(hh)} صادق؟`), acts(btn('صادق', 'good', () => judge('honest')), btn('كاذب', 'bad', () => judge('liar'))));
   } else if (ph === 'reveal') {
-    const good = st.ok ? me === g : me === hh, r = h('div', 'res');
-    // المخمِّن: «أصبت/أخطأت» ثم «اسم الخصم كان كاذب»، وصاحب الصندوق: «اسم الخصم أصاب/أخطأ» ثم «أنت كنت كاذب»
-    const l1 = me === g ? (st.ok ? 'أصبت! 🎯' : 'أخطأت ✗') : (st.ok ? `${nm(g)} أصاب 🎯` : `${nm(g)} أخطأ ✗`);
-    r.append(sp(l1, 'l1 ' + (good ? 'ok' : 'no2')));
-    const l2 = h('div', 'l2'); l2.append(document.createTextNode(me === hh ? 'أنت كنت ' : `${nm(hh)} كان `), sp(T[st.pick], st.pick === 'honest' ? 'ok' : 'no2'));
-    r.append(l2); p.append(r);
+    const r = h('div', 'res'), l2 = h('div', 'l2'); let l1, good;
+    const lie = () => { l2.append(document.createTextNode(me === hh ? 'أنت كنت ' : `${nm(hh)} كان `), sp(T[st.pick], st.pick === 'honest' ? 'ok' : 'no2')); };
+    if (!multi) {
+      const okk = votes[st.order[g]] === st.pick; good = okk ? me === g : me === hh;
+      // المخمِّن: «أصبت/أخطأت» ثم «اسم الخصم كان كاذب»، وصاحب الصندوق: «اسم الخصم أصاب/أخطأ» ثم «أنت كنت كاذب»
+      l1 = me === g ? (okk ? 'أصبت! 🎯' : 'أخطأت ✗') : (okk ? `${nm(g)} أصاب 🎯` : `${nm(g)} أخطأ ✗`);
+    } else if (isH) {
+      const f = gu.filter(u => votes[u] !== st.pick).length; good = f > 0;
+      l1 = f ? `خدعت ${f} من ${gu.length} 😈` : 'كشفوك كلهم 🎯';
+    } else { good = votes[ctx.uid] === st.pick; l1 = good ? 'أصبت! 🎯' : 'أخطأت ✗'; }
+    lie(); r.append(sp(l1, 'l1 ' + (good ? 'ok' : 'no2')), l2); p.append(r);
   } else {
     const w = st.winner, r = h('div', 'res');
-    r.append(sp(w === me ? 'فزت! 🎉' : `فاز ${nm(w)}`, 'l1 ' + (w === me ? 'ok' : 'no2')), h('div', 'l2', `${st.pts[w]} – ${st.pts[1 - w]}`));
+    if (!multi) r.append(sp(w === me ? 'فزت! 🎉' : `فاز ${nm(w)}`, 'l1 ' + (w === me ? 'ok' : 'no2')), h('div', 'l2', `${st.pts[w]} – ${st.pts[1 - w]}`));
+    else {
+      const rank = st.order.map((_, i) => i).filter(i => !isGone(st, i)).sort((a, b) => st.pts[b] - st.pts[a]);
+      r.append(sp(w < 0 ? 'تعادل' : w === me ? 'فزت! 🎉' : `فاز ${nm(w)}`, 'l1 ' + (w < 0 ? 'mu' : w === me ? 'ok' : 'no2')), h('div', 'l2', rank.map(i => `${nm(i)} ${st.pts[i]}`).join(' · ')));
+    }
     p.append(r);
   }
   if (ph !== 'done') p.append(bar());
@@ -258,10 +308,11 @@ function renderPanel() {
 function render() {
   if (!st) return;
   if (st.round !== seenRound) { seenRound = st.round; seen = false; }
-  const done = st.phase === 'done', maxR = Math.max(ROUNDS, st.round), hh = holderOf(st.round);
+  const done = st.phase === 'done', maxR = Math.max(roundsFor(nOf(st)), st.round), hh = hOf(st);
   $('#dots').replaceChildren(...Array.from({ length: maxR }, (_, i) => h('i', (i + 1 < st.round || done ? 'on' : '') + (i + 1 === st.round && !done ? ' cur' : ''))));
-  $('#gp').replaceChildren(...[0, 1].map(i => {
-    const pl = h('div', 'pill'); pl.append(sp(nm(i) + (!done && i === hh ? ' 📦' : '')), h('b', '', st.pts[i]));
+  $('#gp').className = 'gp' + (nOf(st) > 2 ? ' m' : '');
+  $('#gp').replaceChildren(...st.order.map((_, i) => {
+    const pl = h('div', 'pill' + (isGone(st, i) ? ' gone' : '')); pl.append(sp(nm(i) + (!done && i === hh ? ' 📦' : '')), h('b', '', st.pts[i]));
     if (prevPts && prevPts[i] !== st.pts[i] && !reduce) gsap.fromTo(pl, { scale: 1.25 }, { scale: 1, duration: .6, ease: 'elastic.out(1,.5)' });
     return pl;
   }));
@@ -274,26 +325,42 @@ function render() {
   if (st.phase === 'done' && !ended) {
     ended = true; const w = st.winner;
     w === me ? sfx.win() : sfx.lose();
-    if (ctx.isHost) setTimeout(() => finishGame(ctx, makeResult('win', [st.order[w], st.order[1 - w]], { pts: st.pts })), 6000);
+    if (ctx.isHost) setTimeout(() => {
+      if (nOf(st) === 2) return finishGame(ctx, makeResult('win', [st.order[w], st.order[1 - w]], { pts: st.pts }));
+      const rank = aliveOf(st).sort((a, b) => st.pts[b] - st.pts[a]).map(i => st.order[i]);
+      finishGame(ctx, makeResult(w < 0 ? 'draw' : 'win', rank, { pts: st.pts }), Object.fromEntries(Object.entries(players).filter(([u]) => rank.includes(u))));
+    }, 6000);
   }
 }
 
 // ===== التشغيل =====
 const backToLobby = async () => { await update(roomRef(ctx.code, 'meta'), { status: 'lobby', game: null }).catch(() => {}); goLobby(ctx.code); };
 try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
-const ids = Object.keys(ctx.players);
-if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); abortGame(ctx); }
+const ids = Object.keys(ctx.players), N0 = ids.length;
+// يختار مجسمات موجودة فعلاً فقط: يجمع ما في list.json مع الأرقام 1…MAX_MODELS ويتحقق من وجود كل ملف قبل اعتماده
+const exists = async f => { try { const r = await fetch('images/' + encodeURIComponent(f), { method: 'HEAD', cache: 'no-store' }); return r.ok && !/html/.test(r.headers.get('content-type') || '') && +(r.headers.get('content-length') || 1000) > 100; } catch { return false; } };
+async function buildDeck() {
+  let list = []; try { const j = await (await fetch('images/list.json?' + Date.now())).json(); if (Array.isArray(j)) list = j.filter(x => typeof x === 'string' && x); } catch { /* نكمل بالبحث عن الأرقام */ }
+  const set = new Set(list); for (let i = 1; i <= MAX_MODELS; i++) set.add(i + '.glb');
+  const cand = [...set].sort(() => Math.random() - .5), deck = [];
+  for (let i = 0; i < cand.length && deck.length < DECK; i += 12) {
+    const part = cand.slice(i, i + 12), ok = await Promise.all(part.map(exists));
+    part.forEach((f, k) => { if (ok[k] && deck.length < DECK) deck.push(f); });
+  }
+  return deck;
+}
+if (N0 < 2 || N0 > 4) { toast('اللعبة تحتاج من 2 إلى 4 لاعبين', 'error'); abortGame(ctx); }
 else if (ctx.isHost) {
   try {
-    const list = await (await fetch('images/list.json?' + Date.now())).json();
-    if (!Array.isArray(list) || !list.length) throw 0;
-    const deck = [...list].sort(() => Math.random() - .5).slice(0, DECK), other = ids.find(i => i !== ctx.meta.host);
-    runTransaction(gameRef(ctx.code), cur => cur || { order: [ctx.meta.host, other], deck, round: 1, phase: 'choose', pts: [0, 0],
+    const deck = await buildDeck(); if (!deck.length) throw 0;
+    const others = ids.filter(i => i !== ctx.meta.host).sort((a, b) => (ctx.players[a].joinedAt || 0) - (ctx.players[b].joinedAt || 0));
+    runTransaction(gameRef(ctx.code), cur => cur || { order: [ctx.meta.host, ...others], deck, round: 1, phase: 'choose', pts: ids.map(() => 0),
       endAt: deadline(CHOOSE_S), seq: 0 });
   } catch { toast('لا توجد صور أو مجسمات في games/truth-lie/images', 'error'); setTimeout(backToLobby, 2500); }
 }
 players = ctx.players;
-const ex = initGameExit(ctx, { isOver: () => st?.phase === 'done' });
+const ex = N0 === 2 ? initGameExit(ctx, { isOver: () => st?.phase === 'done' })
+  : initGroupExit(ctx, { isOver: () => st?.phase === 'done', onGone: u => { if (ctx.isHost) dropPlayer(u); } });
 onValue(gameRef(ctx.code), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
 watchRoom(ctx.code, {
   meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },

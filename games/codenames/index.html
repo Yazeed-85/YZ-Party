@@ -173,7 +173,7 @@ import { initTeamExit } from '../../shared/leave.js';
 import { WORDS } from './words.js';
 
 // ===== إعدادات قابلة للتعديل =====
-const CLUE_S = 100, GUESS_S = 120;      // مهلة إعطاء التلميح ومهلة التخمين (تتجدد مع كل تخمين صحيح)
+const CLUE_S = 60, GUESS_S = 60, BONUS_S = 15, CAP_S = 75;      // مهلة التلميح ومهلة التخمين، وكل تخمين صحيح يضيف BONUS_S (بحد أقصى CAP_S)
 const END_MS = 7000;                    // مدة عرض النتيجة قبل العودة إلى الردهة
 const INF = 10;                         // قيمة «بلا حد» في عدد التلميح (الصفر كذلك بلا حد)
 const LOG_MAX = 80;
@@ -275,7 +275,7 @@ const pick = idx => act(c => {
   if (left.blue === 0) return { ...base, phase: 'done', winner: 'blue', reason: 'كشف الفريق الأزرق كل عملائه!', seq: c.seq + 1 };
   const guesses = (c.guesses || 0) + 1, o = { ...base, guesses };
   if (card.c !== c.turn || guesses >= maxGuesses(c.clue.n)) return nextTurn(o);   // أخطأت أو استنفدت التخمينات
-  return { ...o, endAt: deadline(GUESS_S), seq: c.seq + 1 };
+  return { ...o, endAt: Math.min(Math.max(c.endAt, serverNow()) + BONUS_S * 1000, serverNow() + CAP_S * 1000), seq: c.seq + 1 };
 });
 const onTimeout = seq => act(c => {
   if (c.seq !== seq || c.phase !== 'play' || serverNow() < c.endAt - 500) return;
@@ -349,7 +349,6 @@ function buildBoard() {
 const canPickNow = () => !!st && st.phase === 'play' && st.tPhase === 'op' && tmOp(st.turn) === ctx.uid;
 function onCard(i) {
   if (!canPickNow() || st.board[i].rev) return;
-  if (coarse && pend !== i) { pend = i; clearTimeout(pendT); pendT = setTimeout(() => { pend = -1; patchBoard(); }, 4000); sfx.click(); patchBoard(); return; }   // على اللمس: لمسة للتحديد وأخرى للتأكيد
   pend = -1; clearTimeout(pendT); patchBoard(); pick(i);
 }
 function patchBoard() {
@@ -386,7 +385,7 @@ function patchDock() {
   if (!show.hidden) { $('#cw').textContent = st.clue.w; $('#cnum').textContent = clueWord(st.clue); }
   end.hidden = !iGuess; end.disabled = !(st.guesses >= 1);
   let m;
-  if (done) m = st.winner === mt ? 'فاز فريقك 🎉' : 'خسر فريقك';
+  if (done) m = st.winner === mt ? '🏆' : '✕';
   else if (iGive) m = 'دورك: أعطِ تلميحاً لعميلك';
   else if (iGuess) { const cap = maxGuesses(st.clue.n); m = cap > 50 ? 'دورك: خمّن' : `دورك: خمّن (${cap - (st.guesses || 0)})`; }
   else if (mine) m = spyTurn ? 'قائدك يكتب التلميح…' : (mr === 'spy' ? 'عميلك يخمّن…' : 'دور فريقك');
@@ -394,7 +393,7 @@ function patchDock() {
   const dm = $('#dmsg'); if (dm.textContent !== m) dm.textContent = m;
   // آخر حدث
   const L = st.log || [], e = L[L.length - 1], sub = $('#dsub'); sub.replaceChildren();
-  if (done) sub.textContent = st.reason || '';
+  if (done) sub.textContent = '';
   else if (e?.t === 'tap') { const ok = e.k === e.tm; sub.append(`${nm(e.u)} كشف `, h('span', 'w', e.w), e.k === 'assassin' ? ' 💀' : ok ? ' ✓' : e.k === 'neutral' ? ' ✗ محايدة' : ' ✗ للخصم'); }
   else if (e?.t === 'end') sub.textContent = `${nm(e.u)} أنهى التخمين`;
   else if (e?.t === 'time') sub.textContent = `انتهى وقت الفريق ${TEAM_AR[e.tm]}`;
