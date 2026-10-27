@@ -120,3 +120,10 @@ input:focus-visible{border-color:var(--lagoon);box-shadow:0 0 0 3px rgba(79,209,
 .inst-steps{margin:0;padding-inline-start:18px;display:flex;flex-direction:column;gap:5px;font-size:.86rem;line-height:1.55}.inst-steps b{color:var(--amber)}
 .inst-txt .btn{padding:10px;font-size:.95rem}
 @media (max-width:340px){.inst-card.has-media{grid-template-columns:1fr}}
+
+/* داخل الغرفة: أيقونتا الصوت والأصدقاء تنتقلان داخل البطاقات */
+.codewrap{position:relative}
+.fab.in{position:absolute;top:12px;left:12px;width:36px;height:36px;font-size:1rem;z-index:2}
+.fab.fr.in{position:relative;top:auto;left:auto;width:34px;height:34px;flex:none}
+#plhead{justify-content:flex-start;gap:12px}
+body.inroom .fab.inst{display:none}
