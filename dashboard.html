@@ -42,14 +42,33 @@ const RES = { win: ['فوز', 'ok'], lose: ['خسارة', 'bad'], draw: ['تعا
 const app = $('#app');
 
 const me = await identity();
+const u = await ready; // جلب كائن المستخدم من Firebase Auth
+
+const setup = new URLSearchParams(location.search).has('setup');
+
+try {
+  // نتحقق باستخدام u.uid وليس me.pid
+  const adminCheck = await get(ref(db, `admins/${u.uid}`));
+  if (!adminCheck.exists() || adminCheck.val() !== true) {
+      if (setup && me.ok) {
+          app.replaceChildren(el('div', '', 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف العقدة:'), el('br'), el('code', '', `admins / ${u.uid} : true`));
+      } else {
+          app.replaceChildren(el('div', '', 'غير متاح'));
+      }
+      throw new Error("Not an admin");
+  }
+} catch (e) {
+  throw e;
+}
+
 let profiles, history, presence;
 try {
   [profiles, history, presence] = await Promise.all(['profiles', 'history', 'presence'].map(async p => (await get(ref(db, p))).val() || {}));
-} catch {
-  app.replaceChildren(el('div', '', 'هذه اللوحة للمشرف فقط.'), el('div', '', me.ok ? 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف عقدة:' : 'حدّث قواعد Firebase أولاً (ملف firebase.rules.json) ثم أعد فتح الصفحة.'));
-  if (me.ok) { const c = el('code', '', `admins / ${me.pid} : true`); app.append(el('br'), c, el('div', '', `معرّفك: ${fmtPid(me.pid)}`)); }
-  throw 0;
+} catch (e) {
+    app.replaceChildren(el('div', '', 'حدث خطأ أثناء جلب البيانات. تأكد من قواعد Firebase (Read permissions).'));
+    throw e;
 }
+
 // لاعب واحد لكل معرّف (pid) مهما تغير اسمه
 const empty = Object.values(profiles).filter(v => !v.name && !(v.stats?.games)).length;   // هويات أُنشئت لجهاز ثم استُرجع حساب آخر عليه: بلا اسم ولا ألعاب
 let P = Object.entries(profiles).map(([pid, v]) => {
