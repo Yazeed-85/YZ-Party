@@ -1,5 +1,5 @@
 // واجهة الأصدقاء: أيقونة بجانب زر الصوت، لوحة الأصدقاء/الطلبات/الحساب، وبطاقات الدعوة الواردة.
-import { identity, fmtPid, parsePid, fmtKey, restoreIdentity } from "./identity.js";
+import { identity, fmtPid, parsePid, parseKey, fmtKey, restoreIdentity } from "./identity.js";
 import { watchSocial, sendRequest, acceptRequest, declineRequest, removeFriend, sendInvite, dismissInvite, profileOf, INVITE_TTL } from "./friends.js";
 import { toast, sfx, confirmDialog, flyFrom, flyTo, dismissOutside } from "./ui.js";
 import { serverNow } from "./firebase.js";
@@ -9,7 +9,20 @@ const G = () => window.gsap && !matchMedia("(prefers-reduced-motion: reduce)").m
 const copy = async t => { try { await navigator.clipboard.writeText(t); toast("نُسخ"); } catch { toast("تعذّر النسخ", "error"); } };
 const ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.2 3.6-7 8-7s8 2.8 8 7"/></svg>';
 
-// h = { name(): الاسم الحالي، room(): كود الغرفة أو null، createRoom(): ينشئ غرفة ويفتح ردهتها ويرجع الكود، join(code): ينضم لغرفة }
+// صورة الطرفة: ضع ملفاً باسم media/this-is-you بإحدى الامتدادات (png/jpg/jpeg/gif/webp)، وإن لم يوجد يظهر رمز تعبيري
+const tryImg = urls => new Promise(res => { let i = 0; const next = () => { if (i >= urls.length) return res(null); const u = urls[i++], im = new Image(); im.onload = () => res(im); im.onerror = next; im.src = u; }; next(); });
+const selfImg = tryImg(["png", "jpg", "jpeg", "gif", "webp"].map(e => `media/this-is-you.${e}`));
+async function thisIsYou() {
+  const o = el("div", "ovl"), c = el("div", "glass joke"), img = await selfImg;
+  if (img) { img.className = "joke-img"; c.append(img); } else c.append(el("div", "joke-emoji", "🤦"));
+  c.append(el("div", "joke-t", "هذا انت ياذكي!")); o.append(c); document.body.append(o);
+  const close = () => { off(); G() ? gsap.to(c, { scale: .6, opacity: 0, y: 30, duration: .25, ease: "back.in(2)", onComplete: () => { gsap.to(o, { opacity: 0, duration: .15, onComplete: () => o.remove() }); } }) : o.remove(); };
+  const off = dismissOutside(o, close); setTimeout(() => { if (o.isConnected) close(); }, 4500);
+  if (G()) { gsap.fromTo(o, { opacity: 0 }, { opacity: 1, duration: .2 }); gsap.fromTo(c, { scale: .3, rotation: -12, opacity: 0 }, { scale: 1, rotation: 0, opacity: 1, duration: .7, ease: "elastic.out(1,.5)" }); }
+  sfx.error();
+}
+
+// h = { members(): مجموعة pid لمن معك في الغرفة، name(): الاسم الحالي، room(): كود الغرفة أو null، createRoom(): ينشئ غرفة ويفتح ردهتها ويرجع الكود، join(code): ينضم لغرفة }
 export async function initSocial(h) {
   const me = await identity();
   const btn = el("button", "fab fr"); btn.id = "fr"; btn.setAttribute("aria-label", "الأصدقاء"); btn.innerHTML = ICON;
@@ -49,7 +62,8 @@ export async function initSocial(h) {
     for (const [p, v] of fr) {
       const r = row(v.name, v.online ? "متصل الآن" : "غير متصل"); r.classList.toggle("onl", v.online);
       r.prepend(el("i", "dot" + (v.online ? "" : " off gray")));
-      const inv = sb("دعوة", () => invite(p), "ok"); inv.disabled = !v.online; r.append(inv);
+      if (h.members?.().has(p)) r.append(el("span", "chip ok", "معك في الغرفة"));     // لا معنى لدعوة من هو في غرفتك أصلاً
+      else { const inv = sb("دعوة", () => invite(p), "ok"); inv.disabled = !v.online; r.append(inv); }
       const rm = sb("إزالة", async () => { if (await confirmDialog(`إزالة ${v.name} من أصدقائك؟`, "إزالة", "إلغاء")) removeFriend(p).then(() => toast("أُزيلت الصداقة")).catch(e => toast(e.message, "error")); }, "bad");
       r.append(rm); body.append(r);
     }
@@ -69,7 +83,10 @@ export async function initSocial(h) {
       body.append(k, kv);
     }
     const rs = el("div", "fadd"), ri = el("input"); ri.placeholder = "رمز استرجاع لحساب آخر"; ri.dir = "ltr"; ri.autocomplete = "off";
+    const self = () => { if (me.key && parseKey(ri.value) === me.key) { ri.value = ""; thisIsYou(); return true; } return false; };   // رمزك الحالي: لا داعي لاسترجاعه
+    ri.addEventListener("input", () => { if (parseKey(ri.value)) self(); });
     rs.append(ri, sb("استرجاع", async () => {
+      if (self()) return;
       if (!(await confirmDialog("سيحلّ هذا الحساب محل حسابك الحالي على هذا الجهاز. متأكد؟", "استرجاع", "إلغاء"))) return;
       try { await restoreIdentity(ri.value); toast("تم الاسترجاع", "ok"); setTimeout(() => location.reload(), 700); } catch (e) { toast(e.message, "error"); }
     }, "bad")); body.append(rs);
@@ -129,5 +146,5 @@ export async function initSocial(h) {
     if (fresh.length) showInvite(fresh[fresh.length - 1]);
   }
   if (me.ok) watchSocial(d => { D = d; paintBtn(); showInvites(); renderSheet(); emit(); });
-  return { me, status, add: add_, accept: p => add_(p), onChange: f => { listeners.add(f); return () => listeners.delete(f); }, open };
+  return { me, refresh: renderSheet, status, add: add_, accept: p => add_(p), onChange: f => { listeners.add(f); return () => listeners.delete(f); }, open };
 }
