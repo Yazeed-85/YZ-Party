@@ -43,7 +43,7 @@
       <span class="copyhint">المس الكود لنسخ الرقم</span>
       <button id="copy" class="btn ghost">انسخ رابط الدعوة</button>
     </div>
-    <div class="glass pad"><div class="hrow" id="plhead"><h2>اللاعبون</h2></div><ul id="players"></ul></div>
+    <div class="glass pad" id="plcard"><div class="hrow" id="plhead"><h2>اللاعبون</h2></div><ul id="players"></ul></div>
     <div class="glass pad"><h2>الألعاب</h2><div id="games" class="games"></div><p id="hint" class="hint"></p></div>
     <div class="bar"><button id="start" class="btn primary">ابدأ اللعبة</button><button id="leave" class="btn ghost">غادر</button></div>
   </section>
@@ -53,7 +53,7 @@
 import { ready, onValue } from './shared/firebase.js';
 import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveRoom, getCode, savedName, saveName, cleanName, checkRoom, kickPlayer, roomRef, sweepRooms, stopTracking, amIIn, roomOpen } from './shared/room.js';
 import { GAMES } from './shared/games-registry.js';
-import { toast, sfx, show, enterAnim, toggleMute, isMuted } from './shared/ui.js';
+import { toast, sfx, show, enterAnim, toggleMute, isMuted, initPress } from './shared/ui.js';
 import { initSocial } from './shared/social-ui.js';
 import { initInstall } from './shared/install-ui.js';
 import { identity, syncProfile, startPresence } from './shared/identity.js';
@@ -72,7 +72,7 @@ let verT = null, kickT = null, social = null, inRoom = false;
 function place(v) {
   inRoom = v; document.body.classList.toggle('inroom', v);
   const m = $('#mute'), f = $('#fr');
-  if (v) { $('.codewrap').append(m); m.classList.add('in'); if (f) { $('#plhead').append(f); f.classList.add('in'); } }
+  if (v) { $('.codewrap').append(m); m.classList.add('in'); if (f) { $('#plcard').append(f); f.classList.add('in'); } }
   else { document.body.append(m); m.classList.remove('in'); if (f) { document.body.append(f); f.classList.remove('in'); } }
 }
 let S = { code: null, uid: null, meta: null, players: {}, scores: {}, joined: false }, stop = null, armed = null, armT = null, known = new Set();
@@ -284,6 +284,7 @@ const jp = digits(new URLSearchParams(location.search).get('join'));
 enterAnim('#home');
 Promise.all(GAMES.map(async g => IMG.set(g.id, await probe(g.id)))).then(() => { imgsReady = true; if (S.meta) render(); });
 ready.then(() => sweepRooms());
+initPress();
 initInstall();                                             // للهاتف فقط: دليل «أضف للشاشة الرئيسية»
 // الأصدقاء: أيقونة بجانب الصوت + دعوات. الدعوة تُنشئ الغرفة تلقائياً إن لم تكن في غرفة، والقبول ينقلك للغرفة مباشرة
 const myName = () => cleanName($('#name').value) || savedName();
