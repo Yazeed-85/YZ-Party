@@ -42,34 +42,15 @@ const RES = { win: ['فوز', 'ok'], lose: ['خسارة', 'bad'], draw: ['تعا
 const app = $('#app');
 
 const me = await identity();
-const setup = new URLSearchParams(location.search).has('setup');
-
-// الخطوة 1: التحقق من الصلاحيات أولاً
-try {
-  const adminCheck = await get(ref(db, `admins/${me.pid}`));
-  if (!adminCheck.exists() || adminCheck.val() !== true) {
-      if (setup && me.ok) {
-          app.replaceChildren(el('div', '', 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف العقدة:'), el('br'), el('code', '', `admins / ${me.pid} : true`));
-      } else {
-          app.replaceChildren(el('div', '', 'غير متاح'));
-      }
-      throw new Error("Not an admin");
-  }
-} catch (e) {
-  // تم معالجة الواجهة في الأعلى، نوقف التنفيذ هنا
-  throw e;
-}
-
-// الخطوة 2: الآن بما أننا متأكدون أنه أدمن، نقوم بجلب البيانات
 let profiles, history, presence;
 try {
   [profiles, history, presence] = await Promise.all(['profiles', 'history', 'presence'].map(async p => (await get(ref(db, p))).val() || {}));
-} catch (e) {
-    app.replaceChildren(el('div', '', 'حدث خطأ أثناء جلب البيانات. تأكد من قواعد Firebase (Read permissions).'));
-    throw e;
+} catch {
+  const setup = new URLSearchParams(location.search).has('setup');     // تعليمات التفعيل تظهر للمالك فقط عبر dashboard.html?setup
+  if (setup && me.ok) app.replaceChildren(el('div', '', 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف العقدة:'), el('br'), el('code', '', `admins / ${me.pid} : true`));
+  else app.replaceChildren(el('div', '', 'غير متاح'));
+  throw 0;
 }
-
-
 // لاعب واحد لكل معرّف (pid) مهما تغير اسمه
 const empty = Object.values(profiles).filter(v => !v.name && !(v.stats?.games)).length;   // هويات أُنشئت لجهاز ثم استُرجع حساب آخر عليه: بلا اسم ولا ألعاب
 let P = Object.entries(profiles).map(([pid, v]) => {
