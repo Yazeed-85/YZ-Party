@@ -13,6 +13,8 @@ const ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke
 const tryImg = urls => new Promise(res => { let i = 0; const next = () => { if (i >= urls.length) return res(null); const u = urls[i++], im = new Image(); im.onload = () => res(im); im.onerror = next; im.src = u; }; next(); });
 const selfImg = tryImg(["png", "jpg", "jpeg", "gif", "webp"].map(e => `media/this-is-you.${e}`));
 async function thisIsYou() {
+  document.activeElement?.blur?.();                       // يغلق الكيبورد ويعيد الشاشة لمكانها فتظهر النافذة في منتصف الشاشة (iOS يرفع الصفحة مع الكيبورد)
+  [0, 120, 350, 700].forEach(t => setTimeout(() => { scrollTo(0, 0); document.querySelector('.sheet-card .fbody')?.scrollTo?.(0, 0); }, t));
   const o = el("div", "ovl"), c = el("div", "glass joke"), img = await selfImg;
   if (img) { img.className = "joke-img"; c.append(img); } else c.append(el("div", "joke-emoji", "🤦"));
   c.append(el("div", "joke-t", "هذا انت ياذكي!")); o.append(c); document.body.append(o);
