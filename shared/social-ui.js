@@ -1,7 +1,7 @@
 // واجهة الأصدقاء: أيقونة بجانب زر الصوت، لوحة الأصدقاء/الطلبات/الحساب، وبطاقات الدعوة الواردة.
 import { identity, fmtPid, parsePid, fmtKey, restoreIdentity } from "./identity.js";
 import { watchSocial, sendRequest, acceptRequest, declineRequest, removeFriend, sendInvite, dismissInvite, profileOf, INVITE_TTL } from "./friends.js";
-import { toast, sfx, confirmDialog } from "./ui.js";
+import { toast, sfx, confirmDialog, flyFrom, flyTo, dismissOutside } from "./ui.js";
 import { serverNow } from "./firebase.js";
 
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -84,10 +84,10 @@ export async function initSocial(h) {
     if (sheet) return; sfx.click();
     sheet = el("div", "ovl sheet"); const c = el("div", "glass sheet-card"), hd = el("div", "fhead"), x = el("button", "sbtn", "✕");
     hd.append(el("h2", "", "الأصدقاء"), x); const body = el("div", "fbody"); c.append(hd, body); sheet.append(c); document.body.append(sheet);
-    const close = () => { const s = sheet; sheet = null; G() ? gsap.to(s, { opacity: 0, duration: .15, onComplete: () => s.remove() }) : s.remove(); };
-    x.onclick = close; sheet.onclick = e => { if (e.target === sheet) close(); };
-    if (G()) { gsap.from(sheet, { opacity: 0, duration: .15 }); gsap.from(c, { y: 40, opacity: 0, duration: .35, ease: "power3.out" }); }
-    renderSheet();
+    let off = null;
+    const close = () => { const s = sheet; if (!s || s._closing) return; s._closing = true; off?.(); flyTo(s, c, btn, () => { s.remove(); if (sheet === s) sheet = null; }); };
+    x.onclick = close; off = dismissOutside(sheet, close);
+    renderSheet(); flyFrom(sheet, c, btn);
   }
   btn.onclick = open;
 

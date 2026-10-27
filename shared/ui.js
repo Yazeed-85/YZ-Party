@@ -89,3 +89,26 @@ export function scoreBar(e, players, scores = {}, myUid) {
   if (exitFn) { const b = el("button", "sb-exit", "✕"); b.setAttribute("aria-label", "انسحاب"); b.onclick = () => { sfx.click(); exitFn(); }; items.push(b); }
   e.replaceChildren(...items);
 }
+
+// ===== نوافذ منبثقة من أيقونتها وتعود إليها (مشتركة بين الأصدقاء والتعليمات) =====
+// o = الخلفية المعتمة، c = البطاقة، btn = الأيقونة التي تطير منها وإليها
+const delta = (c, btn) => { const a = c.getBoundingClientRect(), b = btn.getBoundingClientRect(); return { x: b.left + b.width / 2 - (a.left + a.width / 2), y: b.top + b.height / 2 - (a.top + a.height / 2) }; };
+export function flyFrom(o, c, btn) {
+  if (!anim() || !btn) return;
+  const d = delta(c, btn);
+  gsap.fromTo(o, { opacity: 0 }, { opacity: 1, duration: .3 });
+  gsap.fromTo(c, { x: d.x, y: d.y, scale: .06, opacity: 0 }, { x: 0, y: 0, scale: 1, opacity: 1, duration: .55, ease: "power3.out", clearProps: "transform,opacity" });
+  gsap.fromTo(btn, { scale: 1 }, { scale: 1.25, duration: .2, yoyo: true, repeat: 1, ease: "power2.out", clearProps: "transform" });
+}
+export function flyTo(o, c, btn, done) {
+  if (!anim() || !btn) return done();
+  const d = delta(c, btn);
+  gsap.to(c, { x: d.x, y: d.y, scale: .06, opacity: 0, duration: .55, ease: "power3.in" });
+  gsap.to(o, { opacity: 0, duration: .3, delay: .3, onComplete: done });
+}
+// إغلاق بالنقر خارج البطاقة أو بزر Escape
+export function dismissOutside(o, close) {
+  o.addEventListener("pointerdown", e => { if (e.target === o) close(); });
+  const k = e => { if (e.key === "Escape") { document.removeEventListener("keydown", k); close(); } };
+  document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k);
+}
