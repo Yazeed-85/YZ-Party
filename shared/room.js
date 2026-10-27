@@ -1,6 +1,7 @@
 // الغرف واللاعبون. هيكل البيانات:
 //   rooms/{code}/{meta, players, kicked, party/scores, game}   +   roomIndex/{code}: {t: آخر نشاط, s: open|closed}
 // roomIndex فهرس خفيف يسمح بتنظيف الغرف المهملة دون قراءة محتوى أي غرفة.
+import { identity, startPresence } from "./identity.js";
 import { db, ready, ref, get, set, update, remove, onValue, runTransaction, onDisconnect, serverTimestamp, serverNow } from "./firebase.js";
 
 export const STALE_MS = 3 * 3600e3;   // غرفة بلا أي نشاط 3 ساعات تُحذف
@@ -45,7 +46,11 @@ function trackPresence(code, uid) {
 export const stopTracking = () => stopPresence?.();
 
 async function addPlayer(code, uid, name) {
-  await set(roomRef(code, `players/${uid}`), { name: cleanName(name), joinedAt: Date.now(), connected: true });
+  const me = await identity().catch(() => ({}));
+  const rec = { name: cleanName(name), joinedAt: Date.now(), connected: true };
+  if (me.ok) rec.pid = me.pid;                               // المعرّف الثابت: يربط اللاعب بالأصدقاء والسجل مهما غيّر اسمه
+  await set(roomRef(code, `players/${uid}`), rec);
+  startPresence();
   setCode(code);
   trackPresence(code, uid);
 }
@@ -98,7 +103,7 @@ export async function enterRoom() {
     const meta = m.val(), players = p.val();
     if (!meta || meta.status === "closed" || !players?.[u.uid]) throw 0;
     setCode(code);
-    trackPresence(code, u.uid);
+    trackPresence(code, u.uid); startPresence();
     return { code, uid: u.uid, isHost: meta.host === u.uid, meta, players };
   } catch { throw new Error("لست عضواً في هذه الغرفة"); }
 }

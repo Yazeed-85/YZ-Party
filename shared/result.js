@@ -5,7 +5,7 @@
 //   coop-win  كل اللاعبين يفوزون معاً (مثل الكلمة المشتركة)
 //   coop-lose كل اللاعبين يخسرون معاً وتُخصم من كل واحد منهم نقطتان (لا تنزل النقاط عن الصفر)
 //   team-win  فريق فائز: كل من في ranking ينال نقاط الفوز كاملة، والبقية صفر (مثل الكلمات المشفرة 2 ضد 2)
-import { runTransaction, update, remove } from "./firebase.js";
+import { db, ref, runTransaction, update, remove } from "./firebase.js";
 import { roomRef, gameRef } from "./room.js";
 
 export const POINTS = { win: 3, second: 1, draw: 1, coop: 3, coopLose: 2 };
@@ -30,6 +30,26 @@ export function pointsFor(result, uids) {
   return pts;
 }
 
+// سجل اللاعبين الدائم (بالمعرّف الثابت pid) + سجل الغرفة. لا يُعطّل إنهاء اللعبة إن فشل
+async function record(ctx, result, players) {
+  const g = ctx.meta?.game || "", t = Date.now(), uids = Object.keys(players), { outcome, ranking } = result;
+  const resOf = u => outcome === "win" ? (u === ranking[0] ? "win" : "lose") : outcome === "team-win" ? (ranking.includes(u) ? "win" : "lose") : outcome;
+  const pts = pointsFor(result, uids), win = outcome === "win" ? [ranking[0]] : outcome === "team-win" ? ranking : [];
+  const id = t.toString(36) + Math.random().toString(36).slice(2, 5), jobs = [];
+  jobs.push(update(roomRef(ctx.code, "party/log"), { [id]: { g, t, o: outcome, w: win.map(u => players[u]?.name || "لاعب") } }));
+  for (const u of uids) {
+    const me = players[u]; if (!me?.pid) continue;
+    const r = resOf(u), withs = uids.filter(x => x !== u).map(x => (players[x].pid ? { p: players[x].pid, n: players[x].name } : { n: players[x].name }));
+    jobs.push(update(ref(db, `history/${me.pid}`), { [id]: { g, t, r, pts: pts[u] || 0, n: me.name, w: withs, room: ctx.code } }));
+    jobs.push(runTransaction(ref(db, `profiles/${me.pid}/stats`), cur => {
+      const s = cur || {}, gs = { ...(s.g || {}) }, o = { ...(gs[g] || {}) };
+      o.p = (o.p || 0) + 1; if (r === "win" || r === "coop-win") o.w = (o.w || 0) + 1; gs[g || "?"] = o;
+      return { ...s, games: (s.games || 0) + 1, wins: (s.wins || 0) + (r === "win" || r === "coop-win" ? 1 : 0), g: gs, last: t };
+    }));
+  }
+  await Promise.allSettled(jobs);
+}
+
 // تستدعيها اللعبة عند النهاية من كل الأجهزة، والمضيف وحده هو من يكتب النقاط وينهي الجولة
 // players اختياري: عند الانسحاب نمرّر اللاعبين الباقين فقط حتى لا تُنشأ نقاط لمن غادر
 export async function finishGame(ctx, result, players = ctx.players) {
@@ -40,6 +60,7 @@ export async function finishGame(ctx, result, players = ctx.players) {
     for (const [u, p] of Object.entries(pts)) s[u] = Math.max(0, (s[u] || 0) + p);
     return s;
   });
+  await record(ctx, result, players).catch(() => {});
   await remove(gameRef(ctx.code));
   await update(roomRef(ctx.code, "meta"), { status: "lobby", game: null, pick: null, lastResult: result });
   return pts;

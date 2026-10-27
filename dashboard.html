@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>لوحة التحكم · YZ Party</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/style.css">
+<style>
+body{display:block;overflow-y:auto}
+.wrap{max-width:1080px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 14px 40px;display:flex;flex-direction:column;gap:14px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.top h1{font:700 1.7rem 'Reem Kufi',sans-serif;margin:0;flex:1}
+.top a{color:var(--mute);text-decoration:none;font-size:.9rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat{padding:14px;text-align:center}.stat b{display:block;font:700 1.9rem 'Reem Kufi',sans-serif;color:var(--amber)}.stat small{color:var(--mute)}
+.tools{display:flex;gap:8px;flex-wrap:wrap}.tools input{flex:1;min-width:160px;padding:10px 14px;font-size:.95rem}.tools select{padding:10px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.28);color:var(--text);font:inherit}
+.gbars{display:flex;flex-direction:column;gap:6px;padding:14px}.gb{display:grid;grid-template-columns:130px 1fr 60px;gap:8px;align-items:center;font-size:.85rem}.gb i{display:block;height:10px;border-radius:6px;background:var(--lagoon)}.gb span:last-child{color:var(--mute);text-align:left}
+.tw{overflow-x:auto;padding:6px}table{width:100%;border-collapse:collapse;font-size:.88rem;min-width:720px}
+th{color:var(--mute);font-weight:700;text-align:right;padding:10px;border-bottom:1px solid var(--line);white-space:nowrap}td{padding:10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+tr.p{cursor:pointer}tr.p:hover{background:rgba(255,255,255,.04)}
+.dot{display:inline-block;margin-inline-end:6px}.id{direction:ltr;display:inline-block;color:var(--mute);font-size:.78rem}.al{color:var(--mute);font-size:.74rem}
+tr.d td{background:rgba(0,0,0,.25)}.det{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.det h4{margin:0 0 6px;color:var(--amber);font-size:.9rem}
+.m{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,.07);font-size:.82rem}.m small{color:var(--mute)}
+.ok{color:#34d399}.bad{color:var(--rose)}.msg{padding:26px;text-align:center;line-height:1.9}code{direction:ltr;display:inline-block;color:var(--amber)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>لوحة التحكم</h1><a href="index.html">← الرئيسية</a></div>
+  <div id="app" class="glass msg">جارٍ التحميل…</div>
+</div>
+<script type="module">
+import { db, ref, get, ready } from './shared/firebase.js';
+import { identity, fmtPid } from './shared/identity.js';
+import { GAMES } from './shared/games-registry.js';
+
+const $ = s => document.querySelector(s);
+const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const gname = id => { const g = GAMES.find(x => x.id === id); return g ? `${g.icon} ${g.name}` : id || '؟'; };
+const dt = t => t ? new Date(t).toLocaleString('ar', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+const RES = { win: ['فوز', 'ok'], lose: ['خسارة', 'bad'], draw: ['تعادل', ''], 'coop-win': ['فوز جماعي', 'ok'], 'coop-lose': ['خسارة جماعية', 'bad'] };
+const app = $('#app');
+
+const me = await identity();
+let profiles, history, presence;
+try {
+  [profiles, history, presence] = await Promise.all(['profiles', 'history', 'presence'].map(async p => (await get(ref(db, p))).val() || {}));
+} catch {
+  app.replaceChildren(el('div', '', 'هذه اللوحة للمشرف فقط.'), el('div', '', me.ok ? 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف عقدة:' : 'حدّث قواعد Firebase أولاً (ملف firebase.rules.json) ثم أعد فتح الصفحة.'));
+  if (me.ok) { const c = el('code', '', `admins / ${me.pid} : true`); app.append(el('br'), c, el('div', '', `معرّفك: ${fmtPid(me.pid)}`)); }
+  throw 0;
+}
+// لاعب واحد لكل معرّف (pid) مهما تغير اسمه
+const empty = Object.values(profiles).filter(v => !v.name && !(v.stats?.games)).length;   // هويات أُنشئت لجهاز ثم استُرجع حساب آخر عليه: بلا اسم ولا ألعاب
+let P = Object.entries(profiles).map(([pid, v]) => {
+  const st = v.stats || {}, hist = Object.values(history[pid] || {}).sort((a, b) => b.t - a.t);
+  return { pid, name: v.name || 'بلا اسم', aliases: Object.values(v.aliases || {}).filter(n => n !== v.name), created: v.created, last: Math.max(v.last || 0, st.last || 0), online: presence[pid]?.on === true,
+    games: st.games || hist.length, wins: st.wins || 0, g: st.g || {}, hist };
+});
+P = P.filter(p => p.name !== 'بلا اسم' || p.games);
+const totalGames = new Set(Object.values(history).flatMap(h => Object.keys(h))).size;     // المباراة الواحدة لها نفس المعرّف عند كل مشاركيها
+const perGame = {}; P.forEach(p => Object.entries(p.g).forEach(([k, v]) => { perGame[k] = (perGame[k] || 0) + (v.p || 0); }));
+const sorts = { last: (a, b) => b.last - a.last, games: (a, b) => b.games - a.games, wins: (a, b) => b.wins - a.wins, created: (a, b) => (b.created || 0) - (a.created || 0), name: (a, b) => a.name.localeCompare(b.name, 'ar') };
+
+app.className = ''; app.replaceChildren();
+const cards = el('div', 'cards');
+[['لاعبون', P.length], ['متصلون الآن', P.filter(p => p.online).length], ['ألعاب لُعبت', Math.round(totalGames)], ['نشطون اليوم', P.filter(p => Date.now() - p.last < 864e5).length]].forEach(([k, v]) => { const c = el('div', 'glass stat'); c.append(el('b', '', v), el('small', '', k)); cards.append(c); });
+const gb = el('div', 'glass gbars'), mx = Math.max(1, ...Object.values(perGame));
+gb.append(el('h3', '', 'مشاركات كل لعبة'));
+Object.entries(perGame).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => { const r = el('div', 'gb'), bar = el('i'); bar.style.width = (v / mx * 100) + '%'; const w = el('div'); w.append(bar); r.append(el('span', '', gname(k)), w, el('span', '', v)); gb.append(r); });
+const tools = el('div', 'tools'), q = el('input'), so = el('select'); q.placeholder = 'بحث بالاسم أو المعرّف…';
+[['last', 'الأحدث نشاطاً'], ['games', 'الأكثر لعباً'], ['wins', 'الأكثر فوزاً'], ['created', 'الأحدث تسجيلاً'], ['name', 'الاسم']].forEach(([v, t]) => so.append(new Option(t, v)));
+tools.append(q, so);
+const tw = el('div', 'glass tw'); app.append(cards, gb, tools, tw);
+if (empty) app.append(el('div', 'fnote', `${empty} هوية فارغة مخفية (أجهزة لم يُكتب فيها اسم بعد)`));
+let open = null;
+function draw() {
+  const k = q.value.trim().toLowerCase(), list = P.filter(p => !k || (p.name + ' ' + p.aliases.join(' ') + ' ' + p.pid + ' ' + fmtPid(p.pid)).toLowerCase().includes(k)).sort(sorts[so.value]);
+  const t = el('table'), hd = el('tr'); ['اللاعب', 'المعرّف', 'تسجيل', 'آخر نشاط', 'ألعاب', 'فوز', 'نسبة', 'الأكثر لعباً'].forEach(x => hd.append(el('th', '', x))); t.append(hd);
+  for (const p of list) {
+    const r = el('tr', 'p'), n = el('td'); n.append(el('i', 'dot' + (p.online ? '' : ' off')), el('b', '', p.name)); if (p.aliases.length) n.append(el('div', 'al', 'سابقاً: ' + p.aliases.slice(0, 3).join('، ')));
+    const fav = Object.entries(p.g).sort((a, b) => (b[1].p || 0) - (a[1].p || 0))[0];
+    const id = el('td'); id.append(el('span', 'id', fmtPid(p.pid)));
+    r.append(n, id, el('td', '', dt(p.created)), el('td', '', p.online ? 'متصل' : dt(p.last)), el('td', '', p.games), el('td', '', p.wins), el('td', '', p.games ? Math.round(p.wins / p.games * 100) + '%' : '—'), el('td', '', fav ? gname(fav[0]) : '—'));
+    r.onclick = () => { open = open === p.pid ? null : p.pid; draw(); }; t.append(r);
+    if (open === p.pid) {
+      const d = el('tr', 'd'), td = el('td'), det = el('div', 'det'); td.colSpan = 8;
+      const a = el('div'); a.append(el('h4', '', 'حسب اللعبة'));
+      Object.entries(p.g).forEach(([g, v]) => { const m = el('div', 'm'); m.append(el('span', '', gname(g)), el('small', '', `${v.w || 0} فوز من ${v.p || 0}`)); a.append(m); });
+      const b = el('div'); b.append(el('h4', '', `تاريخ الألعاب (${p.hist.length})`));
+      p.hist.slice(0, 25).forEach(l => { const m = el('div', 'm'), [lb, cl] = RES[l.r] || [l.r, '']; const s = el('span'); s.append(el('b', '', gname(l.g)), el('small', '', ` · ${dt(l.t)} · مع ${Object.values(l.w || {}).map(w => w.n).join('، ') || '—'}`)); m.append(s, el('span', cl, lb)); b.append(m); });
+      if (!p.hist.length) b.append(el('small', '', 'لا سجل'));
+      det.append(a, b); td.append(det); d.append(td); t.append(d);
+    }
+  }
+  tw.replaceChildren(t);
+}
+q.oninput = draw; so.onchange = draw; draw();
+</script>
+</body>
+</html>

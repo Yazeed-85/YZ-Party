@@ -1,0 +1,119 @@
+// واجهة الأصدقاء: أيقونة بجانب زر الصوت، لوحة الأصدقاء/الطلبات/الحساب، وبطاقات الدعوة الواردة.
+import { identity, fmtPid, parsePid, fmtKey, restoreIdentity } from "./identity.js";
+import { watchSocial, sendRequest, acceptRequest, declineRequest, removeFriend, sendInvite, dismissInvite, profileOf, INVITE_TTL } from "./friends.js";
+import { toast, sfx, confirmDialog } from "./ui.js";
+import { serverNow } from "./firebase.js";
+
+const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const G = () => window.gsap && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+const copy = async t => { try { await navigator.clipboard.writeText(t); toast("نُسخ"); } catch { toast("تعذّر النسخ", "error"); } };
+const ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.2 3.6-7 8-7s8 2.8 8 7"/></svg>';
+
+// h = { name(): الاسم الحالي، room(): كود الغرفة أو null، createRoom(): ينشئ غرفة ويفتح ردهتها ويرجع الكود، join(code): ينضم لغرفة }
+export async function initSocial(h) {
+  const me = await identity();
+  const btn = el("button", "fab fr"); btn.id = "fr"; btn.setAttribute("aria-label", "الأصدقاء"); btn.innerHTML = ICON;
+  const badge = el("span", "badge"); badge.hidden = true; btn.append(badge); document.body.append(btn);
+  let D = { friends: {}, requests: {}, invites: [] }, sheet = null; const sent = new Set(), shown = new Set();
+  const status = pid => (D.friends[pid] ? "friend" : D.requests[pid] ? "incoming" : sent.has(pid) ? "sent" : "none");
+  const listeners = new Set(); const emit = () => listeners.forEach(f => f());
+
+  function paintBtn() {
+    const n = Object.keys(D.requests).length, on = Object.values(D.friends).some(f => f.online);
+    badge.hidden = !n; badge.textContent = n; btn.classList.toggle("on", on);
+    btn.title = on ? "أصدقاء متصلون" : "الأصدقاء";
+  }
+  const row = (title, sub) => { const r = el("div", "frrow"), t = el("div", "frt"); t.append(el("b", "", title)); if (sub) t.append(el("small", "", sub)); r.append(t); return r; };
+  const sb = (txt, fn, cls = "") => { const b = el("button", "sbtn " + cls, txt); b.onclick = () => { sfx.click(); fn(b); }; return b; };
+
+  async function invite(pid) {
+    try {
+      let code = h.room(); if (!code) code = await h.createRoom();
+      await sendInvite(pid, code, h.name()); toast("أُرسلت الدعوة ✓");
+    } catch (e) { toast(e.message || "تعذّر إرسال الدعوة", "error"); }
+  }
+  function renderSheet() {
+    if (!sheet) return;
+    const body = sheet.querySelector(".fbody"), keep = body.scrollTop;
+    const vals = [...body.querySelectorAll("input")].map(i => i.value), fi = [...body.querySelectorAll("input")].indexOf(document.activeElement);   // لا نضيّع ما يكتبه اللاعب عند تحديث الحضور
+    body.replaceChildren();
+    if (!me.ok) body.append(el("div", "fnote", "ميزة الأصدقاء تحتاج تحديث قواعد Firebase (الصق ملف firebase.rules.json في Rules ثم Publish)."));
+    const reqs = Object.entries(D.requests);
+    if (reqs.length) {
+      body.append(el("h3", "", `طلبات الصداقة (${reqs.length})`));
+      for (const [p, v] of reqs) { const r = row(v.n || "لاعب", fmtPid(p)); r.append(sb("قبول", () => acceptRequest(p).then(() => toast("أصبحتم أصدقاء 🎉")).catch(e => toast(e.message, "error")), "ok"), sb("رفض", () => declineRequest(p))); body.append(r); }
+    }
+    const fr = Object.entries(D.friends).sort((a, b) => (b[1].online - a[1].online) || a[1].name.localeCompare(b[1].name, "ar"));
+    body.append(el("h3", "", `الأصدقاء (${fr.length})`));
+    if (!fr.length) body.append(el("div", "fnote", "لا أصدقاء بعد. أضف صديقاً من قائمة اللاعبين في الغرفة أو بمعرّفه أدناه."));
+    for (const [p, v] of fr) {
+      const r = row(v.name, v.online ? "متصل الآن" : "غير متصل"); r.classList.toggle("onl", v.online);
+      r.prepend(el("i", "dot" + (v.online ? "" : " off gray")));
+      const inv = sb("دعوة", () => invite(p), "ok"); inv.disabled = !v.online; r.append(inv);
+      const rm = sb("إزالة", async () => { if (await confirmDialog(`إزالة ${v.name} من أصدقائك؟`, "إزالة", "إلغاء")) removeFriend(p).then(() => toast("أُزيل")).catch(e => toast(e.message, "error")); }, "bad");
+      r.append(rm); body.append(r);
+    }
+    body.append(el("h3", "", "إضافة صديق بالمعرّف"));
+    const add = el("div", "fadd"), inp = el("input"); inp.placeholder = "YZ-XXXX-XXXX"; inp.dir = "ltr"; inp.autocomplete = "off";
+    const go = sb("إرسال", async () => {
+      const p = parsePid(inp.value); if (!p) return toast("المعرّف غير صحيح", "error");
+      try { const pr = await profileOf(p); if (!pr) return toast("لا يوجد لاعب بهذا المعرّف", "error"); await add_(p, pr.name); inp.value = ""; } catch (e) { toast(e.message, "error"); }
+    }, "ok");
+    add.append(inp, go); body.append(add);
+    body.append(el("h3", "", "حسابي"));
+    const my = row("معرّفك", fmtPid(me.pid) || "—"); if (me.pid) my.append(sb("نسخ", () => copy(fmtPid(me.pid)))); body.append(my);
+    if (me.key) {
+      const k = row("رمز الاسترجاع (سرّي)", "احفظه: به تستعيد حسابك وأصدقاءك على أي جهاز أو متصفح، حتى بعد مسح البيانات"), kv = el("code", "kv", "••••-••••-••••-••••-••••-••••");
+      let shownKey = false;
+      k.append(sb("إظهار", b => { shownKey = !shownKey; kv.textContent = shownKey ? fmtKey(me.key) : "••••-••••-••••-••••-••••-••••"; b.textContent = shownKey ? "إخفاء" : "إظهار"; }), sb("نسخ", () => copy(fmtKey(me.key))));
+      body.append(k, kv);
+    }
+    const rs = el("div", "fadd"), ri = el("input"); ri.placeholder = "رمز استرجاع لحساب آخر"; ri.dir = "ltr"; ri.autocomplete = "off";
+    rs.append(ri, sb("استرجاع", async () => {
+      if (!(await confirmDialog("سيحلّ هذا الحساب محل حسابك الحالي على هذا الجهاز. متأكد؟", "استرجاع", "إلغاء"))) return;
+      try { await restoreIdentity(ri.value); toast("تم الاسترجاع"); setTimeout(() => location.reload(), 700); } catch (e) { toast(e.message, "error"); }
+    }, "bad")); body.append(rs);
+    const ins = [...body.querySelectorAll("input")]; ins.forEach((i, k) => { if (vals[k]) i.value = vals[k]; }); if (fi >= 0 && ins[fi]) ins[fi].focus();
+    body.scrollTop = keep;
+  }
+  async function add_(pid, name) {
+    if (status(pid) === "incoming") { await acceptRequest(pid); toast(`أصبحت صديق ${name || "اللاعب"} 🎉`); return; }
+    await sendRequest(pid, h.name()); sent.add(pid); toast("أُرسل طلب الصداقة ✓"); emit(); renderSheet();
+  }
+  function open() {
+    if (sheet) return; sfx.click();
+    sheet = el("div", "ovl sheet"); const c = el("div", "glass sheet-card"), hd = el("div", "fhead"), x = el("button", "sbtn", "✕");
+    hd.append(el("h2", "", "الأصدقاء"), x); const body = el("div", "fbody"); c.append(hd, body); sheet.append(c); document.body.append(sheet);
+    const close = () => { const s = sheet; sheet = null; G() ? gsap.to(s, { opacity: 0, duration: .15, onComplete: () => s.remove() }) : s.remove(); };
+    x.onclick = close; sheet.onclick = e => { if (e.target === sheet) close(); };
+    if (G()) { gsap.from(sheet, { opacity: 0, duration: .15 }); gsap.from(c, { y: 40, opacity: 0, duration: .35, ease: "power3.out" }); }
+    renderSheet();
+  }
+  btn.onclick = open;
+
+  // دعوات واردة: بطاقة بقبول/رفض، وتنتهي بعد 5 دقائق
+  const stack = el("div", "invstack"); document.body.append(stack);
+  function showInvites() {
+    const live = D.invites.filter(i => serverNow() - (i.t || 0) < INVITE_TTL);
+    D.invites.filter(i => !live.includes(i)).forEach(i => dismissInvite(i.id));
+    [...stack.children].forEach(c => { if (!live.some(i => i.id === c.dataset.id)) c.remove(); });
+    for (const i of live) {
+      if (stack.querySelector(`[data-id="${i.id}"]`)) continue;
+      const c = el("div", "glass inv"); c.dataset.id = i.id;
+      const t = el("div", "invt"); t.append(el("b", "", i.n || "صديق"), el("span", "", " يدعوك للعب 🎮"));
+      const a = el("div", "inva");
+      a.append(sb("انضم", async b => {
+        b.disabled = true;
+        try {
+          if (h.room() && h.room() !== i.code && !(await confirmDialog("ستغادر غرفتك الحالية وتنضم للدعوة. تتابع؟", "انضم", "ابقَ"))) { b.disabled = false; return; }
+          await dismissInvite(i.id); c.remove(); await h.join(i.code);
+        } catch (e) { toast(e.message || "الغرفة لم تعد متاحة", "error"); b.disabled = false; }
+      }, "ok"), sb("رفض", () => { dismissInvite(i.id); c.remove(); }));
+      c.append(t, a); stack.append(c);
+      if (!shown.has(i.id)) { shown.add(i.id); sfx.turn(); if (G()) gsap.from(c, { y: -40, opacity: 0, duration: .45, ease: "back.out(2)" }); }
+    }
+  }
+  setInterval(showInvites, 20e3);
+  if (me.ok) watchSocial(d => { D = d; paintBtn(); showInvites(); renderSheet(); emit(); });
+  return { me, status, add: add_, accept: p => add_(p), onChange: f => { listeners.add(f); return () => listeners.delete(f); }, open };
+}

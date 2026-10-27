@@ -36,7 +36,7 @@
       <span class="copyhint">المس الكود لنسخ الرقم</span>
       <button id="copy" class="btn ghost">انسخ رابط الدعوة</button>
     </div>
-    <div class="glass pad"><h2>اللاعبون</h2><ul id="players"></ul></div>
+    <div class="glass pad"><div class="hrow"><h2>اللاعبون</h2><button id="dash" class="sbtn">📊 لوحة الغرفة</button></div><ul id="players"></ul></div>
     <div class="glass pad"><h2>الألعاب</h2><div id="games" class="games"></div><p id="hint" class="hint"></p></div>
     <div class="bar"><button id="start" class="btn primary">ابدأ اللعبة</button><button id="leave" class="btn ghost">غادر</button></div>
   </section>
@@ -47,6 +47,9 @@ import { ready, onValue } from './shared/firebase.js';
 import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveRoom, getCode, savedName, saveName, cleanName, checkRoom, kickPlayer, roomRef, sweepRooms, stopTracking, amIIn, roomOpen } from './shared/room.js';
 import { GAMES } from './shared/games-registry.js';
 import { toast, sfx, show, enterAnim, toggleMute, isMuted } from './shared/ui.js';
+import { initSocial } from './shared/social-ui.js';
+import { identity, syncProfile, startPresence } from './shared/identity.js';
+import { openRoomDash } from './shared/room-dash.js';
 
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -57,7 +60,7 @@ const IMG = new Map(); let imgsReady = false, cardsShown = false;
 const tryList = urls => new Promise(res => { let i = 0;
   const next = () => { if (i >= urls.length) return res(null); const u = urls[i++], im = new Image(); im.onload = () => res(u); im.onerror = next; im.src = u; }; next(); });
 const probe = id => tryList([...(USE_PHOTOS ? ['jpg', 'png', 'jpeg', 'webp'].map(e => `game-images/${id}.${e}`) : []), `game-covers/${id}.svg`]);
-let verT = null, kickT = null;
+let verT = null, kickT = null, social = null;
 let S = { code: null, uid: null, meta: null, players: {}, scores: {}, joined: false }, stop = null, armed = null, armT = null, known = new Set();
 
 // ===== الشاشة الرئيسية: الاسم والكود والأزرار الذكية =====
@@ -104,6 +107,7 @@ $('#code').addEventListener('input', onCode);
 $('#code').addEventListener('focus', () => $('#codebox').classList.add('focus'));
 $('#code').addEventListener('blur', () => $('#codebox').classList.remove('focus'));
 $('#name').addEventListener('input', refresh);
+$('#name').addEventListener('change', () => { const n = cleanName($('#name').value); if (n) { saveName(n); syncProfile(n); } });   // الاسم يظهر لأصدقائك فور كتابته
 // لمس مربع الكود يلصق ما في الحافظة فقط إن كان 4 أرقام بالضبط (أي نص آخر يُتجاهل ويبقى الإدخال اليدوي)
 $('#codebox').addEventListener('click', async () => {
   if (fromLink || $('#code').readOnly || !navigator.clipboard?.readText) return;
@@ -150,6 +154,15 @@ function render() {
     const li = h('li', 'pl');
     li.append(h('i', 'dot' + (p.connected === false ? ' off' : '')), h('span', 'nm', p.name + (id === uid ? ' (أنت)' : '')));
     if (id === meta.host) li.append(h('span', 'crown', 'المضيف'));
+    if (id !== uid && p.pid && social?.me.ok) {                    // «إضافة صديق» للجميع (مضيفاً كان أو منضماً) ويختفي لمن هو صديقك فعلاً
+      const st = social.status(p.pid);
+      if (st !== 'friend') {
+        const a = h('button', 'afr' + (st === 'sent' ? ' done' : ''), st === 'sent' ? 'أُرسل ✓' : st === 'incoming' ? 'قبول الصداقة' : 'إضافة صديق');
+        a.disabled = st === 'sent';
+        a.onclick = () => { sfx.click(); social.add(p.pid, p.name).catch(e => toast(e.message, 'error')); };
+        li.append(a);
+      }
+    }
     if (isHost && id !== uid) {
       const k = h('button', 'kick' + (armed === id ? ' arm' : ''), armed === id ? 'تأكيد الطرد؟' : 'طرد');
       k.onclick = () => {
@@ -233,7 +246,7 @@ async function go(fn) {
   if (busy) return;
   const name = cleanName($('#name').value);
   if (!name) { sfx.error(); return toast('اكتب اسمك أولاً', 'error'); }
-  saveName(name); busy = true; refresh();
+  saveName(name); syncProfile(name); busy = true; refresh();
   try { sfx.click(); await openLobby(await fn(name)); busy = false; }
   catch (e) { busy = false; sfx.error(); toast(e.message, 'error'); onCode(); }
   refresh();
@@ -248,6 +261,7 @@ $('#tiles').onclick = () => {                              // لمس الكود 
   sfx.click(); copyText(S.code);
   if (G()) gsap.fromTo('#tiles .cc', { y: 0, scale: 1 }, { y: -6, scale: 1.12, duration: .18, yoyo: true, repeat: 1, stagger: .05, ease: 'power2.out' });
 };
+$('#dash').onclick = () => { sfx.click(); if (S.meta) openRoomDash({ code: S.code, meta: S.meta, players: S.players, scores: S.scores, uid: S.uid }); };
 $('#mute').onclick = () => { $('#mute').textContent = toggleMute() ? '🔇' : '🔊'; };
 
 // ===== التشغيل =====
@@ -256,7 +270,15 @@ $('#name').value = savedName(); paint($('#codebox'), ''); refresh();
 const jp = digits(new URLSearchParams(location.search).get('join'));
 enterAnim('#home');
 Promise.all(GAMES.map(async g => IMG.set(g.id, await probe(g.id)))).then(() => { imgsReady = true; if (S.meta) render(); });
-ready.then(() => sweepRooms());                            // تنظيف الغرف المهملة (مرة كل 5 دقائق كحد أقصى)
+ready.then(() => sweepRooms());
+// الأصدقاء: أيقونة بجانب الصوت + دعوات. الدعوة تُنشئ الغرفة تلقائياً إن لم تكن في غرفة، والقبول ينقلك للغرفة مباشرة
+const myName = () => cleanName($('#name').value) || savedName();
+identity().then(me => { if (me.ok) { startPresence(); if (savedName()) syncProfile(savedName()); } });
+initSocial({
+  name: myName, room: () => S.code,
+  createRoom: async () => { const n = myName(); if (!n) throw new Error('اكتب اسمك أولاً'); const c = await createRoom(n); await openLobby(c); return c; },
+  join: async c => { const n = myName(); if (!n) throw new Error('اكتب اسمك أولاً'); if (S.code) { const old = S.code; stop?.(); stop = null; await leaveRoom(old); } await openLobby(await joinRoom(c, n)); }
+}).then(s => { social = s; s.onChange(() => { if (S.meta) render(); }); }).catch(e => console.warn('social', e));                            // تنظيف الغرف المهملة (مرة كل 5 دقائق كحد أقصى)
 if (jp.length === 4) enterLinkMode(jp);
 else if (getCode()) enterRoom().then(c => openLobby(c.code)).catch(() => sessionStorage.removeItem('yz_room'));
 </script>

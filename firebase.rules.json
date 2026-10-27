@@ -22,7 +22,7 @@
           "$uid": {
             ".read": "auth != null && auth.uid === $uid",
             ".write": "auth != null && ((auth.uid === $uid && root.child('rooms/' + $code + '/meta').exists() && !root.child('rooms/' + $code + '/kicked/' + auth.uid).exists() && (data.exists() || root.child('rooms/' + $code + '/meta/status').val() === 'lobby')) || (!newData.exists() && root.child('rooms/' + $code + '/meta/host').val() === auth.uid))",
-            ".validate": "newData.hasChild('name') && newData.child('name').isString() && newData.child('name').val().length <= 16"
+            ".validate": "newData.hasChild('name') && newData.child('name').isString() && newData.child('name').val().length <= 16 && (!newData.hasChild('pid') || newData.child('pid').val() === root.child('link/' + auth.uid).val())"
           }
         },
         "kicked": {
@@ -51,6 +51,84 @@
           ".write": "auth != null && root.child('rooms/' + $code + '/meta/host').val() === auth.uid"
         }
       }
+    },
+    "proof": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.isString() && newData.val().matches(/^[A-Z0-9]{24}$/)"
+      }
+    },
+    "keys": {
+      "$key": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists() && newData.exists() && !root.child('profiles/' + newData.val()).exists()",
+        ".validate": "$key.matches(/^[A-Z0-9]{24}$/) && newData.isString() && newData.val().matches(/^[A-Z0-9]{8}$/)"
+      }
+    },
+    "link": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && newData.exists() && root.child('keys/' + root.child('proof/' + auth.uid).val()).val() === newData.val()",
+        ".validate": "newData.isString()"
+      }
+    },
+    "admins": {
+      "$pid": {
+        ".read": "auth != null && root.child('link/' + auth.uid).val() === $pid"
+      }
+    },
+    "profiles": {
+      ".read": "auth != null && root.child('admins/' + root.child('link/' + auth.uid).val()).exists()",
+      "$pid": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('link/' + auth.uid).val() === $pid",
+        "stats": {
+          ".write": "auth != null && root.child('link/' + auth.uid).val() != null"
+        }
+      }
+    },
+    "presence": {
+      "$pid": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('link/' + auth.uid).val() === $pid"
+      }
+    },
+    "friends": {
+      "$p": {
+        ".read": "auth != null && root.child('link/' + auth.uid).val() === $p",
+        "$q": {
+          ".write": "auth != null && (root.child('link/' + auth.uid).val() === $p || (!newData.exists() && root.child('link/' + auth.uid).val() === $q) || (newData.exists() && root.child('link/' + auth.uid).val() === $q && root.child('requests/' + $q + '/' + $p).exists()))"
+        }
+      }
+    },
+    "requests": {
+      "$to": {
+        ".read": "auth != null && root.child('link/' + auth.uid).val() === $to",
+        "$from": {
+          ".write": "auth != null && ((newData.exists() && root.child('link/' + auth.uid).val() === $from && $from !== $to && !root.child('friends/' + $to + '/' + $from).exists()) || (!newData.exists() && (root.child('link/' + auth.uid).val() === $from || root.child('link/' + auth.uid).val() === $to)))",
+          ".validate": "!newData.exists() || newData.hasChildren(['n', 't'])"
+        }
+      }
+    },
+    "invites": {
+      "$to": {
+        ".read": "auth != null && root.child('link/' + auth.uid).val() === $to",
+        "$id": {
+          ".write": "auth != null && ((newData.exists() && root.child('link/' + auth.uid).val() === newData.child('from').val() && root.child('friends/' + $to + '/' + root.child('link/' + auth.uid).val()).exists()) || (!newData.exists() && root.child('link/' + auth.uid).val() === $to))",
+          ".validate": "!newData.exists() || (newData.hasChildren(['from', 'n', 'code', 't']) && newData.child('code').val().matches(/^[0-9]{4}$/))"
+        }
+      }
+    },
+    "history": {
+      "$pid": {
+        ".read": "auth != null && (root.child('link/' + auth.uid).val() === $pid || root.child('admins/' + root.child('link/' + auth.uid).val()).exists())",
+        "$id": {
+          ".write": "auth != null && root.child('link/' + auth.uid).val() != null && !data.exists()",
+          ".validate": "newData.hasChildren(['g', 't', 'r'])"
+        }
+      },
+      ".read": "auth != null && root.child('admins/' + root.child('link/' + auth.uid).val()).exists()"
     }
   }
 }
