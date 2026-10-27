@@ -5,7 +5,7 @@ import { db, ref, get, set, update, remove, onValue, serverTimestamp } from "./f
 import { identity } from "./identity.js";
 
 const R = p => (p ? ref(db, p) : ref(db));   // الجذر بلا مسار (ref(db, "") يرفضها Firebase)
-export const INVITE_TTL = 5 * 60e3;
+export const INVITE_TTL = 10e3;          // الدعوة صالحة 10 ثوانٍ وتظهر للمستلم 5 ثوانٍ
 
 export async function profileOf(pid) { const v = (await get(R(`profiles/${pid}`))).val(); return v ? { pid, ...v } : null; }
 
@@ -24,7 +24,11 @@ export async function declineRequest(from) { const me = await identity(); await 
 export async function cancelRequest(to) { const me = await identity(); await remove(R(`requests/${to}/${me.pid}`)).catch(() => {}); }
 export async function removeFriend(q) { const me = await identity(); await update(R(""), { [`friends/${me.pid}/${q}`]: null, [`friends/${q}/${me.pid}`]: null }); }
 
+const sentAt = [];
 export async function sendInvite(to, code, myName) {
+  const now = Date.now(); while (sentAt.length && now - sentAt[0] > 10e3) sentAt.shift();
+  if (sentAt.length >= 3) throw new Error("تمهّل قليلاً قبل إرسال دعوة أخرى");     // حد أقصى 3 دعوات كل 10 ثوانٍ (بلا مؤقت ظاهر)
+  sentAt.push(now);
   const me = await identity();
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   await set(R(`invites/${to}/${id}`), { from: me.pid, n: myName || "لاعب", code, t: serverTimestamp() });

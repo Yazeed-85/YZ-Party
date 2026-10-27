@@ -41,8 +41,10 @@ input:focus-visible{border-color:var(--lagoon);box-shadow:0 0 0 3px rgba(79,209,
 .gcard:disabled{opacity:.5;cursor:default}
 .gcard.on{opacity:1;border-color:var(--lagoon);background:rgba(79,209,197,.12)}
 .bar{display:flex;gap:10px}.bar .btn:first-child{flex:2}.bar .btn:last-child{flex:1}
-.toast{position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:99;padding:12px 20px;border-radius:999px;background:#1b1f31;border:1px solid var(--line);font-weight:700;max-width:90vw}
-.toast.error{border-color:var(--rose);color:var(--rose)}
+.toast{position:fixed;top:calc(14px + env(safe-area-inset-top));left:0;right:0;margin-inline:auto;width:max-content;z-index:400;display:flex;align-items:center;gap:10px;padding:10px 18px 10px 12px;border-radius:999px;background:#1b1f31;border:1px solid var(--line);font-weight:700;max-width:90vw;box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.toast .ti{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:.8rem;background:rgba(255,255,255,.12)}
+.toast.ok{border-color:#34d399;box-shadow:0 0 18px rgba(52,211,153,.35),0 12px 32px rgba(0,0,0,.5)}.toast.ok .ti{background:#34d399;color:#04241a}
+.toast.error{border-color:var(--rose);color:var(--rose);box-shadow:0 0 18px rgba(255,107,129,.3),0 12px 32px rgba(0,0,0,.5)}.toast.error .ti{background:var(--rose);color:#2a0710}
 .fab{position:fixed;top:calc(12px + env(safe-area-inset-top));left:12px;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--glass);color:var(--text);font-size:1.1rem;cursor:pointer}
 .scorebar{display:flex;gap:8px;padding:10px 14px;overflow-x:auto}
 .sb{flex:1;display:flex;justify-content:space-between;gap:8px;padding:8px 14px;border-radius:12px;background:rgba(0,0,0,.25);white-space:nowrap}
@@ -103,7 +105,7 @@ input:focus-visible{border-color:var(--lagoon);box-shadow:0 0 0 3px rgba(79,209,
 .frrow .dot.gray{background:#6b7084}.frrow.onl .frt small{color:#34d399}
 .fnote{color:var(--mute);font-size:.85rem;line-height:1.6;padding:6px 2px}.fadd{display:flex;gap:8px}.fadd input{padding:10px 12px;font-size:.95rem}
 .kv{display:block;direction:ltr;text-align:center;padding:8px;border-radius:12px;background:rgba(0,0,0,.3);color:var(--amber);letter-spacing:1px;font-size:.85rem;user-select:all}
-.invstack{position:fixed;top:calc(64px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:8px;width:min(92vw,380px)}
+.invstack{position:fixed;top:calc(64px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:350;display:flex;flex-direction:column;gap:8px;width:min(92vw,380px)}
 .inv{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#12172a;border-radius:18px}.invt{flex:1;min-width:0}.inva{display:flex;gap:6px}
 .pcard{padding:12px;border-radius:16px;background:rgba(0,0,0,.25);display:flex;flex-direction:column;gap:8px}.ptop{display:flex;align-items:center;gap:8px}.ptop b{flex:1}
 .pkv{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}.pkv div{display:flex;flex-direction:column}.pkv small{color:var(--mute);font-size:.7rem}.pkv span{font-size:.85rem;font-weight:700}
@@ -124,6 +126,8 @@ input:focus-visible{border-color:var(--lagoon);box-shadow:0 0 0 3px rgba(79,209,
 /* داخل الغرفة: أيقونتا الصوت والأصدقاء تنتقلان داخل البطاقات */
 .codewrap{position:relative}
 .fab.in{position:absolute;top:12px;left:12px;width:36px;height:36px;font-size:1rem;z-index:2}
-.fab.fr.in{position:relative;top:auto;left:auto;width:34px;height:34px;flex:none}
-#plhead{justify-content:flex-start;gap:12px}
+.fab.fr.in{position:absolute;top:12px;left:12px;width:36px;height:36px;font-size:1rem}   /* نفس عمود الصوت تماماً على الهاتف والكمبيوتر */
+#plcard{position:relative}#plhead{min-height:36px}
 body.inroom .fab.inst{display:none}
+
+.inv{position:relative;overflow:hidden}.inv .ibar{position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--lagoon),var(--amber));transform-origin:right}

@@ -3,11 +3,31 @@ const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const anim = () => window.gsap && !reduce;
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 
+// إشعار علوي بأيقونة، يعلو كل النوافذ، وإشعار واحد في كل مرة (الجديد يدفع القديم)
+const TICON = { ok: "✓", error: "!", info: "i" };
+let curToast = null;
 export function toast(msg, kind = "info") {
-  const t = el("div", "toast " + kind, msg);
-  document.body.append(t);
-  if (anim()) gsap.fromTo(t, { y: 30, opacity: 0, scale: .9 }, { y: 0, opacity: 1, scale: 1, duration: .35, ease: "back.out(2)" });
-  setTimeout(() => (anim() ? gsap.to(t, { opacity: 0, y: 10, duration: .25, onComplete: () => t.remove() }) : t.remove()), 3000);
+  const old = curToast; curToast = null;
+  if (old) { window.gsap?.killTweensOf(old); anim() ? gsap.to(old, { y: -30, opacity: 0, scale: .9, duration: .18, onComplete: () => old.remove() }) : old.remove(); }
+  const t = el("div", "toast " + kind), i = el("span", "ti", TICON[kind] || "i");
+  t.append(i, el("span", "tt", msg)); document.body.append(t); curToast = t;
+  if (anim()) {
+    gsap.fromTo(t, { y: -70, opacity: 0, scale: .8 }, { y: 0, opacity: 1, scale: 1, duration: .6, ease: "elastic.out(1,.55)" });
+    gsap.fromTo(i, { scale: 0, rotation: -120 }, { scale: 1, rotation: 0, duration: .5, delay: .12, ease: "back.out(3)" });
+  }
+  setTimeout(() => { if (curToast === t) curToast = null; anim() ? gsap.to(t, { y: -40, opacity: 0, scale: .9, duration: .3, ease: "power2.in", onComplete: () => t.remove() }) : t.remove(); }, 2600);
+}
+
+// لمسة مرئية (GSAP) عند الضغط على الأزرار: ينضغط ثم يرتدّ
+export function initPress(sel = ".btn,.sbtn,.afr,.kick,.fab,.gcard,.pill") {
+  if (!window.gsap || reduce) return;
+  let cur = null;
+  const up = () => { if (cur) { gsap.to(cur, { scale: 1, duration: .55, ease: "elastic.out(1.1,.4)", clearProps: "transform" }); cur = null; } };
+  document.addEventListener("pointerdown", e => {
+    const b = e.target.closest?.(sel); if (!b || b.disabled) return; cur = b;
+    gsap.to(b, { scale: .9, duration: .09, ease: "power2.out", overwrite: "auto" });
+  }, true);
+  ["pointerup", "pointercancel", "pointerleave", "dragend"].forEach(ev => document.addEventListener(ev, up, true));
 }
 
 export function enterAnim(sel) {
