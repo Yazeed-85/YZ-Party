@@ -3,135 +3,244 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
 <title>لوحة التحكم · YZ Party</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <style>
 body{display:block;overflow-y:auto}
-.wrap{max-width:1080px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 14px 40px;display:flex;flex-direction:column;gap:14px}
-.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.top h1{font:700 1.7rem 'Reem Kufi',sans-serif;margin:0;flex:1}
-.top a{color:var(--mute);text-decoration:none;font-size:.9rem}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
-.stat{padding:14px;text-align:center}.stat b{display:block;font:700 1.9rem 'Reem Kufi',sans-serif;color:var(--amber)}.stat small{color:var(--mute)}
+.wrap{max-width:1100px;margin:0 auto;padding:max(12px,env(safe-area-inset-top)) 14px 50px;display:flex;flex-direction:column;gap:14px}
+.top{position:sticky;top:0;z-index:20;display:flex;flex-direction:column;gap:8px;padding:10px 12px;margin:0 -4px;border-radius:0 0 20px 20px;background:rgba(9,11,19,.82);backdrop-filter:blur(14px);border:1px solid var(--line);border-top:0}
+.top .r{display:flex;align-items:center;gap:10px}.top h1{font:700 1.5rem 'Reem Kufi',sans-serif;flex:1}.top a{color:var(--mute);text-decoration:none;font-size:.88rem}
+.live{font-size:.78rem;color:var(--mute);display:flex;align-items:center;gap:6px}.live i{width:9px;height:9px;border-radius:50%;background:var(--rose)}.live.on i{background:#34d399;box-shadow:0 0 0 4px rgba(52,211,153,.18)}
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}.tabs button{flex:none;padding:8px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--mute);font:inherit;font-weight:700;cursor:pointer;transition:background .2s,color .2s}
+.tabs button.on{background:var(--lagoon);color:#06231f;border-color:transparent}.tabs button.red.on{background:var(--rose);color:#2a0710}
+.sec{display:flex;flex-direction:column;gap:14px;min-width:0}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px}.stat{padding:14px;text-align:center}.stat b{display:block;font:700 1.8rem 'Reem Kufi',sans-serif;color:var(--amber)}.stat small{color:var(--mute)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}.box{padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}.box h3{font-size:1rem;color:var(--amber)}
+.gb{display:grid;grid-template-columns:120px 1fr 44px;gap:8px;align-items:center;font-size:.84rem}.gb i{display:block;height:10px;border-radius:6px;background:var(--lagoon);transform-origin:right}.gb span:last-child{color:var(--mute);text-align:left}
+.days{display:flex;align-items:flex-end;gap:8px;height:120px}.days div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;font-size:.72rem;color:var(--mute)}.days i{width:100%;max-width:34px;border-radius:6px 6px 0 0;background:var(--amber);min-height:3px;transform-origin:bottom}
 .tools{display:flex;gap:8px;flex-wrap:wrap}.tools input{flex:1;min-width:160px;padding:10px 14px;font-size:.95rem}.tools select{padding:10px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.28);color:var(--text);font:inherit}
-.gbars{display:flex;flex-direction:column;gap:6px;padding:14px}.gb{display:grid;grid-template-columns:130px 1fr 60px;gap:8px;align-items:center;font-size:.85rem}.gb i{display:block;height:10px;border-radius:6px;background:var(--lagoon)}.gb span:last-child{color:var(--mute);text-align:left}
-.tw{overflow-x:auto;padding:6px}table{width:100%;border-collapse:collapse;font-size:.88rem;min-width:720px}
-th{color:var(--mute);font-weight:700;text-align:right;padding:10px;border-bottom:1px solid var(--line);white-space:nowrap}td{padding:10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
-tr.p{cursor:pointer}tr.p:hover{background:rgba(255,255,255,.04)}
-.dot{display:inline-block;margin-inline-end:6px}.id{direction:ltr;display:inline-block;color:var(--mute);font-size:.78rem}.al{color:var(--mute);font-size:.74rem}
-tr.d td{background:rgba(0,0,0,.25)}.det{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.det h4{margin:0 0 6px;color:var(--amber);font-size:.9rem}
-.m{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,.07);font-size:.82rem}.m small{color:var(--mute)}
+.tw{overflow-x:auto;padding:6px}table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:760px}
+th{color:var(--mute);text-align:right;padding:10px;border-bottom:1px solid var(--line);white-space:nowrap}td{padding:10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+tr.p{cursor:pointer}tr.p:hover{background:rgba(255,255,255,.04)}.id{direction:ltr;display:inline-block;color:var(--mute);font-size:.76rem}.al{color:var(--mute);font-size:.72rem}
+tr.d td{background:rgba(0,0,0,.25)}.det{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}.det h4{margin-bottom:6px;color:var(--amber);font-size:.9rem}
+.m{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,.07);font-size:.8rem}.m small{color:var(--mute)}
 .ok{color:#34d399}.bad{color:var(--rose)}.msg{padding:26px;text-align:center;line-height:1.9}code{direction:ltr;display:inline-block;color:var(--amber)}
-.error-msg {color: var(--rose); font-weight: bold; background: rgba(255,0,0,0.1); padding: 10px; border-radius: 8px;}
+.rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}.room{padding:14px;display:flex;flex-direction:column;gap:8px}.room header{display:flex;align-items:center;gap:8px}.room header b{font:700 1.4rem 'Reem Kufi',sans-serif;color:var(--amber);letter-spacing:.15em}.room header span{flex:1;color:var(--mute);font-size:.8rem}
+.pr{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:rgba(0,0,0,.22);font-size:.88rem}.pr b{flex:1}
+.sm{width:auto;padding:5px 12px;font-size:.78rem;border-radius:10px}.dg{background:var(--rose);color:#2a0710;border-color:transparent}.btn.dg:disabled{opacity:.3}
+.danger{border-color:rgba(255,107,129,.45)}.empty{color:var(--mute);text-align:center;padding:18px}
+.ov{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:grid;place-items:center;padding:16px}.mb{width:min(440px,100%);padding:20px;display:flex;flex-direction:column;gap:12px;background:#12162a}.mb p{line-height:1.8;font-size:.92rem}
+.toast{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:60;padding:10px 18px;border-radius:14px;background:#12162a;border:1px solid var(--line);font-size:.9rem;max-width:92vw}
+.error-msg{color:var(--rose);font-weight:700;background:rgba(255,0,0,.1);padding:10px;border-radius:8px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>لوحة التحكم</h1><a href="index.html">← الرئيسية</a></div>
+  <div class="top">
+    <div class="r"><h1>لوحة التحكم</h1><span class="live" id="live"><i></i><span>غير متصل</span></span><a href="index.html">← الرئيسية</a></div>
+    <nav class="tabs" id="tabs" hidden></nav>
+  </div>
   <div id="app" class="glass msg">جارٍ التحميل…</div>
 </div>
 <script type="module">
-import { db, ref, get, ready } from './shared/firebase.js';
+import { db, ref, get, update, onValue } from './shared/firebase.js';
 import { identity, fmtPid } from './shared/identity.js';
 import { GAMES } from './shared/games-registry.js';
 
-const $ = s => document.querySelector(s);
+const BOARD = 'لوحة التحكم';
+const $ = s => document.querySelector(s), app = $('#app');
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const gname = id => { const g = GAMES.find(x => x.id === id); return g ? `${g.icon} ${g.name}` : id || '؟'; };
 const dt = t => t ? new Date(t).toLocaleString('ar', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+const ago = t => { if (!t) return '—'; const s = Math.max(0, (Date.now() - t) / 1e3 | 0); return s < 60 ? 'الآن' : s < 3600 ? `قبل ${s / 60 | 0} د` : s < 864e2 ? `قبل ${s / 3600 | 0} س` : `قبل ${s / 864e2 | 0} يوم`; };
+const norm = s => String(s).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\s+/g, ' ').trim();
+const A = (t, v) => { try { if (window.gsap && t && (t.length ?? 1)) gsap.from(t, { duration: .45, ease: 'power2.out', ...v }); } catch { /* الحركة اختيارية */ } };
 const RES = { win: ['فوز', 'ok'], lose: ['خسارة', 'bad'], draw: ['تعادل', ''], 'coop-win': ['فوز جماعي', 'ok'], 'coop-lose': ['خسارة جماعية', 'bad'] };
-const app = $('#app');
+const TABS = [['over', 'نظرة عامة'], ['pl', 'اللاعبون'], ['rm', 'الغرف المباشرة'], ['dz', 'منطقة الخطر']];
+const S = { profiles: {}, history: {}, presence: {}, idx: {}, rooms: {}, admins: {} };
+let me, tab = 'over', open = null, q, so, queued = false, fresh = true;
 
-async function initDashboard() {
-    try {
-        const me = await identity();
-        const setup = new URLSearchParams(location.search).has('setup');
+function toast(t) { const x = el('div', 'toast', t); document.body.append(x); A(x, { y: 20, opacity: 0, duration: .25 }); setTimeout(() => x.remove(), 3200); }
 
-        // الخطوة 1: التحقق من الصلاحيات باستخدام me.pid
-        try {
-          const adminCheck = await get(ref(db, `admins/${me.pid}`));
-          if (!adminCheck.exists() || adminCheck.val() !== true) {
-              if (setup && me.ok) {
-                  app.replaceChildren(el('div', '', 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف العقدة:'), el('br'), el('code', '', `admins / ${me.pid} : true`));
-              } else {
-                  app.replaceChildren(el('div', '', 'غير متاح. معرّفك الحالي هو: ' + me.pid));
-              }
-              return; 
-          }
-        } catch (e) {
-          app.replaceChildren(el('div', 'error-msg', 'خطأ في قراءة عقدة admins: ' + e.message));
-          return;
-        }
-
-        // الخطوة 2: جلب البيانات
-        let profiles, history, presence;
-        try {
-          [profiles, history, presence] = await Promise.all(['profiles', 'history', 'presence'].map(async p => (await get(ref(db, p))).val() || {}));
-        } catch (e) {
-            app.replaceChildren(el('div', 'error-msg', 'حدث خطأ أثناء جلب البيانات العامة (profiles, history). تأكد من قواعد Firebase (Read permissions). تفاصيل الخطأ: ' + e.message));
-            return;
-        }
-
-
-        // لاعب واحد لكل معرّف (pid) مهما تغير اسمه
-        const empty = Object.values(profiles).filter(v => !v.name && !(v.stats?.games)).length;   // هويات أُنشئت لجهاز ثم استُرجع حساب آخر عليه: بلا اسم ولا ألعاب
-        let P = Object.entries(profiles).map(([pid, v]) => {
-          const st = v.stats || {}, hist = Object.values(history[pid] || {}).sort((a, b) => b.t - a.t);
-          return { pid, name: v.name || 'بلا اسم', aliases: Object.values(v.aliases || {}).filter(n => n !== v.name), created: v.created, last: Math.max(v.last || 0, st.last || 0), online: presence[pid]?.on === true,
-            games: st.games || hist.length, wins: st.wins || 0, g: st.g || {}, hist };
-        });
-        P = P.filter(p => p.name !== 'بلا اسم' || p.games);
-        const totalGames = new Set(Object.values(history).flatMap(h => Object.keys(h))).size;     // المباراة الواحدة لها نفس المعرّف عند كل مشاركيها
-        const perGame = {}; P.forEach(p => Object.entries(p.g).forEach(([k, v]) => { perGame[k] = (perGame[k] || 0) + (v.p || 0); }));
-        const sorts = { last: (a, b) => b.last - a.last, games: (a, b) => b.games - a.games, wins: (a, b) => b.wins - a.wins, created: (a, b) => (b.created || 0) - (a.created || 0), name: (a, b) => a.name.localeCompare(b.name, 'ar') };
-
-        app.className = ''; app.replaceChildren();
-        const cards = el('div', 'cards');
-        [['لاعبون', P.length], ['متصلون الآن', P.filter(p => p.online).length], ['ألعاب لُعبت', Math.round(totalGames)], ['نشطون اليوم', P.filter(p => Date.now() - p.last < 864e5).length]].forEach(([k, v]) => { const c = el('div', 'glass stat'); c.append(el('b', '', v), el('small', '', k)); cards.append(c); });
-        const gb = el('div', 'glass gbars'), mx = Math.max(1, ...Object.values(perGame));
-        gb.append(el('h3', '', 'مشاركات كل لعبة'));
-        Object.entries(perGame).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => { const r = el('div', 'gb'), bar = el('i'); bar.style.width = (v / mx * 100) + '%'; const w = el('div'); w.append(bar); r.append(el('span', '', gname(k)), w, el('span', '', v)); gb.append(r); });
-        const tools = el('div', 'tools'), q = el('input'), so = el('select'); q.placeholder = 'بحث بالاسم أو المعرّف…';
-        [['last', 'الأحدث نشاطاً'], ['games', 'الأكثر لعباً'], ['wins', 'الأكثر فوزاً'], ['created', 'الأحدث تسجيلاً'], ['name', 'الاسم']].forEach(([v, t]) => so.append(new Option(t, v)));
-        tools.append(q, so);
-        const tw = el('div', 'glass tw'); app.append(cards, gb, tools, tw);
-        if (empty) app.append(el('div', 'fnote', `${empty} هوية فارغة مخفية (أجهزة لم يُكتب فيها اسم بعد)`));
-        
-        let open = null;
-        
-        function draw() {
-          const k = q.value.trim().toLowerCase(), list = P.filter(p => !k || (p.name + ' ' + p.aliases.join(' ') + ' ' + p.pid + ' ' + fmtPid(p.pid)).toLowerCase().includes(k)).sort(sorts[so.value]);
-          const t = el('table'), hd = el('tr'); ['اللاعب', 'المعرّف', 'تسجيل', 'آخر نشاط', 'ألعاب', 'فوز', 'نسبة', 'الأكثر لعباً'].forEach(x => hd.append(el('th', '', x))); t.append(hd);
-          for (const p of list) {
-            const r = el('tr', 'p'), n = el('td'); n.append(el('i', 'dot' + (p.online ? '' : ' off')), el('b', '', p.name)); if (p.aliases.length) n.append(el('div', 'al', 'سابقاً: ' + p.aliases.slice(0, 3).join('، ')));
-            const fav = Object.entries(p.g).sort((a, b) => (b[1].p || 0) - (a[1].p || 0))[0];
-            const id = el('td'); id.append(el('span', 'id', fmtPid(p.pid)));
-            r.append(n, id, el('td', '', dt(p.created)), el('td', '', p.online ? 'متصل' : dt(p.last)), el('td', '', p.games), el('td', '', p.wins), el('td', '', p.games ? Math.round(p.wins / p.games * 100) + '%' : '—'), el('td', '', fav ? gname(fav[0]) : '—'));
-            r.onclick = () => { open = open === p.pid ? null : p.pid; draw(); }; t.append(r);
-            if (open === p.pid) {
-              const d = el('tr', 'd'), td = el('td'), det = el('div', 'det'); td.colSpan = 8;
-              const a = el('div'); a.append(el('h4', '', 'حسب اللعبة'));
-              Object.entries(p.g).forEach(([g, v]) => { const m = el('div', 'm'); m.append(el('span', '', gname(g)), el('small', '', `${v.w || 0} فوز من ${v.p || 0}`)); a.append(m); });
-              const b = el('div'); b.append(el('h4', '', `تاريخ الألعاب (${p.hist.length})`));
-              p.hist.slice(0, 25).forEach(l => { const m = el('div', 'm'), [lb, cl] = RES[l.r] || [l.r, '']; const s = el('span'); s.append(el('b', '', gname(l.g)), el('small', '', ` · ${dt(l.t)} · مع ${Object.values(l.w || {}).map(w => w.n).join('، ') || '—'}`)); m.append(s, el('span', cl, lb)); b.append(m); });
-              if (!p.hist.length) b.append(el('small', '', 'لا سجل'));
-              det.append(a, b); td.append(det); d.append(td); t.append(d);
-            }
-          }
-          tw.replaceChildren(t);
-        }
-        
-        q.oninput = draw; so.onchange = draw; draw();
-
-    } catch (e) {
-        app.replaceChildren(el('div', 'error-msg', 'حدث خطأ غير متوقع: ' + e.message));
-        console.error(e);
+// نافذة تأكيد. phrase: عبارة يجب كتابتها حرفياً (أرقام عربية/إنجليزية مقبولة)
+function ask({ title, body, phrase, ok = 'تأكيد' }) {
+  return new Promise(res => {
+    const ov = el('div', 'ov'), bx = el('div', 'glass mb'), row = el('div', 'row'), yes = el('button', 'btn dg', ok), no = el('button', 'btn ghost', 'إلغاء');
+    bx.setAttribute('role', 'dialog'); bx.append(el('h3', '', title), el('p', '', body));
+    const done = v => { document.removeEventListener('keydown', esc); ov.remove(); res(v); }, esc = e => e.key === 'Escape' && done(false);
+    if (phrase) {
+      const c = el('code', '', phrase), inp = el('input'); inp.placeholder = 'اكتب العبارة أعلاه'; inp.autocomplete = 'off'; yes.disabled = true;
+      inp.oninput = () => { yes.disabled = norm(inp.value) !== norm(phrase); };
+      bx.append(c, inp); setTimeout(() => inp.focus(), 50);
     }
+    yes.onclick = () => done(true); no.onclick = () => done(false); ov.onclick = e => { if (e.target === ov) done(false); };
+    document.addEventListener('keydown', esc); row.append(yes, no); bx.append(row); ov.append(bx); document.body.append(ov); A(bx, { scale: .92, opacity: 0, duration: .25 });
+  });
 }
 
-// تشغيل الدالة
-initDashboard();
+const chunks = (o, n = 250) => { const k = Object.keys(o), out = []; for (let i = 0; i < k.length; i += n) out.push(Object.fromEntries(k.slice(i, i + n).map(x => [x, o[x]]))); return out; };
+const send = async u => { for (const c of chunks(u)) await update(ref(db), c); };
 
+// ===== العمليات =====
+const roomsOf = pid => Object.entries(S.rooms).flatMap(([code, r]) => Object.entries(r.players || {}).filter(([, p]) => p?.pid === pid).map(([uid]) => ({ code, uid })));
+const kickU = (code, uid) => ({ [`rooms/${code}/players/${uid}`]: null, [`rooms/${code}/kicked/${uid}`]: true });
+async function kick(code, uid, name) {
+  if (!await ask({ title: 'طرد لاعب', body: `سيُطرد «${name}» من الغرفة ${code} ولن يستطيع العودة إليها.`, ok: 'طرد' })) return;
+  try { await update(ref(db), kickU(code, uid)); toast('تم الطرد'); } catch (e) { toast('تعذّر الطرد: ' + e.message); }
+}
+async function closeRoom(code) {
+  if (!await ask({ title: 'إغلاق الغرفة ' + code, body: 'ستُحذف الغرفة وبياناتها ويخرج كل من فيها.', ok: 'إغلاق' })) return;
+  try { await update(ref(db), { [`rooms/${code}`]: null, [`roomIndex/${code}`]: null }); toast('أُغلقت الغرفة'); } catch (e) { toast('تعذّر الإغلاق: ' + e.message); }
+}
+// حذف لاعبين بالكامل: الملف والسجل والحضور والأصدقاء والطلبات والدعوات والرمز والربط، وطرده من أي غرفة. المشرفون وحسابك محميان دائماً
+async function purge(pids) {
+  const [adm, keys, link, proof, fr, rq, iv] = await Promise.all(['admins', 'keys', 'link', 'proof', 'friends', 'requests', 'invites'].map(p => get(ref(db, p)).then(s => s.val() || {})));
+  const X = new Set([...pids].filter(p => adm[p] !== true && p !== me.pid)), u = {};
+  for (const p of X) for (const n of ['profiles', 'history', 'presence', 'friends', 'requests', 'invites']) u[`${n}/${p}`] = null;
+  const gone = new Set();
+  for (const [k, v] of Object.entries(keys)) if (X.has(v)) { u[`keys/${k}`] = null; gone.add(k); }
+  for (const [id, v] of Object.entries(link)) if (X.has(v)) u[`link/${id}`] = null;
+  for (const [id, k] of Object.entries(proof)) if (gone.has(k)) u[`proof/${id}`] = null;
+  for (const [n, T] of [['friends', fr], ['requests', rq]]) for (const [a, m] of Object.entries(T)) if (!X.has(a)) for (const b of Object.keys(m || {})) if (X.has(b)) u[`${n}/${a}/${b}`] = null;
+  for (const [a, m] of Object.entries(iv)) if (!X.has(a)) for (const [id, x] of Object.entries(m || {})) if (X.has(x?.from)) u[`invites/${a}/${id}`] = null;
+  for (const p of X) for (const r of roomsOf(p)) Object.assign(u, kickU(r.code, r.uid));
+  await send(u); return X.size;
+}
+async function delOne(p) {
+  if (!await ask({ title: 'حذف اللاعب', body: `سيُحذف «${p.name}» (${fmtPid(p.pid)}) بكل بياناته وسجله وأصدقائه ويُطرد من غرفته. لا يمكن التراجع.`, ok: 'حذف نهائي' })) return;
+  try { await purge([p.pid]); toast('تم حذف اللاعب'); } catch (e) { toast('تعذّر الحذف: ' + e.message); }
+}
+const removable = () => Object.keys(S.profiles).filter(p => S.admins[p] !== true && p !== me.pid);
+async function delAll() {
+  const n = removable().length; if (!n) return toast('لا يوجد لاعبون للحذف');
+  const phrase = `${n} ${BOARD}`;
+  if (!await ask({ title: 'إزالة كل اللاعبين', body: `سيُحذف ${n} لاعباً مسجلاً بكل بياناتهم نهائياً (المشرفون وحسابك محميّون). للتأكيد اكتب عدد المسجلين ثم اسم اللوحة:`, phrase, ok: 'إزالة الكل' })) return;
+  const now = removable().length;
+  if (now !== n) return toast(`تغيّر عدد المسجلين إلى ${now} أثناء التأكيد، أعد العملية`);
+  try { toast(`تمت إزالة ${await purge(removable())} لاعباً`); } catch (e) { toast('تعذّرت الإزالة: ' + e.message); }
+}
+async function closeAll() {
+  const c = Object.keys(S.idx); if (!c.length) return toast('لا توجد غرف');
+  if (!await ask({ title: 'إغلاق كل الغرف', body: `ستُحذف ${c.length} غرفة ويخرج كل اللاعبين منها.`, ok: 'إغلاق الكل' })) return;
+  const u = {}; c.forEach(k => { u[`rooms/${k}`] = null; u[`roomIndex/${k}`] = null; });
+  try { await send(u); toast('أُغلقت كل الغرف'); } catch (e) { toast('تعذّر الإغلاق: ' + e.message); }
+}
+
+// ===== البيانات =====
+function players() {
+  const rows = Object.entries(S.profiles).map(([pid, v]) => {
+    const st = v.stats || {}, hist = Object.values(S.history[pid] || {}).sort((a, b) => b.t - a.t);
+    return { pid, name: v.name || 'بلا اسم', aliases: Object.values(v.aliases || {}).filter(n => n !== v.name), created: v.created, last: Math.max(v.last || 0, st.last || 0), online: S.presence[pid]?.on === true, games: st.games || hist.length, wins: st.wins || 0, g: st.g || {}, hist, admin: S.admins[pid] === true };
+  });
+  return { all: rows, shown: rows.filter(p => p.name !== 'بلا اسم' || p.games), hidden: rows.filter(p => p.name === 'بلا اسم' && !p.games).length };
+}
+const dayKey = t => new Date(t).toDateString();
+function days(items) { const out = []; for (let i = 6; i >= 0; i--) { const d = new Date(Date.now() - i * 864e5); out.push([d.toLocaleDateString('ar', { weekday: 'short' }), items.filter(t => dayKey(t) === d.toDateString()).length]); } return out; }
+function chart(rows, color) { const w = el('div', 'days'), mx = Math.max(1, ...rows.map(r => r[1])); rows.forEach(([l, v]) => { const c = el('div'), b = el('i'); b.style.height = (v / mx * 80) + '%'; if (color) b.style.background = color; c.append(el('span', '', v), b, el('span', '', l)); w.append(c); }); return w; }
+
+// ===== التبويبات =====
+function viewOver(P) {
+  const gIds = new Map(); Object.values(S.history).forEach(h => Object.entries(h || {}).forEach(([id, x]) => gIds.set(id, x.t)));
+  const per = {}; P.shown.forEach(p => Object.entries(p.g).forEach(([k, v]) => { per[k] = (per[k] || 0) + (v.p || 0); }));
+  const gt = [...gIds.values()], wk = Date.now() - 7 * 864e5, tg = P.shown.reduce((a, p) => a + p.games, 0), tw = P.shown.reduce((a, p) => a + p.wins, 0);
+  const sec = el('div', 'sec'), cards = el('div', 'cards');
+  [['لاعبون', P.shown.length], ['متصلون الآن', P.shown.filter(p => p.online).length], ['غرف مباشرة', Object.keys(S.idx).length], ['ألعاب لُعبت', gIds.size], ['ألعاب اليوم', gt.filter(t => dayKey(t) === dayKey(Date.now())).length], ['ألعاب 7 أيام', gt.filter(t => t > wk).length], ['جدد 7 أيام', P.shown.filter(p => p.created > wk).length], ['نسبة الفوز العامة', tg ? Math.round(tw / tg * 100) + '%' : '—']]
+    .forEach(([k, v]) => { const c = el('div', 'glass stat'); c.append(el('b', '', v), el('small', '', k)); cards.append(c); });
+  const gb = el('div', 'glass box'), mx = Math.max(1, ...Object.values(per)); gb.append(el('h3', '', 'مشاركات كل لعبة'));
+  Object.entries(per).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => { const r = el('div', 'gb'), bar = el('i'), w = el('div'); bar.style.width = (v / mx * 100) + '%'; w.append(bar); r.append(el('span', '', gname(k)), w, el('span', '', v)); gb.append(r); });
+  if (!Object.keys(per).length) gb.append(el('div', 'empty', 'لا بيانات بعد'));
+  const d1 = el('div', 'glass box'); d1.append(el('h3', '', 'الألعاب آخر 7 أيام'), chart(days(gt)));
+  const d2 = el('div', 'glass box'); d2.append(el('h3', '', 'تسجيلات جديدة آخر 7 أيام'), chart(days(P.shown.map(p => p.created).filter(Boolean)), 'var(--lagoon)'));
+  const top = el('div', 'glass box'); top.append(el('h3', '', 'أفضل اللاعبين فوزاً'));
+  [...P.shown].sort((a, b) => b.wins - a.wins).slice(0, 5).forEach((p, i) => { const m = el('div', 'm'); m.append(el('span', '', `${i + 1}. ${p.name}`), el('small', '', `${p.wins} فوز من ${p.games}`)); top.append(m); });
+  const on = el('div', 'glass box'); on.append(el('h3', '', 'المتصلون الآن'));
+  P.shown.filter(p => p.online).slice(0, 12).forEach(p => { const m = el('div', 'm'); m.append(el('span', '', p.name), el('small', '', roomsOf(p.pid)[0] ? 'في غرفة ' + roomsOf(p.pid)[0].code : 'في الرئيسية')); on.append(m); });
+  if (!on.children[1]) on.append(el('div', 'empty', 'لا أحد متصل'));
+  const two = el('div', 'two'); two.append(gb, top, d1, d2, on); sec.append(cards, two); return sec;
+}
+function viewPlayers(P) {
+  const sec = el('div', 'sec'), tools = el('div', 'tools'), tw = el('div', 'glass tw');
+  if (!q) { q = el('input'); q.placeholder = 'بحث بالاسم أو المعرّف…'; so = el('select'); [['last', 'الأحدث نشاطاً'], ['games', 'الأكثر لعباً'], ['wins', 'الأكثر فوزاً'], ['created', 'الأحدث تسجيلاً'], ['name', 'الاسم']].forEach(([v, t]) => so.append(new Option(t, v))); q.oninput = so.onchange = () => paint(); }
+  const sorts = { last: (a, b) => b.last - a.last, games: (a, b) => b.games - a.games, wins: (a, b) => b.wins - a.wins, created: (a, b) => (b.created || 0) - (a.created || 0), name: (a, b) => a.name.localeCompare(b.name, 'ar') };
+  tools.append(q, so); sec.append(tools, tw); if (P.hidden) sec.append(el('div', 'al', `${P.hidden} هوية فارغة مخفية (بلا اسم ولا ألعاب)`));
+  const k = q.value.trim().toLowerCase(), list = P.shown.filter(p => !k || (p.name + ' ' + p.aliases.join(' ') + ' ' + p.pid + ' ' + fmtPid(p.pid)).toLowerCase().includes(k)).sort(sorts[so.value]);
+  const t = el('table'), hd = el('tr'); ['اللاعب', 'المعرّف', 'تسجيل', 'آخر نشاط', 'ألعاب', 'فوز', 'نسبة', 'الغرفة', ''].forEach(x => hd.append(el('th', '', x))); t.append(hd);
+  for (const p of list) {
+    const r = el('tr', 'p'), n = el('td'), rm = roomsOf(p.pid)[0], id = el('td'), act = el('td');
+    n.append(el('i', 'dot' + (p.online ? '' : ' off')), ' ', el('b', '', p.name + (p.admin ? ' 👑' : ''))); if (p.aliases.length) n.append(el('div', 'al', 'سابقاً: ' + p.aliases.slice(0, 3).join('، ')));
+    id.append(el('span', 'id', fmtPid(p.pid)));
+    if (rm) { const b = el('button', 'btn sm', 'طرد'); b.onclick = e => { e.stopPropagation(); kick(rm.code, rm.uid, p.name); }; act.append(b); }
+    if (!p.admin && p.pid !== me.pid) { const b = el('button', 'btn sm dg', 'حذف'); b.style.marginInlineStart = '6px'; b.onclick = e => { e.stopPropagation(); delOne(p); }; act.append(b); }
+    r.append(n, id, el('td', '', dt(p.created)), el('td', '', p.online ? 'متصل' : dt(p.last)), el('td', '', p.games), el('td', '', p.wins), el('td', '', p.games ? Math.round(p.wins / p.games * 100) + '%' : '—'), el('td', '', rm ? rm.code : '—'), act);
+    r.onclick = () => { open = open === p.pid ? null : p.pid; paint(); }; t.append(r);
+    if (open === p.pid) {
+      const d = el('tr', 'd'), td = el('td'), det = el('div', 'det'), a = el('div'), b = el('div'); td.colSpan = 9;
+      a.append(el('h4', '', 'حسب اللعبة')); Object.entries(p.g).forEach(([g, v]) => { const m = el('div', 'm'); m.append(el('span', '', gname(g)), el('small', '', `${v.w || 0} فوز من ${v.p || 0}`)); a.append(m); });
+      b.append(el('h4', '', `تاريخ الألعاب (${p.hist.length})`));
+      p.hist.slice(0, 25).forEach(l => { const m = el('div', 'm'), [lb, cl] = RES[l.r] || [l.r, ''], s = el('span'); s.append(el('b', '', gname(l.g)), el('small', '', ` · ${dt(l.t)} · مع ${Object.values(l.w || {}).map(w => w.n).join('، ') || '—'}`)); m.append(s, el('span', cl, lb)); b.append(m); });
+      if (!p.hist.length) b.append(el('small', '', 'لا سجل'));
+      det.append(a, b); td.append(det); d.append(td); t.append(d);
+    }
+  }
+  tw.append(t); if (!list.length) sec.append(el('div', 'empty', 'لا نتائج')); return sec;
+}
+function viewRooms() {
+  const sec = el('div', 'sec'), g = el('div', 'rooms'), codes = Object.keys(S.idx).sort((a, b) => (S.idx[b]?.t || 0) - (S.idx[a]?.t || 0));
+  for (const c of codes) {
+    const r = S.rooms[c] || {}, m = r.meta || {}, pl = Object.entries(r.players || {}), card = el('div', 'glass room'), h = el('header'), cb = el('button', 'btn sm dg', 'إغلاق');
+    cb.onclick = () => closeRoom(c); h.append(el('b', '', c), el('span', '', `${m.status === 'playing' ? '🎮 ' + gname(m.game) : m.status === 'closed' ? 'مغلقة' : 'ردهة'} · نشاط ${ago(S.idx[c]?.t)}`), cb); card.append(h);
+    pl.forEach(([uid, p]) => { const row = el('div', 'pr'), kb = el('button', 'btn sm', 'طرد'); kb.onclick = () => kick(c, uid, p.name); row.append(el('i', 'dot' + (p.connected ? '' : ' off')), el('b', '', p.name + (m.host === uid ? ' 👑' : '')), el('small', 'al', p.pid ? fmtPid(p.pid) : 'زائر'), kb); card.append(row); });
+    if (!pl.length) card.append(el('div', 'empty', 'لا لاعبين')); g.append(card);
+  }
+  sec.append(g); if (!codes.length) sec.append(el('div', 'glass empty', 'لا توجد غرف الآن')); return sec;
+}
+function viewDanger() {
+  const sec = el('div', 'sec');
+  [['إزالة كل اللاعبين', `حذف كل المسجلين (${removable().length}) بملفاتهم وسجلاتهم وأصدقائهم ورموز استرجاعهم. تتطلب تأكيداً بالكتابة. المشرفون وحسابك محميّون.`, 'إزالة الكل', delAll], ['إغلاق كل الغرف', `حذف كل الغرف الحالية (${Object.keys(S.idx).length}) وإخراج من فيها.`, 'إغلاق الكل', closeAll]].forEach(([h, d, b, f]) => {
+    const bx = el('div', 'glass box danger'), bt = el('button', 'btn dg', b); bt.onclick = f; bx.append(el('h3', '', h), el('p', 'al', d), bt); sec.append(bx);
+  }); return sec;
+}
+
+function paint() {
+  if (!me) return; const P = players(), v = { over: viewOver, pl: viewPlayers, rm: viewRooms, dz: viewDanger }[tab](P);
+  const foc = q && document.activeElement === q, pos = foc ? q.selectionStart : 0;
+  app.className = ''; app.replaceChildren(v); if (foc) { q.focus(); try { q.setSelectionRange(pos, pos); } catch { /* لا بأس */ } }
+  if (fresh) { fresh = false; A(v.children, { y: 16, opacity: 0, stagger: .06 }); A(app.querySelectorAll('.gb i'), { scaleX: 0, duration: .7, stagger: .04 }); A(app.querySelectorAll('.days i'), { scaleY: 0, duration: .6, stagger: .05 }); }
+}
+const queue = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; paint(); }); } };
+function nav() {
+  const n = $('#tabs'); n.hidden = false; n.replaceChildren();
+  TABS.forEach(([id, t]) => { const b = el('button', (id === tab ? 'on ' : '') + (id === 'dz' ? 'red' : ''), t); b.onclick = () => { if (tab === id) return; tab = id; fresh = true; nav(); paint(); }; n.append(b); });
+}
+
+// ===== التشغيل =====
+const subs = {};
+function watchRoom(c) {
+  if (subs[c]) return; S.rooms[c] = {};
+  subs[c] = ['meta', 'players'].map(k => onValue(ref(db, `rooms/${c}/${k}`), s => { (S.rooms[c] ||= {})[k] = s.val(); queue(); }, () => {}));
+}
+async function init() {
+  try {
+    me = await identity();
+    const setup = new URLSearchParams(location.search).has('setup');
+    let isAdmin = false;
+    try { isAdmin = (await get(ref(db, `admins/${me.pid}`))).val() === true; } catch (e) { return app.replaceChildren(el('div', 'error-msg', 'تعذّر التحقق من الصلاحية: ' + e.message)); }
+    if (!isAdmin) {
+      if (setup && me.ok) { const d = el('div'); d.append('لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف العقدة:', el('br'), el('code', '', `admins / ${me.pid} : true`)); return app.replaceChildren(d); }
+      return app.replaceChildren(el('div', '', 'غير متاح.'));
+    }
+    const on = (p, f) => onValue(ref(db, p), s => { f(s.val() || {}); queue(); }, e => { app.replaceChildren(el('div', 'error-msg', `تعذّرت قراءة ${p}: ${e.message}. تأكد من نشر قواعد Firebase الجديدة.`)); });
+    on('profiles', v => { S.profiles = v; }); on('history', v => { S.history = v; }); on('presence', v => { S.presence = v; }); on('admins', v => { S.admins = v; });
+    on('roomIndex', v => { S.idx = v; Object.keys(v).forEach(watchRoom); Object.keys(subs).filter(c => !v[c]).forEach(c => { subs[c].forEach(u => u()); delete subs[c]; delete S.rooms[c]; }); });
+    onValue(ref(db, '.info/connected'), s => { const l = $('#live'); l.classList.toggle('on', !!s.val()); l.lastChild.textContent = s.val() ? 'مباشر' : 'غير متصل'; });
+    setInterval(queue, 30e3);   // تحديث الأوقات النسبية
+    nav(); paint();
+  } catch (e) { app.replaceChildren(el('div', 'error-msg', 'حدث خطأ غير متوقع: ' + e.message)); console.error(e); }
+}
+init();
 </script>
 </body>
 </html>
