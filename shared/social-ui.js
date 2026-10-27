@@ -91,9 +91,17 @@ export async function initSocial(h) {
       k.append(sb("إظهار", b => { shownKey = !shownKey; kv.textContent = shownKey ? fmtKey(me.key) : "••••-••••-••••-••••-••••-••••"; b.textContent = shownKey ? "إخفاء" : "إظهار"; }), sb("نسخ", () => copy(fmtKey(me.key))));
       body.append(k, kv);
     }
-    const rs = el("div", "fadd"), ri = el("input"); ri.placeholder = "رمز استرجاع لحساب آخر"; ri.dir = "ltr"; ri.autocomplete = "off";
+    const rs = el("div", "fadd"), ri = el("input"); ri.placeholder = "المس للصق رمز الاسترجاع"; ri.dir = "ltr"; ri.autocomplete = "off"; ri.readOnly = true; ri.setAttribute("inputmode", "none");   // بلا كيبورد: اللمس يلصق من الحافظة
     const self = () => { if (me.key && parseKey(ri.value) === me.key) { const w = ri; ri.value = ""; thisIsYou(w); return true; } return false; };   // رمزك الحالي: لا داعي لاسترجاعه
     ri.addEventListener("input", () => { if (parseKey(ri.value)) self(); });
+    ri.addEventListener("click", async () => {
+      sfx.click();
+      try {
+        const t = (await navigator.clipboard.readText()).trim(), k = parseKey(t);
+        if (!k) return toast("لا يوجد رمز استرجاع صحيح في الحافظة. انسخ الرمز أولاً", "error");
+        ri.value = fmtKey(k); if (!self()) toast("لُصق الرمز، اضغط استرجاع", "ok");
+      } catch { toast("اسمح بالوصول للحافظة عند ظهور زر «لصق»", "error"); }
+    });
     rs.append(ri, sb("استرجاع", async () => {
       if (self()) return;
       if (!(await confirmDialog("سيحلّ هذا الحساب محل حسابك الحالي على هذا الجهاز. متأكد؟", "استرجاع", "إلغاء"))) return;
