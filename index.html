@@ -241,6 +241,7 @@ async function openLobby(rc) {
     },
     players: p => {
       S.players = p || {};
+      social?.refresh();
       if (p?.[S.uid]) S.joined = true;
       else if (S.joined) {                                 // اختفى اسمك بعد أن كنت فيها = طرد، لكن نتحقق أولاً بقراءة مباشرة
         clearTimeout(kickT); kickT = setTimeout(() => amIIn(rc).then(inn => { if (!inn && S.code === rc) closed('تم طردك من الغرفة', 'error'); }).catch(() => {}), 3000);
@@ -290,7 +291,7 @@ initInstall();                                             // للهاتف فق�
 const myName = () => cleanName($('#name').value) || savedName();
 identity().then(me => { if (me.ok) { startPresence(); if (savedName()) syncProfile(savedName()); } });
 initSocial({
-  name: myName, room: () => S.code,
+  name: myName, room: () => S.code, members: () => new Set(Object.values(S.code ? S.players : {}).map(p => p.pid).filter(Boolean)),
   createRoom: async () => { const n = myName(); if (!n) throw new Error('اكتب اسمك أولاً'); const c = await createRoom(n); await openLobby(c); return c; },
   join: async c => { const n = myName(); if (!n) throw new Error('اكتب اسمك أولاً'); if (S.code) { const old = S.code; stop?.(); stop = null; await leaveRoom(old); } await openLobby(await joinRoom(c, n)); }
 }).then(s => { social = s; place(inRoom); s.onChange(() => { if (S.meta) render(); }); }).catch(e => console.warn('social', e));                            // تنظيف الغرف المهملة (مرة كل 5 دقائق كحد أقصى)
