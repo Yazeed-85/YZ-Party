@@ -37,7 +37,17 @@ let P = null;
 export const identity = () => (P ??= (async () => {
   const u = await ready; let s = load();
   try { if (s) await linkNow(u.uid, s); else s = await createNew(u.uid); return { ...s, ok: true }; }
-  catch (e) { console.warn("identity", e); return { ...(s || {}), ok: false }; }
+  catch (e) {
+    console.warn("identity", e);
+    // الحساب حُذف من لوحة التحكم (الرمز لم يعد موجوداً): نبدأ هوية جديدة بدل البقاء بهوية ميتة. أي فشل اتصال لا يمسح شيئاً
+    try {
+      if (s && (await get(ref(db, `keys/${s.key}`))).val() === null) {
+        try { localStorage.removeItem(LS); } catch { /* ممنوع */ }
+        return { ...(await createNew(u.uid)), ok: true };
+      }
+    } catch { /* نكمل للرد الاحتياطي */ }
+    return { ...(s || {}), ok: false };
+  }
 })());
 
 // استرجاع الهوية برمز الاسترجاع على جهاز/متصفح جديد
