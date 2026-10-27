@@ -22,6 +22,7 @@ tr.p{cursor:pointer}tr.p:hover{background:rgba(255,255,255,.04)}
 tr.d td{background:rgba(0,0,0,.25)}.det{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.det h4{margin:0 0 6px;color:var(--amber);font-size:.9rem}
 .m{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,.07);font-size:.82rem}.m small{color:var(--mute)}
 .ok{color:#34d399}.bad{color:var(--rose)}.msg{padding:26px;text-align:center;line-height:1.9}code{direction:ltr;display:inline-block;color:var(--amber)}
+.error-msg {color: var(--rose); font-weight: bold; background: rgba(255,0,0,0.1); padding: 10px; border-radius: 8px;}
 </style>
 </head>
 <body>
@@ -41,62 +42,97 @@ const dt = t => t ? new Date(t).toLocaleString('ar', { day: 'numeric', month: 's
 const RES = { win: ['فوز', 'ok'], lose: ['خسارة', 'bad'], draw: ['تعادل', ''], 'coop-win': ['فوز جماعي', 'ok'], 'coop-lose': ['خسارة جماعية', 'bad'] };
 const app = $('#app');
 
-const me = await identity();
-let profiles, history, presence;
-try {
-  [profiles, history, presence] = await Promise.all(['profiles', 'history', 'presence'].map(async p => (await get(ref(db, p))).val() || {}));
-} catch {
-  const setup = new URLSearchParams(location.search).has('setup');     // تعليمات التفعيل تظهر للمالك فقط عبر dashboard.html?setup
-  if (setup && me.ok) app.replaceChildren(el('div', '', 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف العقدة:'), el('br'), el('code', '', `admins / ${me.pid} : true`));
-  else app.replaceChildren(el('div', '', 'غير متاح'));
-  throw 0;
-}
-// لاعب واحد لكل معرّف (pid) مهما تغير اسمه
-const empty = Object.values(profiles).filter(v => !v.name && !(v.stats?.games)).length;   // هويات أُنشئت لجهاز ثم استُرجع حساب آخر عليه: بلا اسم ولا ألعاب
-let P = Object.entries(profiles).map(([pid, v]) => {
-  const st = v.stats || {}, hist = Object.values(history[pid] || {}).sort((a, b) => b.t - a.t);
-  return { pid, name: v.name || 'بلا اسم', aliases: Object.values(v.aliases || {}).filter(n => n !== v.name), created: v.created, last: Math.max(v.last || 0, st.last || 0), online: presence[pid]?.on === true,
-    games: st.games || hist.length, wins: st.wins || 0, g: st.g || {}, hist };
-});
-P = P.filter(p => p.name !== 'بلا اسم' || p.games);
-const totalGames = new Set(Object.values(history).flatMap(h => Object.keys(h))).size;     // المباراة الواحدة لها نفس المعرّف عند كل مشاركيها
-const perGame = {}; P.forEach(p => Object.entries(p.g).forEach(([k, v]) => { perGame[k] = (perGame[k] || 0) + (v.p || 0); }));
-const sorts = { last: (a, b) => b.last - a.last, games: (a, b) => b.games - a.games, wins: (a, b) => b.wins - a.wins, created: (a, b) => (b.created || 0) - (a.created || 0), name: (a, b) => a.name.localeCompare(b.name, 'ar') };
+async function initDashboard() {
+    try {
+        const me = await identity();
+        const setup = new URLSearchParams(location.search).has('setup');
 
-app.className = ''; app.replaceChildren();
-const cards = el('div', 'cards');
-[['لاعبون', P.length], ['متصلون الآن', P.filter(p => p.online).length], ['ألعاب لُعبت', Math.round(totalGames)], ['نشطون اليوم', P.filter(p => Date.now() - p.last < 864e5).length]].forEach(([k, v]) => { const c = el('div', 'glass stat'); c.append(el('b', '', v), el('small', '', k)); cards.append(c); });
-const gb = el('div', 'glass gbars'), mx = Math.max(1, ...Object.values(perGame));
-gb.append(el('h3', '', 'مشاركات كل لعبة'));
-Object.entries(perGame).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => { const r = el('div', 'gb'), bar = el('i'); bar.style.width = (v / mx * 100) + '%'; const w = el('div'); w.append(bar); r.append(el('span', '', gname(k)), w, el('span', '', v)); gb.append(r); });
-const tools = el('div', 'tools'), q = el('input'), so = el('select'); q.placeholder = 'بحث بالاسم أو المعرّف…';
-[['last', 'الأحدث نشاطاً'], ['games', 'الأكثر لعباً'], ['wins', 'الأكثر فوزاً'], ['created', 'الأحدث تسجيلاً'], ['name', 'الاسم']].forEach(([v, t]) => so.append(new Option(t, v)));
-tools.append(q, so);
-const tw = el('div', 'glass tw'); app.append(cards, gb, tools, tw);
-if (empty) app.append(el('div', 'fnote', `${empty} هوية فارغة مخفية (أجهزة لم يُكتب فيها اسم بعد)`));
-let open = null;
-function draw() {
-  const k = q.value.trim().toLowerCase(), list = P.filter(p => !k || (p.name + ' ' + p.aliases.join(' ') + ' ' + p.pid + ' ' + fmtPid(p.pid)).toLowerCase().includes(k)).sort(sorts[so.value]);
-  const t = el('table'), hd = el('tr'); ['اللاعب', 'المعرّف', 'تسجيل', 'آخر نشاط', 'ألعاب', 'فوز', 'نسبة', 'الأكثر لعباً'].forEach(x => hd.append(el('th', '', x))); t.append(hd);
-  for (const p of list) {
-    const r = el('tr', 'p'), n = el('td'); n.append(el('i', 'dot' + (p.online ? '' : ' off')), el('b', '', p.name)); if (p.aliases.length) n.append(el('div', 'al', 'سابقاً: ' + p.aliases.slice(0, 3).join('، ')));
-    const fav = Object.entries(p.g).sort((a, b) => (b[1].p || 0) - (a[1].p || 0))[0];
-    const id = el('td'); id.append(el('span', 'id', fmtPid(p.pid)));
-    r.append(n, id, el('td', '', dt(p.created)), el('td', '', p.online ? 'متصل' : dt(p.last)), el('td', '', p.games), el('td', '', p.wins), el('td', '', p.games ? Math.round(p.wins / p.games * 100) + '%' : '—'), el('td', '', fav ? gname(fav[0]) : '—'));
-    r.onclick = () => { open = open === p.pid ? null : p.pid; draw(); }; t.append(r);
-    if (open === p.pid) {
-      const d = el('tr', 'd'), td = el('td'), det = el('div', 'det'); td.colSpan = 8;
-      const a = el('div'); a.append(el('h4', '', 'حسب اللعبة'));
-      Object.entries(p.g).forEach(([g, v]) => { const m = el('div', 'm'); m.append(el('span', '', gname(g)), el('small', '', `${v.w || 0} فوز من ${v.p || 0}`)); a.append(m); });
-      const b = el('div'); b.append(el('h4', '', `تاريخ الألعاب (${p.hist.length})`));
-      p.hist.slice(0, 25).forEach(l => { const m = el('div', 'm'), [lb, cl] = RES[l.r] || [l.r, '']; const s = el('span'); s.append(el('b', '', gname(l.g)), el('small', '', ` · ${dt(l.t)} · مع ${Object.values(l.w || {}).map(w => w.n).join('، ') || '—'}`)); m.append(s, el('span', cl, lb)); b.append(m); });
-      if (!p.hist.length) b.append(el('small', '', 'لا سجل'));
-      det.append(a, b); td.append(det); d.append(td); t.append(d);
+        // الخطوة 1: التحقق من الصلاحيات أولاً باستخدام pid
+        try {
+          const adminCheck = await get(ref(db, `admins/${me.pid}`));
+          if (!adminCheck.exists() || adminCheck.val() !== true) {
+              if (setup && me.ok) {
+                  app.replaceChildren(el('div', '', 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف العقدة:'), el('br'), el('code', '', `admins / ${me.pid} : true`));
+              } else {
+                  app.replaceChildren(el('div', '', 'غير متاح. معرّفك الحالي هو: ' + me.pid));
+              }
+              return; // إيقاف التنفيذ هنا بدون رمي خطأ يكسر الكود
+          }
+        } catch (e) {
+          app.replaceChildren(el('div', 'error-msg', 'خطأ في قراءة عقدة admins: ' + e.message));
+          return;
+        }
+
+        // الخطوة 2: الآن بما أننا متأكدون أنه أدمن، نقوم بجلب البيانات
+        let profiles, history, presence;
+        try {
+          [profiles, history, presence] = await Promise.all(['profiles', 'history', 'presence'].map(async p => (await get(ref(db, p))).val() || {}));
+        } catch (e) {
+            app.replaceChildren(el('div', 'error-msg', 'حدث خطأ أثناء جلب البيانات العامة (profiles, history). تأكد من قواعد Firebase (Read permissions). تفاصيل الخطأ: ' + e.message));
+            return;
+        }
+
+
+        // لاعب واحد لكل معرّف (pid) مهما تغير اسمه
+        const empty = Object.values(profiles).filter(v => !v.name && !(v.stats?.games)).length;   // هويات أُنشئت لجهاز ثم استُرجع حساب آخر عليه: بلا اسم ولا ألعاب
+        let P = Object.entries(profiles).map(([pid, v]) => {
+          const st = v.stats || {}, hist = Object.values(history[pid] || {}).sort((a, b) => b.t - a.t);
+          return { pid, name: v.name || 'بلا اسم', aliases: Object.values(v.aliases || {}).filter(n => n !== v.name), created: v.created, last: Math.max(v.last || 0, st.last || 0), online: presence[pid]?.on === true,
+            games: st.games || hist.length, wins: st.wins || 0, g: st.g || {}, hist };
+        });
+        P = P.filter(p => p.name !== 'بلا اسم' || p.games);
+        const totalGames = new Set(Object.values(history).flatMap(h => Object.keys(h))).size;     // المباراة الواحدة لها نفس المعرّف عند كل مشاركيها
+        const perGame = {}; P.forEach(p => Object.entries(p.g).forEach(([k, v]) => { perGame[k] = (perGame[k] || 0) + (v.p || 0); }));
+        const sorts = { last: (a, b) => b.last - a.last, games: (a, b) => b.games - a.games, wins: (a, b) => b.wins - a.wins, created: (a, b) => (b.created || 0) - (a.created || 0), name: (a, b) => a.name.localeCompare(b.name, 'ar') };
+
+        app.className = ''; app.replaceChildren();
+        const cards = el('div', 'cards');
+        [['لاعبون', P.length], ['متصلون الآن', P.filter(p => p.online).length], ['ألعاب لُعبت', Math.round(totalGames)], ['نشطون اليوم', P.filter(p => Date.now() - p.last < 864e5).length]].forEach(([k, v]) => { const c = el('div', 'glass stat'); c.append(el('b', '', v), el('small', '', k)); cards.append(c); });
+        const gb = el('div', 'glass gbars'), mx = Math.max(1, ...Object.values(perGame));
+        gb.append(el('h3', '', 'مشاركات كل لعبة'));
+        Object.entries(perGame).sort((a, b) => b[1] - a[1]).forEach(([k, v]) => { const r = el('div', 'gb'), bar = el('i'); bar.style.width = (v / mx * 100) + '%'; const w = el('div'); w.append(bar); r.append(el('span', '', gname(k)), w, el('span', '', v)); gb.append(r); });
+        const tools = el('div', 'tools'), q = el('input'), so = el('select'); q.placeholder = 'بحث بالاسم أو المعرّف…';
+        [['last', 'الأحدث نشاطاً'], ['games', 'الأكثر لعباً'], ['wins', 'الأكثر فوزاً'], ['created', 'الأحدث تسجيلاً'], ['name', 'الاسم']].forEach(([v, t]) => so.append(new Option(t, v)));
+        tools.append(q, so);
+        const tw = el('div', 'glass tw'); app.append(cards, gb, tools, tw);
+        if (empty) app.append(el('div', 'fnote', `${empty} هوية فارغة مخفية (أجهزة لم يُكتب فيها اسم بعد)`));
+        
+        // يجب تعريف المتغير open داخل نطاق دالة initDashboard ولكن قبله دالة draw
+        let open = null;
+        
+        function draw() {
+          const k = q.value.trim().toLowerCase(), list = P.filter(p => !k || (p.name + ' ' + p.aliases.join(' ') + ' ' + p.pid + ' ' + fmtPid(p.pid)).toLowerCase().includes(k)).sort(sorts[so.value]);
+          const t = el('table'), hd = el('tr'); ['اللاعب', 'المعرّف', 'تسجيل', 'آخر نشاط', 'ألعاب', 'فوز', 'نسبة', 'الأكثر لعباً'].forEach(x => hd.append(el('th', '', x))); t.append(hd);
+          for (const p of list) {
+            const r = el('tr', 'p'), n = el('td'); n.append(el('i', 'dot' + (p.online ? '' : ' off')), el('b', '', p.name)); if (p.aliases.length) n.append(el('div', 'al', 'سابقاً: ' + p.aliases.slice(0, 3).join('، ')));
+            const fav = Object.entries(p.g).sort((a, b) => (b[1].p || 0) - (a[1].p || 0))[0];
+            const id = el('td'); id.append(el('span', 'id', fmtPid(p.pid)));
+            r.append(n, id, el('td', '', dt(p.created)), el('td', '', p.online ? 'متصل' : dt(p.last)), el('td', '', p.games), el('td', '', p.wins), el('td', '', p.games ? Math.round(p.wins / p.games * 100) + '%' : '—'), el('td', '', fav ? gname(fav[0]) : '—'));
+            r.onclick = () => { open = open === p.pid ? null : p.pid; draw(); }; t.append(r);
+            if (open === p.pid) {
+              const d = el('tr', 'd'), td = el('td'), det = el('div', 'det'); td.colSpan = 8;
+              const a = el('div'); a.append(el('h4', '', 'حسب اللعبة'));
+              Object.entries(p.g).forEach(([g, v]) => { const m = el('div', 'm'); m.append(el('span', '', gname(g)), el('small', '', `${v.w || 0} فوز من ${v.p || 0}`)); a.append(m); });
+              const b = el('div'); b.append(el('h4', '', `تاريخ الألعاب (${p.hist.length})`));
+              p.hist.slice(0, 25).forEach(l => { const m = el('div', 'm'), [lb, cl] = RES[l.r] || [l.r, '']; const s = el('span'); s.append(el('b', '', gname(l.g)), el('small', '', ` · ${dt(l.t)} · مع ${Object.values(l.w || {}).map(w => w.n).join('، ') || '—'}`)); m.append(s, el('span', cl, lb)); b.append(m); });
+              if (!p.hist.length) b.append(el('small', '', 'لا سجل'));
+              det.append(a, b); td.append(det); d.append(td); t.append(d);
+            }
+          }
+          tw.replaceChildren(t);
+        }
+        
+        q.oninput = draw; so.onchange = draw; draw();
+
+    } catch (e) {
+        app.replaceChildren(el('div', 'error-msg', 'حدث خطأ غير متوقع: ' + e.message));
+        console.error(e);
     }
-  }
-  tw.replaceChildren(t);
 }
-q.oninput = draw; so.onchange = draw; draw();
+
+// تشغيل الدالة
+initDashboard();
+
 </script>
 </body>
 </html>
