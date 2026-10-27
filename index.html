@@ -6,6 +6,13 @@
 <title>YZ Party</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="theme-color" content="#090b13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="YZ Party">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
@@ -36,7 +43,7 @@
       <span class="copyhint">المس الكود لنسخ الرقم</span>
       <button id="copy" class="btn ghost">انسخ رابط الدعوة</button>
     </div>
-    <div class="glass pad"><div class="hrow"><h2>اللاعبون</h2><button id="dash" class="sbtn">📊 لوحة الغرفة</button></div><ul id="players"></ul></div>
+    <div class="glass pad"><h2>اللاعبون</h2><ul id="players"></ul></div>
     <div class="glass pad"><h2>الألعاب</h2><div id="games" class="games"></div><p id="hint" class="hint"></p></div>
     <div class="bar"><button id="start" class="btn primary">ابدأ اللعبة</button><button id="leave" class="btn ghost">غادر</button></div>
   </section>
@@ -48,8 +55,8 @@ import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveR
 import { GAMES } from './shared/games-registry.js';
 import { toast, sfx, show, enterAnim, toggleMute, isMuted } from './shared/ui.js';
 import { initSocial } from './shared/social-ui.js';
+import { initInstall } from './shared/install-ui.js';
 import { identity, syncProfile, startPresence } from './shared/identity.js';
-import { openRoomDash } from './shared/room-dash.js';
 
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -261,7 +268,6 @@ $('#tiles').onclick = () => {                              // لمس الكود 
   sfx.click(); copyText(S.code);
   if (G()) gsap.fromTo('#tiles .cc', { y: 0, scale: 1 }, { y: -6, scale: 1.12, duration: .18, yoyo: true, repeat: 1, stagger: .05, ease: 'power2.out' });
 };
-$('#dash').onclick = () => { sfx.click(); if (S.meta) openRoomDash({ code: S.code, meta: S.meta, players: S.players, scores: S.scores, uid: S.uid }); };
 $('#mute').onclick = () => { $('#mute').textContent = toggleMute() ? '🔇' : '🔊'; };
 
 // ===== التشغيل =====
@@ -271,6 +277,7 @@ const jp = digits(new URLSearchParams(location.search).get('join'));
 enterAnim('#home');
 Promise.all(GAMES.map(async g => IMG.set(g.id, await probe(g.id)))).then(() => { imgsReady = true; if (S.meta) render(); });
 ready.then(() => sweepRooms());
+initInstall();                                             // للهاتف فقط: دليل «أضف للشاشة الرئيسية»
 // الأصدقاء: أيقونة بجانب الصوت + دعوات. الدعوة تُنشئ الغرفة تلقائياً إن لم تكن في غرفة، والقبول ينقلك للغرفة مباشرة
 const myName = () => cleanName($('#name').value) || savedName();
 identity().then(me => { if (me.ok) { startPresence(); if (savedName()) syncProfile(savedName()); } });

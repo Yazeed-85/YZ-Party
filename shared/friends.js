@@ -4,7 +4,7 @@
 import { db, ref, get, set, update, remove, onValue, serverTimestamp } from "./firebase.js";
 import { identity } from "./identity.js";
 
-const R = p => ref(db, p);
+const R = p => (p ? ref(db, p) : ref(db));   // الجذر بلا مسار (ref(db, "") يرفضها Firebase)
 export const INVITE_TTL = 5 * 60e3;
 
 export async function profileOf(pid) { const v = (await get(R(`profiles/${pid}`))).val(); return v ? { pid, ...v } : null; }
