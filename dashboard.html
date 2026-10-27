@@ -46,9 +46,8 @@ let profiles, history, presence;
 try {
   [profiles, history, presence] = await Promise.all(['profiles', 'history', 'presence'].map(async p => (await get(ref(db, p))).val() || {}));
 } catch {
-  const setup = new URLSearchParams(location.search).has('setup');     // تعليمات التفعيل تظهر للمالك فقط عبر dashboard.html?setup
-  if (setup && me.ok) app.replaceChildren(el('div', '', 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف العقدة:'), el('br'), el('code', '', `admins / ${me.pid} : true`));
-  else app.replaceChildren(el('div', '', 'غير متاح'));
+  app.replaceChildren(el('div', '', 'هذه اللوحة للمشرف فقط.'), el('div', '', me.ok ? 'لتفعيل حسابك كمشرف: في Firebase Console ← Realtime Database ← Data أضف عقدة:' : 'حدّث قواعد Firebase أولاً (ملف firebase.rules.json) ثم أعد فتح الصفحة.'));
+  if (me.ok) { const c = el('code', '', `admins / ${me.pid} : true`); app.append(el('br'), c, el('div', '', `معرّفك: ${fmtPid(me.pid)}`)); }
   throw 0;
 }
 // لاعب واحد لكل معرّف (pid) مهما تغير اسمه
