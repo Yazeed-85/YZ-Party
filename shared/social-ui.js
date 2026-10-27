@@ -12,8 +12,15 @@ const ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke
 // صورة الطرفة: ضع ملفاً باسم media/this-is-you بإحدى الامتدادات (png/jpg/jpeg/gif/webp)، وإن لم يوجد يظهر رمز تعبيري
 const tryImg = urls => new Promise(res => { let i = 0; const next = () => { if (i >= urls.length) return res(null); const u = urls[i++], im = new Image(); im.onload = () => res(im); im.onerror = next; im.src = u; }; next(); });
 const selfImg = tryImg(["png", "jpg", "jpeg", "gif", "webp"].map(e => `media/this-is-you.${e}`));
-async function thisIsYou() {
-  document.activeElement?.blur?.();                       // يغلق الكيبورد ويعيد الشاشة لمكانها فتظهر النافذة في منتصف الشاشة (iOS يرفع الصفحة مع الكيبورد)
+let noFocusUntil = 0;
+function hideKeyboard(inp) {                              // iOS لا يغلق الكيبورد بـ blur وحده أحياناً: نجعل الحقل للقراءة فقط ثم ننقل التركيز لعنصر غير نصي
+  noFocusUntil = Date.now() + 1500;
+  if (inp) { inp.readOnly = true; inp.blur(); setTimeout(() => { inp.readOnly = false; }, 900); }
+  const t = document.createElement("div"); t.tabIndex = -1; t.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0"; document.body.append(t); t.focus({ preventScroll: true });
+  document.activeElement?.blur?.(); setTimeout(() => t.remove(), 1200);
+}
+async function thisIsYou(inp) {
+  hideKeyboard(inp); document.activeElement?.blur?.();                       // يغلق الكيبورد ويعيد الشاشة لمكانها فتظهر النافذة في منتصف الشاشة (iOS يرفع الصفحة مع الكيبورد)
   [0, 120, 350, 700].forEach(t => setTimeout(() => { scrollTo(0, 0); document.querySelector('.sheet-card .fbody')?.scrollTo?.(0, 0); }, t));
   const o = el("div", "ovl"), c = el("div", "glass joke"), img = await selfImg;
   if (img) { img.className = "joke-img"; c.append(img); } else c.append(el("div", "joke-emoji", "🤦"));
@@ -85,14 +92,14 @@ export async function initSocial(h) {
       body.append(k, kv);
     }
     const rs = el("div", "fadd"), ri = el("input"); ri.placeholder = "رمز استرجاع لحساب آخر"; ri.dir = "ltr"; ri.autocomplete = "off";
-    const self = () => { if (me.key && parseKey(ri.value) === me.key) { ri.value = ""; thisIsYou(); return true; } return false; };   // رمزك الحالي: لا داعي لاسترجاعه
+    const self = () => { if (me.key && parseKey(ri.value) === me.key) { const w = ri; ri.value = ""; thisIsYou(w); return true; } return false; };   // رمزك الحالي: لا داعي لاسترجاعه
     ri.addEventListener("input", () => { if (parseKey(ri.value)) self(); });
     rs.append(ri, sb("استرجاع", async () => {
       if (self()) return;
       if (!(await confirmDialog("سيحلّ هذا الحساب محل حسابك الحالي على هذا الجهاز. متأكد؟", "استرجاع", "إلغاء"))) return;
       try { await restoreIdentity(ri.value); toast("تم الاسترجاع", "ok"); setTimeout(() => location.reload(), 700); } catch (e) { toast(e.message, "error"); }
     }, "bad")); body.append(rs);
-    const ins = [...body.querySelectorAll("input")]; ins.forEach((i, k) => { if (vals[k]) i.value = vals[k]; }); if (fi >= 0 && ins[fi]) ins[fi].focus();
+    const ins = [...body.querySelectorAll("input")]; ins.forEach((i, k) => { if (vals[k]) i.value = vals[k]; }); if (fi >= 0 && ins[fi] && Date.now() > noFocusUntil) ins[fi].focus();
     body.scrollTop = keep;
   }
   async function add_(pid, name) {
