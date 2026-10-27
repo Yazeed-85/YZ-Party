@@ -18,16 +18,13 @@ export function toast(msg, kind = "info") {
   setTimeout(() => { if (curToast === t) curToast = null; anim() ? gsap.to(t, { y: -40, opacity: 0, scale: .9, duration: .3, ease: "power2.in", onComplete: () => t.remove() }) : t.remove(); }, 2600);
 }
 
-// لمسة مرئية (GSAP) عند الضغط على الأزرار: ينضغط ثم يرتدّ
+// لمسة مرئية (GSAP): ترتدّ الأزرار بعد الضغط. تعمل عند اكتمال النقرة (لا عند بدء الضغط) حتى لا يصغر الزر تحت المؤشر فتضيع النقرة عند حافته
 export function initPress(sel = ".btn,.sbtn,.afr,.kick,.fab,.gcard,.pill") {
   if (!window.gsap || reduce) return;
-  let cur = null;
-  const up = () => { if (cur) { gsap.to(cur, { scale: 1, duration: .55, ease: "elastic.out(1.1,.4)", clearProps: "transform" }); cur = null; } };
-  document.addEventListener("pointerdown", e => {
-    const b = e.target.closest?.(sel); if (!b || b.disabled) return; cur = b;
-    gsap.to(b, { scale: .9, duration: .09, ease: "power2.out", overwrite: "auto" });
+  document.addEventListener("click", e => {
+    const b = e.target.closest?.(sel); if (!b || b.disabled) return;
+    gsap.fromTo(b, { scale: .86 }, { scale: 1, duration: .6, ease: "elastic.out(1.1,.4)", clearProps: "transform", overwrite: "auto" });
   }, true);
-  ["pointerup", "pointercancel", "pointerleave", "dragend"].forEach(ev => document.addEventListener(ev, up, true));
 }
 
 export function enterAnim(sel) {
