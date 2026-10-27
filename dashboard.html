@@ -47,7 +47,7 @@ async function initDashboard() {
         const me = await identity();
         const setup = new URLSearchParams(location.search).has('setup');
 
-        // الخطوة 1: التحقق من الصلاحيات أولاً باستخدام pid
+        // الخطوة 1: التحقق من الصلاحيات باستخدام me.pid
         try {
           const adminCheck = await get(ref(db, `admins/${me.pid}`));
           if (!adminCheck.exists() || adminCheck.val() !== true) {
@@ -56,14 +56,14 @@ async function initDashboard() {
               } else {
                   app.replaceChildren(el('div', '', 'غير متاح. معرّفك الحالي هو: ' + me.pid));
               }
-              return; // إيقاف التنفيذ هنا بدون رمي خطأ يكسر الكود
+              return; 
           }
         } catch (e) {
           app.replaceChildren(el('div', 'error-msg', 'خطأ في قراءة عقدة admins: ' + e.message));
           return;
         }
 
-        // الخطوة 2: الآن بما أننا متأكدون أنه أدمن، نقوم بجلب البيانات
+        // الخطوة 2: جلب البيانات
         let profiles, history, presence;
         try {
           [profiles, history, presence] = await Promise.all(['profiles', 'history', 'presence'].map(async p => (await get(ref(db, p))).val() || {}));
@@ -97,7 +97,6 @@ async function initDashboard() {
         const tw = el('div', 'glass tw'); app.append(cards, gb, tools, tw);
         if (empty) app.append(el('div', 'fnote', `${empty} هوية فارغة مخفية (أجهزة لم يُكتب فيها اسم بعد)`));
         
-        // يجب تعريف المتغير open داخل نطاق دالة initDashboard ولكن قبله دالة draw
         let open = null;
         
         function draw() {
