@@ -224,6 +224,7 @@ function deal() {                                       // 9 للفريق الب
 
 // ===== المعاملات =====
 const act = fn => runTransaction(gameRef(ctx.code, 's'), cur => (cur ? fn(cur) : undefined)).catch(() => {});
+const bump = (xs, k, e) => { if (k == null) return xs || {}; const o = { ...(xs || {}) }; o[k] = { ...(o[k] || {}), [e]: ((o[k] || {})[e] || 0) + 1 }; return o; };   // عدّاد أحداث الخبرة
 const addLog = (c, ...e) => [...(c.log || []), ...e].slice(-LOG_MAX);
 const teams = c => c.teams || {};
 
@@ -268,7 +269,8 @@ const pick = idx => act(c => {
   if (teams(c)[`${c.turn}-op`] !== ctx.uid || c.board[idx].rev) return;
   const board = c.board.map((x, i) => (i === idx ? { ...x, rev: true } : x)), card = board[idx], left = { ...c.left };
   const tap = { t: 'tap', u: ctx.uid, tm: c.turn, w: card.w, k: card.c };
-  const base = { ...c, board, left, last: idx, log: addLog(c, tap) };
+  const hit = card.c === c.turn, xs = bump(bump(c.xs, ctx.uid, hit ? 'a' : card.c === 'assassin' ? 'x' : 'm'), hit ? teams(c)[`${c.turn}-spy`] : null, 'h');
+  const base = { ...c, board, left, last: idx, xs, log: addLog(c, tap) };
   if (card.c === 'assassin') return { ...base, phase: 'done', winner: other(c.turn), reason: `كشف فريق ${TEAM_AR[c.turn]} المغتال!`, seq: c.seq + 1 };
   if (card.c === 'red' || card.c === 'blue') left[card.c]--;
   if (left.red === 0) return { ...base, phase: 'done', winner: 'red', reason: 'كشف الفريق الأحمر كل عملائه!', seq: c.seq + 1 };
@@ -453,7 +455,7 @@ function render() {
     const win = myPos()[0] === st.winner; win ? sfx.win() : sfx.lose();
     if (ctx.isHost) setTimeout(() => {
       const winners = Object.entries(teams(st)).filter(([k]) => k.startsWith(st.winner + '-')).map(([, v]) => v);
-      finishGame(ctx, makeResult('team-win', winners, { winner: st.winner }));
+      finishGame(ctx, makeResult('team-win', winners, { winner: st.winner, ev: st.xs || {} }));
     }, END_MS);
   }
 }

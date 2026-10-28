@@ -83,7 +83,7 @@ main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bot
 <script type="module">
 import { runTransaction, onValue, serverNow, update } from '../../shared/firebase.js';
 import { enterRoom, watchRoom, gameRef, roomRef, goLobby, abortGame } from '../../shared/room.js';
-import { finishGame, makeResult } from '../../shared/result.js';
+import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import { initGameExit, initGroupExit } from '../../shared/leave.js';
@@ -326,9 +326,9 @@ function render() {
     ended = true; const w = st.winner;
     w === me ? sfx.win() : sfx.lose();
     if (ctx.isHost) setTimeout(() => {
-      if (nOf(st) === 2) return finishGame(ctx, makeResult('win', [st.order[w], st.order[1 - w]], { pts: st.pts }));
+      if (nOf(st) === 2) return finishGame(ctx, makeResult('win', [st.order[w], st.order[1 - w]], { pts: st.pts, ev: evBy(st.order, st.pts, 'r') }));
       const rank = aliveOf(st).sort((a, b) => st.pts[b] - st.pts[a]).map(i => st.order[i]);
-      finishGame(ctx, makeResult(w < 0 ? 'draw' : 'win', rank, { pts: st.pts }), Object.fromEntries(Object.entries(players).filter(([u]) => rank.includes(u))));
+      finishGame(ctx, makeResult(w < 0 ? 'draw' : 'win', rank, { pts: st.pts, ev: evBy(st.order, st.pts, 'r') }), Object.fromEntries(Object.entries(players).filter(([u]) => rank.includes(u))));
     }, 6000);
   }
 }

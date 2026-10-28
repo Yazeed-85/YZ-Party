@@ -34,6 +34,10 @@ tr.d td{background:rgba(0,0,0,.25)}.det{display:grid;grid-template-columns:repea
 .danger{border-color:rgba(255,107,129,.45)}.empty{color:var(--mute);text-align:center;padding:18px}
 .ov{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:grid;place-items:center;padding:16px}.mb{width:min(440px,100%);padding:20px;display:flex;flex-direction:column;gap:12px;background:#12162a}.mb p{line-height:1.8;font-size:.92rem}
 .toast{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:60;padding:10px 18px;border-radius:14px;background:#12162a;border:1px solid var(--line);font-size:.9rem;max-width:92vw}
+.sm.btn{width:auto}select{color-scheme:dark;padding:10px 14px;border-radius:14px;border:1px solid var(--line);background:#12162a;color:var(--text);font:inherit;cursor:pointer}select:focus-visible{border-color:var(--lagoon)}option{background:#12162a;color:var(--text)}
+textarea{width:100%;min-height:70px;padding:10px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.28);color:var(--text);font:inherit;resize:vertical}
+.phd{flex-direction:row;flex-wrap:wrap;align-items:center;gap:10px}.phd h2{font:700 1.6rem 'Reem Kufi',sans-serif;margin:0}.ed input[type=range]{padding:0;border:0;background:none;accent-color:var(--lagoon)}.prev{min-height:42px;display:flex;align-items:center;justify-content:center}
+.xb{height:10px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden}.xb i{display:block;height:100%;background:linear-gradient(90deg,#4fd1c5,#a855f7);border-radius:6px}.box h4{margin-top:6px}
 .error-msg{color:var(--rose);font-weight:700;background:rgba(255,0,0,.1);padding:10px;border-radius:8px}
 </style>
 </head>
@@ -46,7 +50,8 @@ tr.d td{background:rgba(0,0,0,.25)}.det{display:grid;grid-template-columns:repea
   <div id="app" class="glass msg">جارٍ التحميل…</div>
 </div>
 <script type="module">
-import { db, ref, get, update, onValue } from './shared/firebase.js';
+import { db, ref, get, set, update, onValue, serverTimestamp } from './shared/firebase.js';
+import { levelTag, levelOf, prog, xpAt, MSG } from './shared/level.js';
 import { identity, fmtPid } from './shared/identity.js';
 import { GAMES } from './shared/games-registry.js';
 
@@ -60,8 +65,8 @@ const norm = s => String(s).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.inde
 const A = (t, v) => { try { if (window.gsap && t && (t.length ?? 1)) gsap.from(t, { duration: .45, ease: 'power2.out', ...v }); } catch { /* الحركة اختيارية */ } };
 const RES = { win: ['فوز', 'ok'], lose: ['خسارة', 'bad'], draw: ['تعادل', ''], 'coop-win': ['فوز جماعي', 'ok'], 'coop-lose': ['خسارة جماعية', 'bad'] };
 const TABS = [['over', 'نظرة عامة'], ['pl', 'اللاعبون'], ['rm', 'الغرف المباشرة'], ['dz', 'منطقة الخطر']];
-const S = { profiles: {}, history: {}, presence: {}, idx: {}, rooms: {}, admins: {} };
-let me, tab = 'over', open = null, q, so, queued = false, fresh = true;
+const S = { profiles: {}, history: {}, presence: {}, idx: {}, rooms: {}, admins: {}, friends: {}, inbox: {} };
+let me, tab = 'over', profile = null, q, so, queued = false, fresh = true;
 
 function toast(t) { const x = el('div', 'toast', t); document.body.append(x); A(x, { y: 20, opacity: 0, duration: .25 }); setTimeout(() => x.remove(), 3200); }
 
@@ -99,7 +104,7 @@ async function closeRoom(code) {
 async function purge(pids) {
   const [adm, keys, link, proof, fr, rq, iv] = await Promise.all(['admins', 'keys', 'link', 'proof', 'friends', 'requests', 'invites'].map(p => get(ref(db, p)).then(s => s.val() || {})));
   const X = new Set([...pids].filter(p => adm[p] !== true && p !== me.pid)), u = {};
-  for (const p of X) for (const n of ['profiles', 'history', 'presence', 'friends', 'requests', 'invites']) u[`${n}/${p}`] = null;
+  for (const p of X) for (const n of ['profiles', 'history', 'presence', 'friends', 'requests', 'invites', 'inbox']) u[`${n}/${p}`] = null;
   const gone = new Set();
   for (const [k, v] of Object.entries(keys)) if (X.has(v)) { u[`keys/${k}`] = null; gone.add(k); }
   for (const [id, v] of Object.entries(link)) if (X.has(v)) u[`link/${id}`] = null;
@@ -133,7 +138,7 @@ async function closeAll() {
 function players() {
   const rows = Object.entries(S.profiles).map(([pid, v]) => {
     const st = v.stats || {}, hist = Object.values(S.history[pid] || {}).sort((a, b) => b.t - a.t);
-    return { pid, name: v.name || 'بلا اسم', aliases: Object.values(v.aliases || {}).filter(n => n !== v.name), created: v.created, last: Math.max(v.last || 0, st.last || 0), online: S.presence[pid]?.on === true, games: st.games || hist.length, wins: st.wins || 0, g: st.g || {}, hist, admin: S.admins[pid] === true };
+    return { pid, name: v.name || 'بلا اسم', aliases: Object.values(v.aliases || {}).filter(n => n !== v.name), created: v.created, last: Math.max(v.last || 0, st.last || 0), online: S.presence[pid]?.on === true, xp: st.xp || 0, mvp: st.mvp || 0, level: levelOf(st.xp || 0), games: st.games || hist.length, wins: st.wins || 0, g: st.g || {}, hist, admin: S.admins[pid] === true };
   });
   return { all: rows, shown: rows.filter(p => p.name !== 'بلا اسم' || p.games), hidden: rows.filter(p => p.name === 'بلا اسم' && !p.games).length };
 }
@@ -156,34 +161,89 @@ function viewOver(P) {
   const d2 = el('div', 'glass box'); d2.append(el('h3', '', 'تسجيلات جديدة آخر 7 أيام'), chart(days(P.shown.map(p => p.created).filter(Boolean)), 'var(--lagoon)'));
   const top = el('div', 'glass box'); top.append(el('h3', '', 'أفضل اللاعبين فوزاً'));
   [...P.shown].sort((a, b) => b.wins - a.wins).slice(0, 5).forEach((p, i) => { const m = el('div', 'm'); m.append(el('span', '', `${i + 1}. ${p.name}`), el('small', '', `${p.wins} فوز من ${p.games}`)); top.append(m); });
+  const mv = el('div', 'glass box'); mv.append(el('h3', '', 'أكثر لاعب MVP في كل لعبة'));
+  GAMES.forEach(g => { const b = P.shown.map(p => [p, p.g[g.id]?.m || 0]).sort((a, c) => c[1] - a[1])[0]; if (b && b[1] > 0) mv.append(mrow(gname(g.id), `${b[0].name} · ⭐ ${b[1]}`)); });
+  if (!mv.children[1]) mv.append(el('div', 'empty', 'لا بيانات بعد'));
   const on = el('div', 'glass box'); on.append(el('h3', '', 'المتصلون الآن'));
   P.shown.filter(p => p.online).slice(0, 12).forEach(p => { const m = el('div', 'm'); m.append(el('span', '', p.name), el('small', '', roomsOf(p.pid)[0] ? 'في غرفة ' + roomsOf(p.pid)[0].code : 'في الرئيسية')); on.append(m); });
   if (!on.children[1]) on.append(el('div', 'empty', 'لا أحد متصل'));
-  const two = el('div', 'two'); two.append(gb, top, d1, d2, on); sec.append(cards, two); return sec;
+  const two = el('div', 'two'); two.append(gb, top, mv, d1, d2, on); sec.append(cards, two); return sec;
+}
+const byRank = (a, b) => b.xp - a.xp || b.wins - a.wins || b.games - a.games;
+async function setLevel(p, L) {
+  const st = S.profiles[p.pid]?.stats || {};
+  try { await update(ref(db, `profiles/${p.pid}/stats`), { games: st.games || 0, wins: st.wins || 0, xp: xpAt(L) }); toast(`مستوى ${p.name} الآن ${L}`); } catch (e) { toast('تعذّر الحفظ: ' + e.message); }
+}
+async function sendMsg(p, k, m) {
+  if (k === 'custom' && !m) return toast('اكتب الرسالة أولاً');
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  try { await set(ref(db, `inbox/${p.pid}/${id}`), { k, t: serverTimestamp(), ...(m ? { m } : {}) }); toast(`أُرسلت إلى ${p.name} فقط · تظهر عند فتحه اللعبة`); } catch (e) { toast('تعذّر الإرسال: ' + e.message); }
+}
+const box = (h, ...kids) => { const b = el('div', 'glass box'); if (h) b.append(el('h3', '', h)); b.append(...kids); return b; };
+const mrow = (a, b, cl) => { const m = el('div', 'm'); m.append(el('span', '', a), el('small', cl || '', b)); return m; };
+
+function viewProfile(P) {
+  const p = P.all.find(x => x.pid === profile); if (!p) { profile = null; return viewPlayers(P); }
+  const sec = el('div', 'sec'), back = el('button', 'btn ghost sm', '→ كل اللاعبين'), N = P.shown.length;
+  back.onclick = () => { profile = null; fresh = true; paint(); };
+  const rank = [...P.shown].sort(byRank).findIndex(x => x.pid === p.pid) + 1, dAgo = p.last ? (Date.now() - p.last) / 864e5 : 1e9;
+  const act = p.online ? ['متصل الآن', 'ok'] : dAgo < 3 ? ['نشط', 'ok'] : dAgo < 14 ? ['فاتر', ''] : ['خامل', 'bad'];
+  const hd = el('div', 'glass box phd'); hd.append(el('h2', '', p.name + (p.admin ? ' 👑' : '')), levelTag(p.level, true), el('span', 'id', fmtPid(p.pid)), el('span', act[1], '● ' + act[0]));
+  if (p.aliases.length) hd.append(el('span', 'al', 'سابقاً: ' + p.aliases.slice(0, 4).join('، ')));
+  const rm = roomsOf(p.pid)[0], gp = el('div', 'tools'); gp.style.marginInlineStart = 'auto';
+  if (rm) { const b = el('button', 'btn sm', 'طرد من الغرفة ' + rm.code); b.onclick = () => kick(rm.code, rm.uid, p.name); gp.append(b); }
+  if (!p.admin && p.pid !== me.pid) { const b = el('button', 'btn sm dg', 'حذف اللاعب'); b.onclick = async () => { await delOne(p); if (!S.profiles[p.pid]) { profile = null; paint(); } }; gp.append(b); }
+  hd.append(gp);
+  // ألعاب مع الآخرين
+  const tog = {}; p.hist.forEach(l => Object.values(l.w || {}).forEach(w => { const k = w.p || 'n:' + w.n, o = (tog[k] ||= { n: w.n, c: 0, t: 0 }); o.c++; o.t = Math.max(o.t, l.t); }));
+  let streak = 0; for (const l of p.hist) { if (l.r === 'win' || l.r === 'coop-win') streak++; else break; }
+  const fav = Object.entries(p.g).sort((a, b) => (b[1].p || 0) - (a[1].p || 0))[0], pr = prog(p.xp);
+  const cards = el('div', 'cards'); [['المستوى', p.level], ['الخبرة', p.xp], ['التصنيف', `#${rank} / ${N}`], ['ألعاب', p.games], ['فوز', p.wins], ['نسبة الفوز', p.games ? Math.round(p.wins / p.games * 100) + '%' : '—'], ['سلسلة فوز', streak], ['MVP ⭐', p.mvp], ['الأكثر لعباً', fav ? gname(fav[0]) : '—'], ['تسجيل', dt(p.created)], ['آخر نشاط', p.online ? 'الآن' : ago(p.last)]]
+    .forEach(([k, v]) => { const c = el('div', 'glass stat'); c.append(el('b', '', v), el('small', '', k)); if (String(v).length > 7) c.firstChild.style.fontSize = '1.05rem'; cards.append(c); });
+  // محرّر المستوى
+  const rng = el('input'), num = el('input'), pv = el('div', 'prev'), bar = el('div', 'xb'), fi = el('i'), inf = el('small', 'al'), pre = el('div', 'tools'), cur = () => Math.max(0, Math.min(1000, Math.floor(+num.value || 0)));
+  rng.type = 'range'; rng.min = 0; rng.max = 1000; rng.value = p.level; num.type = 'number'; num.min = 0; num.max = 1000; num.value = p.level; bar.append(fi);
+  const upd = (from) => { const L = cur(); if (from === 'r') num.value = rng.value; else rng.value = L; const g = prog(xpAt(L)); pv.replaceChildren(levelTag(L, true)); inf.textContent = `يحتاج ${xpAt(L)} خبرة · المستوى التالي بعد ${g.need}`; if (window.gsap) gsap.to(fi, { width: (L === p.level ? pr.pct : 100) + '%', duration: .5 }); else fi.style.width = '100%'; };
+  rng.oninput = () => upd('r'); num.oninput = () => upd('n'); upd('n'); fi.style.width = pr.pct + '%';
+  [0, 10, 30, 50, 100, 300, 500, 800, 1000].forEach(L => { const b = el('button', 'btn sm', L); b.onclick = () => { num.value = L; upd('n'); }; pre.append(b); });
+  const sv = el('button', 'btn primary sm', 'حفظ المستوى'), rs = el('button', 'btn sm', 'تصفير'); sv.onclick = () => { document.activeElement?.blur(); setLevel(p, cur()); }; rs.onclick = () => { num.value = 0; upd('n'); };
+  const ed = box('المستوى والخبرة (معاينة وتعديل)', pv, rng, num, pre, bar, inf, el('div', 'tools')); ed.lastChild.append(sv, rs); ed.classList.add('ed');
+  // رسالة للاعب
+  const ps = el('select'), tx = el('textarea'), sd = el('button', 'btn primary', 'إرسال لهذا اللاعب فقط'), pend = Object.entries(S.inbox[p.pid] || {});
+  Object.entries(MSG).filter(([k]) => k !== 'custom' && k !== 'mvp').forEach(([k, [i, t]]) => ps.append(new Option(i + ' ' + t, k))); ps.append(new Option('💌 رسالة مخصصة فقط', 'custom'));
+  tx.maxLength = 140; tx.placeholder = 'نص مخصص (اختياري) يظهر بدل النص المحدد'; sd.onclick = () => { const m = tx.value.trim().slice(0, 140); document.activeElement?.blur(); sendMsg(p, ps.value, m).then(() => { tx.value = ''; }); };
+  const mb = box('إرسال إشعار', ps, tx, sd, el('small', 'al', `تُخزَّن في inbox/${fmtPid(p.pid)} وتظهر له وحده عند فتح اللعبة ثم تُحذف.`));
+  mb.append(el('h4', 'al', `بانتظار فتحه اللعبة (${pend.length})`));
+  pend.forEach(([id, v]) => { const m = el('div', 'm'), x = el('button', 'btn sm', 'إلغاء'); x.onclick = () => update(ref(db), { [`inbox/${p.pid}/${id}`]: null }); m.append(el('span', '', (MSG[v.k]?.[0] || '') + ' ' + (v.m || MSG[v.k]?.[1] || '')), x); mb.append(m); });
+  // الأصدقاء وشركاء اللعب
+  const frs = Object.entries(S.friends[p.pid] || {}).map(([q, v]) => ({ q, n: S.profiles[q]?.name || '؟', since: v?.t, g: tog[q] || { c: 0, t: 0 } })).sort((a, b) => b.g.c - a.g.c);
+  const fb = box(`الأصدقاء (${frs.length})`);
+  frs.forEach(f => { const m = el('div', 'm'), s = el('span'); s.append(el('b', '', f.n), levelTag(levelOf(S.profiles[f.q]?.stats?.xp || 0)), el('small', '', ` · منذ ${dt(f.since)}`)); m.append(s, el('small', '', f.g.c ? `${f.g.c} لعبة معاً · آخرها ${ago(f.g.t)}` : 'لم يلعبا معاً')); fb.append(m); });
+  if (!frs.length) fb.append(el('div', 'empty', 'لا أصدقاء'));
+  const pb = box('أكثر من لعب معهم'); Object.values(tog).sort((a, b) => b.c - a.c).slice(0, 6).forEach(o => pb.append(mrow(o.n, `${o.c} لعبة · آخرها ${ago(o.t)}`)));
+  if (!Object.keys(tog).length) pb.append(el('div', 'empty', 'لا سجل'));
+  const gb = box('حسب اللعبة'); Object.entries(p.g).sort((a, b) => (b[1].p || 0) - (a[1].p || 0)).forEach(([g, v]) => gb.append(mrow(gname(g), `${v.w || 0} فوز من ${v.p || 0} (${v.p ? Math.round((v.w || 0) / v.p * 100) : 0}%) · ⭐ ${v.m || 0}`)));
+  if (!Object.keys(p.g).length) gb.append(el('div', 'empty', 'لا ألعاب'));
+  const ch = box('نشاطه آخر 7 أيام', chart(days(p.hist.map(h => h.t))));
+  const hb = box(`آخر الألعاب (${p.hist.length})`);
+  p.hist.slice(0, 20).forEach(l => { const [lb, cl] = RES[l.r] || [l.r, '']; hb.append(mrow(`${gname(l.g)} · ${dt(l.t)} · مع ${Object.values(l.w || {}).map(w => w.n).join('، ') || '—'}${l.xp ? ' · +' + l.xp + ' XP' : ''}`, lb, cl)); });
+  const two = el('div', 'two'); two.append(ed, mb, fb, pb, gb, ch, hb); sec.append(back, hd, cards, two); return sec;
 }
 function viewPlayers(P) {
   const sec = el('div', 'sec'), tools = el('div', 'tools'), tw = el('div', 'glass tw');
-  if (!q) { q = el('input'); q.placeholder = 'بحث بالاسم أو المعرّف…'; so = el('select'); [['last', 'الأحدث نشاطاً'], ['games', 'الأكثر لعباً'], ['wins', 'الأكثر فوزاً'], ['created', 'الأحدث تسجيلاً'], ['name', 'الاسم']].forEach(([v, t]) => so.append(new Option(t, v))); q.oninput = so.onchange = () => paint(); }
-  const sorts = { last: (a, b) => b.last - a.last, games: (a, b) => b.games - a.games, wins: (a, b) => b.wins - a.wins, created: (a, b) => (b.created || 0) - (a.created || 0), name: (a, b) => a.name.localeCompare(b.name, 'ar') };
+  if (!q) { q = el('input'); q.placeholder = 'بحث بالاسم أو المعرّف…'; so = el('select'); [['last', 'الأحدث نشاطاً'], ['games', 'الأكثر لعباً'], ['wins', 'الأكثر فوزاً'], ['level', 'الأعلى مستوى'], ['created', 'الأحدث تسجيلاً'], ['name', 'الاسم']].forEach(([v, t]) => so.append(new Option(t, v))); q.oninput = so.onchange = () => paint(); }
+  const sorts = { last: (a, b) => b.last - a.last, games: (a, b) => b.games - a.games, wins: (a, b) => b.wins - a.wins, level: byRank, created: (a, b) => (b.created || 0) - (a.created || 0), name: (a, b) => a.name.localeCompare(b.name, 'ar') };
   tools.append(q, so); sec.append(tools, tw); if (P.hidden) sec.append(el('div', 'al', `${P.hidden} هوية فارغة مخفية (بلا اسم ولا ألعاب)`));
   const k = q.value.trim().toLowerCase(), list = P.shown.filter(p => !k || (p.name + ' ' + p.aliases.join(' ') + ' ' + p.pid + ' ' + fmtPid(p.pid)).toLowerCase().includes(k)).sort(sorts[so.value]);
-  const t = el('table'), hd = el('tr'); ['اللاعب', 'المعرّف', 'تسجيل', 'آخر نشاط', 'ألعاب', 'فوز', 'نسبة', 'الغرفة', ''].forEach(x => hd.append(el('th', '', x))); t.append(hd);
+  const t = el('table'), hd = el('tr'); ['اللاعب', 'المعرّف', 'المستوى', 'تسجيل', 'آخر نشاط', 'ألعاب', 'فوز', 'نسبة', 'الغرفة', ''].forEach(x => hd.append(el('th', '', x))); t.append(hd);
   for (const p of list) {
-    const r = el('tr', 'p'), n = el('td'), rm = roomsOf(p.pid)[0], id = el('td'), act = el('td');
+    const r = el('tr', 'p'), n = el('td'), rm = roomsOf(p.pid)[0], id = el('td'), act = el('td'), lv = el('td');
     n.append(el('i', 'dot' + (p.online ? '' : ' off')), ' ', el('b', '', p.name + (p.admin ? ' 👑' : ''))); if (p.aliases.length) n.append(el('div', 'al', 'سابقاً: ' + p.aliases.slice(0, 3).join('، ')));
-    id.append(el('span', 'id', fmtPid(p.pid)));
+    id.append(el('span', 'id', fmtPid(p.pid))); lv.append(levelTag(p.level));
     if (rm) { const b = el('button', 'btn sm', 'طرد'); b.onclick = e => { e.stopPropagation(); kick(rm.code, rm.uid, p.name); }; act.append(b); }
     if (!p.admin && p.pid !== me.pid) { const b = el('button', 'btn sm dg', 'حذف'); b.style.marginInlineStart = '6px'; b.onclick = e => { e.stopPropagation(); delOne(p); }; act.append(b); }
-    r.append(n, id, el('td', '', dt(p.created)), el('td', '', p.online ? 'متصل' : dt(p.last)), el('td', '', p.games), el('td', '', p.wins), el('td', '', p.games ? Math.round(p.wins / p.games * 100) + '%' : '—'), el('td', '', rm ? rm.code : '—'), act);
-    r.onclick = () => { open = open === p.pid ? null : p.pid; paint(); }; t.append(r);
-    if (open === p.pid) {
-      const d = el('tr', 'd'), td = el('td'), det = el('div', 'det'), a = el('div'), b = el('div'); td.colSpan = 9;
-      a.append(el('h4', '', 'حسب اللعبة')); Object.entries(p.g).forEach(([g, v]) => { const m = el('div', 'm'); m.append(el('span', '', gname(g)), el('small', '', `${v.w || 0} فوز من ${v.p || 0}`)); a.append(m); });
-      b.append(el('h4', '', `تاريخ الألعاب (${p.hist.length})`));
-      p.hist.slice(0, 25).forEach(l => { const m = el('div', 'm'), [lb, cl] = RES[l.r] || [l.r, ''], s = el('span'); s.append(el('b', '', gname(l.g)), el('small', '', ` · ${dt(l.t)} · مع ${Object.values(l.w || {}).map(w => w.n).join('، ') || '—'}`)); m.append(s, el('span', cl, lb)); b.append(m); });
-      if (!p.hist.length) b.append(el('small', '', 'لا سجل'));
-      det.append(a, b); td.append(det); d.append(td); t.append(d);
-    }
+    r.append(n, id, lv, el('td', '', dt(p.created)), el('td', '', p.online ? 'متصل' : dt(p.last)), el('td', '', p.games), el('td', '', p.wins), el('td', '', p.games ? Math.round(p.wins / p.games * 100) + '%' : '—'), el('td', '', rm ? rm.code : '—'), act);
+    r.onclick = () => { profile = p.pid; fresh = true; paint(); scrollTo(0, 0); }; t.append(r);
   }
   tw.append(t); if (!list.length) sec.append(el('div', 'empty', 'لا نتائج')); return sec;
 }
@@ -205,7 +265,7 @@ function viewDanger() {
 }
 
 function paint() {
-  if (!me) return; const P = players(), v = { over: viewOver, pl: viewPlayers, rm: viewRooms, dz: viewDanger }[tab](P);
+  if (!me) return; if (profile && tab === 'pl' && /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return; const P = players(), v = { over: viewOver, pl: profile ? viewProfile : viewPlayers, rm: viewRooms, dz: viewDanger }[tab](P);
   const foc = q && document.activeElement === q, pos = foc ? q.selectionStart : 0;
   app.className = ''; app.replaceChildren(v); if (foc) { q.focus(); try { q.setSelectionRange(pos, pos); } catch { /* لا بأس */ } }
   if (fresh) { fresh = false; A(v.children, { y: 16, opacity: 0, stagger: .06 }); A(app.querySelectorAll('.gb i'), { scaleX: 0, duration: .7, stagger: .04 }); A(app.querySelectorAll('.days i'), { scaleY: 0, duration: .6, stagger: .05 }); }
@@ -213,7 +273,7 @@ function paint() {
 const queue = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; paint(); }); } };
 function nav() {
   const n = $('#tabs'); n.hidden = false; n.replaceChildren();
-  TABS.forEach(([id, t]) => { const b = el('button', (id === tab ? 'on ' : '') + (id === 'dz' ? 'red' : ''), t); b.onclick = () => { if (tab === id) return; tab = id; fresh = true; nav(); paint(); }; n.append(b); });
+  TABS.forEach(([id, t]) => { const b = el('button', (id === tab ? 'on ' : '') + (id === 'dz' ? 'red' : ''), t); b.onclick = () => { if (tab === id && !profile) return; tab = id; profile = null; fresh = true; nav(); paint(); }; n.append(b); });
 }
 
 // ===== التشغيل =====
@@ -233,7 +293,7 @@ async function init() {
       return app.replaceChildren(el('div', '', 'غير متاح.'));
     }
     const on = (p, f) => onValue(ref(db, p), s => { f(s.val() || {}); queue(); }, e => { app.replaceChildren(el('div', 'error-msg', `تعذّرت قراءة ${p}: ${e.message}. تأكد من نشر قواعد Firebase الجديدة.`)); });
-    on('profiles', v => { S.profiles = v; }); on('history', v => { S.history = v; }); on('presence', v => { S.presence = v; }); on('admins', v => { S.admins = v; });
+    on('profiles', v => { S.profiles = v; }); on('history', v => { S.history = v; }); on('presence', v => { S.presence = v; }); on('admins', v => { S.admins = v; }); on('friends', v => { S.friends = v; }); on('inbox', v => { S.inbox = v; });
     on('roomIndex', v => { S.idx = v; Object.keys(v).forEach(watchRoom); Object.keys(subs).filter(c => !v[c]).forEach(c => { subs[c].forEach(u => u()); delete subs[c]; delete S.rooms[c]; }); });
     onValue(ref(db, '.info/connected'), s => { const l = $('#live'); l.classList.toggle('on', !!s.val()); l.lastChild.textContent = s.val() ? 'مباشر' : 'غير متصل'; });
     setInterval(queue, 30e3);   // تحديث الأوقات النسبية

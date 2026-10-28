@@ -33,7 +33,7 @@ main{justify-content:flex-start;padding-top:14px}
 <script type="module">
 import { runTransaction, onValue } from '../../shared/firebase.js';
 import { enterRoom, watchRoom, gameRef, goLobby, abortGame } from '../../shared/room.js';
-import { finishGame, makeResult } from '../../shared/result.js';
+import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import { initGameExit } from '../../shared/leave.js';
 
@@ -121,8 +121,8 @@ function render() {
       ended = true;
       w === 'draw' ? sfx.turn() : w === mine ? sfx.win() : sfx.lose();
       if (ctx.isHost) setTimeout(() => finishGame(ctx, w === 'draw'
-        ? makeResult('draw', st.order, { counts: [c('1'), c('2')] })
-        : makeResult('win', [st.order[w], st.order[1 - w]], { counts: [c('1'), c('2')] })), 3500);
+        ? makeResult('draw', st.order, { counts: [c('1'), c('2')], ev: evBy(st.order, [c('1'), c('2')], 'd') })
+        : makeResult('win', [st.order[w], st.order[1 - w]], { counts: [c('1'), c('2')], ev: evBy(st.order, [c('1'), c('2')], 'd') })), 3500);
     }
   } else {
     s.replaceChildren(Object.assign(document.createElement('i'), { className: 'chip p' + (st.turn + 1) }),

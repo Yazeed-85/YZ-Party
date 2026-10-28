@@ -146,7 +146,7 @@ main{max-width:520px;height:calc(100dvh - env(safe-area-inset-top,0px) - env(saf
 <script type="module">
 import { runTransaction, onValue, get, set, remove, serverNow } from '../../shared/firebase.js';
 import { enterRoom, watchRoom, gameRef, roomRef, goLobby, abortGame, backToLobby } from '../../shared/room.js';
-import { finishGame, makeResult } from '../../shared/result.js';
+import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar, confirmDialog, showOverlay, isMuted, toggleMute } from '../../shared/ui.js';
 import { initGroupExit } from '../../shared/leave.js';
@@ -212,11 +212,13 @@ function forfeitTx(c, idx, why) {
 }
 
 // حسم الاتهام: الورقة صادقة إن كانت كلها من الهدف أو جوكر. تعذّر إثبات الأوراق = كذب
+const bump = (xs, k, e) => { if (k == null) return xs || {}; const o = { ...(xs || {}) }; o[k] = { ...(o[k] || {}), [e]: ((o[k] || {})[e] || 0) + 1 }; return o; };   // عدّاد أحداث الخبرة
 function challenge(s, io) {
   const on = s.clg.on, cards = io.pl(s.order[on], s.last.pid);
   const valid = Array.isArray(cards) && cards.length === s.last.n;
   const liar = !valid || cards.some(x => x !== s.tg && x !== 'J'), vic = liar ? on : s.clg.by;
-  return { state: { ...s, ph: 'reveal', rv: { cards: valid ? cards : [], liar, vic, inv: !valid }, endAt: deadline(REVEAL_S), seq: s.seq + 1 } };
+  let xs = bump(s.xs, liar ? s.clg.by : on, liar ? 'c' : 'd'); if (!liar) xs = bump(xs, s.clg.by, 'w');
+  return { state: { ...s, xs, ph: 'reveal', rv: { cards: valid ? cards : [], liar, vic, inv: !valid }, endAt: deadline(REVEAL_S), seq: s.seq + 1 } };
 }
 function toRoulette(s, io) {
   const v = s.rv.vic;
@@ -226,7 +228,8 @@ function toRoulette(s, io) {
 function afterShot(s) {
   const v = s.shot?.vic ?? s.rv?.vic, al = [...s.al], out = [...(s.out || [])], ch = [...s.ch], hc = [...s.hc];
   if (v != null && al[v]) { if (s.shot?.died) { al[v] = 0; out.push(v); hc[v] = 0; } else ch[v]++; }
-  const alive = aliveIdx(al), base = { ...s, al, out, ch, hc, shot: null, rv: null, clg: null };
+  let xs = s.xs; if (v != null && s.shot) { if (s.shot.died && s.clg) xs = bump(xs, v === s.clg.on ? s.clg.by : s.clg.on, 'k'); else if (!s.shot.died) xs = bump(xs, v, 'sv'); }
+  const alive = aliveIdx(al), base = { ...s, xs, al, out, ch, hc, shot: null, rv: null, clg: null };
   if (alive.length <= 1) return { state: { ...base, ph: 'done', win: alive[0] ?? v ?? 0, endAt: deadline(DONE_S), seq: s.seq + 1 } };
   return startRound(base, false);
 }
@@ -652,7 +655,7 @@ async function hostFinish(s) {
     const present = Object.keys(players), rank = [s.order[s.win], ...[...(s.out || [])].reverse().map(i => s.order[i])];
     const ranking = rank.filter((u, i) => present.includes(u) && rank.indexOf(u) === i);
     await remove(roomRef(ctx.code, 'hands')).catch(() => {}); await remove(roomRef(ctx.code, 'secret')).catch(() => {});
-    await finishGame(ctx, makeResult('win', ranking.length ? ranking : [ctx.uid], { rounds: s.rnd }), players);
+    await finishGame(ctx, makeResult('win', ranking.length ? ranking : [ctx.uid], { rounds: s.rnd, ev: Object.fromEntries(s.order.map((u, i) => [u, s.xs?.[i] || {}])) }), players);
   } catch (e) { console.error(e); finishing = false; }
 }
 async function hostTick() {

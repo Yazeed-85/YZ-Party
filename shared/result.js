@@ -7,6 +7,9 @@
 //   team-win  فريق فائز: كل من في ranking ينال نقاط الفوز كاملة، والبقية صفر (مثل الكلمات المشفرة 2 ضد 2)
 import { db, ref, runTransaction, update, remove } from "./firebase.js";
 import { roomRef, gameRef } from "./room.js";
+import { MAXXP } from "./level.js";
+import { scoreGame } from "./xp-engine.js";
+export { evBy } from "./xp-engine.js";
 
 export const POINTS = { win: 3, second: 1, draw: 1, coop: 3, coopLose: 2 };
 const OUTCOMES = ["win", "draw", "coop-win", "coop-lose", "team-win"];
@@ -35,16 +38,17 @@ async function record(ctx, result, players) {
   const g = ctx.meta?.game || "", t = Date.now(), uids = Object.keys(players), { outcome, ranking } = result;
   const resOf = u => outcome === "win" ? (u === ranking[0] ? "win" : "lose") : outcome === "team-win" ? (ranking.includes(u) ? "win" : "lose") : outcome;
   const pts = pointsFor(result, uids), win = outcome === "win" ? [ranking[0]] : outcome === "team-win" ? ranking : [];
+  const SC = scoreGame(g, resOf, ranking, result.details, uids);
   const id = t.toString(36) + Math.random().toString(36).slice(2, 5), jobs = [];
-  jobs.push(update(roomRef(ctx.code, "party/log"), { [id]: { g, t, o: outcome, w: win.map(u => players[u]?.name || "لاعب") } }));
+  jobs.push(update(roomRef(ctx.code, "party/log"), { [id]: { g, t, o: outcome, w: win.map(u => players[u]?.name || "لاعب"), ...(SC.mvp ? { mvp: players[SC.mvp]?.name || "لاعب" } : {}) } }));
   for (const u of uids) {
     const me = players[u]; if (!me?.pid) continue;
-    const r = resOf(u), withs = uids.filter(x => x !== u).map(x => (players[x].pid ? { p: players[x].pid, n: players[x].name } : { n: players[x].name }));
-    jobs.push(update(ref(db, `history/${me.pid}`), { [id]: { g, t, r, pts: pts[u] || 0, n: me.name, w: withs, room: ctx.code } }));
+    const r = resOf(u), gain = SC.gain[u] || 0, mvp = SC.mvp === u, withs = uids.filter(x => x !== u).map(x => (players[x].pid ? { p: players[x].pid, n: players[x].name } : { n: players[x].name }));
+    jobs.push(update(ref(db, `history/${me.pid}`), { [id]: { g, t, r, pts: pts[u] || 0, n: me.name, w: withs, room: ctx.code, xp: gain, ...(mvp ? { mvp: true } : {}) } }));
     jobs.push(runTransaction(ref(db, `profiles/${me.pid}/stats`), cur => {
       const s = cur || {}, gs = { ...(s.g || {}) }, o = { ...(gs[g] || {}) };
-      o.p = (o.p || 0) + 1; if (r === "win" || r === "coop-win") o.w = (o.w || 0) + 1; gs[g || "?"] = o;
-      return { ...s, games: (s.games || 0) + 1, wins: (s.wins || 0) + (r === "win" || r === "coop-win" ? 1 : 0), g: gs, last: t };
+      o.p = (o.p || 0) + 1; if (mvp) o.m = (o.m || 0) + 1; if (r === "win" || r === "coop-win") o.w = (o.w || 0) + 1; gs[g || "?"] = o;
+      return { ...s, xp: Math.min(MAXXP, (s.xp || 0) + gain), mvp: (s.mvp || 0) + (mvp ? 1 : 0), games: (s.games || 0) + 1, wins: (s.wins || 0) + (r === "win" || r === "coop-win" ? 1 : 0), g: gs, last: t };
     }));
   }
   await Promise.allSettled(jobs);

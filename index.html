@@ -43,7 +43,7 @@
       <span class="copyhint">المس الكود لنسخ الرقم</span>
       <button id="copy" class="btn ghost">انسخ رابط الدعوة</button>
     </div>
-    <div class="glass pad" id="plcard"><div class="hrow" id="plhead"><h2>اللاعبون</h2></div><ul id="players"></ul></div>
+    <div class="glass pad"><h2>اللاعبون</h2><ul id="players"></ul></div>
     <div class="glass pad"><h2>الألعاب</h2><div id="games" class="games"></div><p id="hint" class="hint"></p></div>
     <div class="bar"><button id="start" class="btn primary">ابدأ اللعبة</button><button id="leave" class="btn ghost">غادر</button></div>
   </section>
@@ -53,10 +53,12 @@
 import { ready, onValue } from './shared/firebase.js';
 import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveRoom, getCode, savedName, saveName, cleanName, checkRoom, kickPlayer, roomRef, sweepRooms, stopTracking, amIIn, roomOpen } from './shared/room.js';
 import { GAMES } from './shared/games-registry.js';
-import { toast, sfx, show, enterAnim, toggleMute, isMuted, initPress } from './shared/ui.js';
+import { toast, sfx, show, enterAnim, toggleMute, isMuted } from './shared/ui.js';
 import { initSocial } from './shared/social-ui.js';
 import { initInstall } from './shared/install-ui.js';
 import { identity, syncProfile, startPresence } from './shared/identity.js';
+import { levelTagFor } from './shared/level.js';
+import './shared/notify.js';
 
 const $ = s => document.querySelector(s);
 const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -67,14 +69,7 @@ const IMG = new Map(); let imgsReady = false, cardsShown = false;
 const tryList = urls => new Promise(res => { let i = 0;
   const next = () => { if (i >= urls.length) return res(null); const u = urls[i++], im = new Image(); im.onload = () => res(u); im.onerror = next; im.src = u; }; next(); });
 const probe = id => tryList([...(USE_PHOTOS ? ['jpg', 'png', 'jpeg', 'webp'].map(e => `game-images/${id}.${e}`) : []), `game-covers/${id}.svg`]);
-let verT = null, kickT = null, social = null, inRoom = false;
-// داخل الغرفة: الصوت يصعد لزاوية بطاقة الكود (أعلى اليسار) والأصدقاء بجانب عنوان «اللاعبون»، وتختفي أيقونة التثبيت. وفي الرئيسية تعود كلها لمكانها
-function place(v) {
-  inRoom = v; document.body.classList.toggle('inroom', v);
-  const m = $('#mute'), f = $('#fr');
-  if (v) { $('.codewrap').append(m); m.classList.add('in'); if (f) { $('#plcard').append(f); f.classList.add('in'); } }
-  else { document.body.append(m); m.classList.remove('in'); if (f) { document.body.append(f); f.classList.remove('in'); } }
-}
+let verT = null, kickT = null, social = null;
 let S = { code: null, uid: null, meta: null, players: {}, scores: {}, joined: false }, stop = null, armed = null, armT = null, known = new Set();
 
 // ===== الشاشة الرئيسية: الاسم والكود والأزرار الذكية =====
@@ -167,6 +162,7 @@ function render() {
   $('#players').replaceChildren(...ids.map(([id, p]) => {
     const li = h('li', 'pl');
     li.append(h('i', 'dot' + (p.connected === false ? ' off' : '')), h('span', 'nm', p.name + (id === uid ? ' (أنت)' : '')));
+    if (p.pid) li.lastChild.append(levelTagFor(p.pid));
     if (id === meta.host) li.append(h('span', 'crown', 'المضيف'));
     if (id !== uid && p.pid && social?.me.ok) {                    // «إضافة صديق» للجميع (مضيفاً كان أو منضماً) ويختفي لمن هو صديقك فعلاً
       const st = social.status(p.pid);
@@ -219,7 +215,7 @@ function closed(msg, kind = 'info') {
   fromLink = false; $('#back').hidden = true; $('#create').hidden = false; $('#or').hidden = false;
   $('#code').readOnly = false; $('#code').value = ''; $('#codebox').classList.remove('locked'); code = ''; roomState = 'idle'; busy = false;
   paint($('#codebox'), ''); refresh();
-  toast(msg, kind); show('home'); place(false);
+  toast(msg, kind); show('home');
 }
 
 async function openLobby(rc) {
@@ -227,7 +223,7 @@ async function openLobby(rc) {
   stop?.();
   S = { code: rc, uid: u.uid, meta: null, players: {}, scores: {}, joined: false }; known = new Set();
   fromLink = false; $('#back').hidden = true; history.replaceState(null, '', location.pathname);
-  show('lobby'); place(true);
+  show('lobby');
   const unWatch = watchRoom(rc, {
     meta: m => {
       if (!m) {                                            // اختفاء مفاجئ: لا نغلق قبل التحقق بقراءة مباشرة
@@ -241,7 +237,6 @@ async function openLobby(rc) {
     },
     players: p => {
       S.players = p || {};
-      social?.refresh();
       if (p?.[S.uid]) S.joined = true;
       else if (S.joined) {                                 // اختفى اسمك بعد أن كنت فيها = طرد، لكن نتحقق أولاً بقراءة مباشرة
         clearTimeout(kickT); kickT = setTimeout(() => amIIn(rc).then(inn => { if (!inn && S.code === rc) closed('تم طردك من الغرفة', 'error'); }).catch(() => {}), 3000);
@@ -285,16 +280,15 @@ const jp = digits(new URLSearchParams(location.search).get('join'));
 enterAnim('#home');
 Promise.all(GAMES.map(async g => IMG.set(g.id, await probe(g.id)))).then(() => { imgsReady = true; if (S.meta) render(); });
 ready.then(() => sweepRooms());
-initPress();
 initInstall();                                             // للهاتف فقط: دليل «أضف للشاشة الرئيسية»
 // الأصدقاء: أيقونة بجانب الصوت + دعوات. الدعوة تُنشئ الغرفة تلقائياً إن لم تكن في غرفة، والقبول ينقلك للغرفة مباشرة
 const myName = () => cleanName($('#name').value) || savedName();
 identity().then(me => { if (me.ok) { startPresence(); if (savedName()) syncProfile(savedName()); } });
 initSocial({
-  name: myName, room: () => S.code, members: () => new Set(Object.values(S.code ? S.players : {}).map(p => p.pid).filter(Boolean)),
+  name: myName, room: () => S.code,
   createRoom: async () => { const n = myName(); if (!n) throw new Error('اكتب اسمك أولاً'); const c = await createRoom(n); await openLobby(c); return c; },
   join: async c => { const n = myName(); if (!n) throw new Error('اكتب اسمك أولاً'); if (S.code) { const old = S.code; stop?.(); stop = null; await leaveRoom(old); } await openLobby(await joinRoom(c, n)); }
-}).then(s => { social = s; place(inRoom); s.onChange(() => { if (S.meta) render(); }); }).catch(e => console.warn('social', e));                            // تنظيف الغرف المهملة (مرة كل 5 دقائق كحد أقصى)
+}).then(s => { social = s; s.onChange(() => { if (S.meta) render(); }); }).catch(e => console.warn('social', e));                            // تنظيف الغرف المهملة (مرة كل 5 دقائق كحد أقصى)
 if (jp.length === 4) enterLinkMode(jp);
 else if (getCode()) enterRoom().then(c => openLobby(c.code)).catch(() => sessionStorage.removeItem('yz_room'));
 </script>

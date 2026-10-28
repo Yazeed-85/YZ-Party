@@ -35,7 +35,7 @@ svg.my .hit.free{cursor:pointer}
 <script type="module">
 import { runTransaction, onValue } from '../../shared/firebase.js';
 import { enterRoom, watchRoom, gameRef, goLobby, abortGame } from '../../shared/room.js';
-import { finishGame, makeResult } from '../../shared/result.js';
+import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import { initGameExit } from '../../shared/leave.js';
 
@@ -119,7 +119,7 @@ function render() {
     if (!ended) {
       ended = true;
       w === 'draw' ? sfx.turn() : w === mine ? sfx.win() : sfx.lose();
-      const d = { boxes: [c('1'), c('2')] };
+      const d = { boxes: [c('1'), c('2')], ev: evBy(st.order, [c('1'), c('2')], 'b') };
       if (ctx.isHost) setTimeout(() => finishGame(ctx, w === 'draw'
         ? makeResult('draw', st.order, d) : makeResult('win', [st.order[w], st.order[1 - w]], d)), 3500);
     }

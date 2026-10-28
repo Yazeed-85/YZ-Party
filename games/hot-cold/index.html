@@ -150,7 +150,7 @@ main{height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bott
 <script type="module">
 import { runTransaction, onValue, serverNow } from '../../shared/firebase.js';
 import { enterRoom, watchRoom, gameRef, goLobby, abortGame } from '../../shared/room.js';
-import { finishGame, makeResult } from '../../shared/result.js';
+import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import { initGameExit } from '../../shared/leave.js';
@@ -650,8 +650,8 @@ function render() {
     w === me ? sfx.win() : w === 'draw' ? sfx.turn() : sfx.lose();
     if (ctx.isHost) {
       setTimeout(() => finishGame(ctx, w === 'draw'
-        ? makeResult('draw', st.order, { pts: st.pts })
-        : makeResult('win', [st.order[w], st.order[1 - w]], { pts: st.pts })
+        ? makeResult('draw', st.order, { pts: st.pts, ev: evBy(st.order, st.pts, 'r') })
+        : makeResult('win', [st.order[w], st.order[1 - w]], { pts: st.pts, ev: evBy(st.order, st.pts, 'r') })
       ), 5500);
     }
   }
