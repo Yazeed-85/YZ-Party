@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#141b36"/><stop offset="1" stop-color="#090c18"/></linearGradient>
+<radialGradient id="felt" cx=".5" cy=".4" r=".8"><stop offset="0" stop-color="#1c6f6a"/><stop offset=".6" stop-color="#124a4d"/><stop offset="1" stop-color="#0b2f35"/></radialGradient>
+<radialGradient id="heart" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#ffc2cb"/><stop offset=".55" stop-color="#ff6b81"/><stop offset="1" stop-color="#c0304f"/></radialGradient>
+<radialGradient id="glowA" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffb454" stop-opacity=".4"/><stop offset="1" stop-color="#ffb454" stop-opacity="0"/></radialGradient>
+<linearGradient id="wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a5a34"/><stop offset=".5" stop-color="#4a2c17"/><stop offset="1" stop-color="#7a4d2b"/></linearGradient>
+<linearGradient id="post" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2a2f44"/><stop offset=".5" stop-color="#6b7391"/><stop offset="1" stop-color="#2a2f44"/></linearGradient>
+<path id="hp" d="M0 12 C-18 -2 -12 -16 0 -6 C12 -16 18 -2 0 12Z"/>
+<filter id="blur"><feGaussianBlur stdDeviation="10"/></filter>
+</defs>
+<rect width="600" height="400" fill="url(#bg)"/>
+<circle cx="300" cy="200" r="190" fill="url(#glowA)"/>
+<!-- الطاولة -->
+<rect x="70" y="60" width="460" height="290" rx="48" fill="url(#wood)"/>
+<rect x="82" y="72" width="436" height="266" rx="38" fill="url(#felt)"/>
+<g opacity=".08" stroke="#fff" stroke-width="2"><path d="M90 120 L510 90 M90 190 L510 170 M90 260 L510 250"/></g>
+<!-- الحامل والعدّاد -->
+<ellipse cx="300" cy="312" rx="62" ry="12" fill="#000" opacity=".4"/>
+<ellipse cx="300" cy="304" rx="56" ry="10" fill="#242a3d"/>
+<rect x="291" y="262" width="18" height="44" rx="3" fill="url(#post)"/>
+<g>
+  <rect x="204" y="150" width="192" height="120" rx="16" fill="#161a2b" stroke="#6b7391" stroke-width="4"/>
+  <rect x="216" y="162" width="168" height="96" rx="10" fill="#04070e" stroke="#2b3556" stroke-width="2"/>
+  <text x="300" y="226" text-anchor="middle" font-family="monospace" font-weight="900" font-size="54" fill="#4fd1c5">3.00</text>
+  <circle cx="378" cy="170" r="5" fill="#ffb454"/>
+</g>
+<!-- اللاعبان وجهاً لوجه -->
+<g>
+  <circle cx="300" cy="106" r="22" fill="#e8b88a"/><path d="M278 102 Q280 80 300 80 Q320 80 322 102 Q312 92 300 92 Q288 92 278 102Z" fill="#2b1d12"/>
+  <path d="M254 134 C254 118 276 112 300 112 C324 112 346 118 346 134Z" fill="#3b5bdb"/>
+  <g transform="translate(300 56) scale(.8)" opacity=".001"/>
+</g>
+<g>
+  <circle cx="300" cy="332" r="26" fill="#1b1b1b"/>
+  <path d="M244 372 C244 350 268 342 300 342 C332 342 356 350 356 372Z" fill="#c2255c"/>
+</g>
+<!-- قلوب -->
+<g transform="translate(236 40)"><use href="#hp" fill="url(#heart)" transform="scale(.8)"/></g>
+<g transform="translate(300 40)"><use href="#hp" fill="url(#heart)" transform="scale(.8)"/></g>
+<g transform="translate(364 40)"><use href="#hp" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="2" transform="scale(.8)"/></g>
+<!-- شرارات الانفجار -->
+<g fill="#ff6b81"><circle cx="388" cy="30" r="4"/><circle cx="404" cy="46" r="3"/><circle cx="376" cy="58" r="3" fill="#ffd166"/></g>
+</svg>

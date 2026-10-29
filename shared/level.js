@@ -11,7 +11,7 @@ export function levelOf(xp) {
 export function prog(xp) { const L = levelOf(xp), lo = xpAt(L), hi = L < MAXL ? xpAt(L + 1) : lo; return { level: L, cur: xp - lo, need: hi - lo, pct: hi > lo ? Math.min(100, (xp - lo) / (hi - lo) * 100) : 100 }; }
 
 // الخبرة: وزن اللعبة × (مشاركة + مكافأة النتيجة). الألعاب التي تفتقر لحدث وسطي تعتمد على النتيجة، ويمكن لأي لعبة إضافة خبرة حدثية عبر details.xp = { uid: رقم } في makeResult
-export const WEIGHT = { xo: 1, connect4: 1.2, reversi: 1.4, "dots-boxes": 1.3, "hot-cold": 1.5, "shared-word": 1.6, "my-balance": 1.7, "truth-lie": 1.8, "reverse-echo": 1.8, codenames: 2, "liars-bar": 2.2 };
+export const WEIGHT = { xo: 1, connect4: 1.2, reversi: 1.4, "dots-boxes": 1.3, counter: 1.4, "hot-cold": 1.5, "shared-word": 1.6, "my-balance": 1.7, "truth-lie": 1.8, "reverse-echo": 1.8, codenames: 2, "liars-bar": 2.2 };
 export function xpGain(game, r, o = {}) {
   let x = 40;
   if (r === "win") x += 160; else if (r === "draw") x += 60; else if (r === "coop-win") x += 140 + 20 * (o.bonus || 0);

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>العدّاد</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+html,body{height:100%;overflow:hidden}
+body{user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+main{height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:6px;padding:10px 14px 12px;max-width:460px;position:relative;z-index:1}
+.scorebar{padding:6px 10px;flex:none}.sb{padding:5px 12px}
+
+/* ===== المقاعد ===== */
+.seat{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;transition:filter .4s}
+.seat .info{display:flex;flex-direction:column;align-items:center;gap:3px}
+.seat .nm2{font:700 1rem 'Reem Kufi',sans-serif;display:flex;align-items:center;gap:6px;padding:2px 12px;border-radius:999px;border:1px solid transparent;transition:.3s}
+.seat.turn .nm2{border-color:rgba(255,180,84,.6);background:rgba(255,180,84,.12);color:var(--amber);box-shadow:0 0 16px rgba(255,180,84,.3)}
+.hearts{display:flex;gap:6px;direction:ltr}
+.heart{width:clamp(22px,4.6dvh,32px);height:clamp(22px,4.6dvh,32px);position:relative}
+.heart svg{width:100%;height:100%;display:block;overflow:visible}
+.heart .fill{fill:url(#hg);filter:drop-shadow(0 0 6px rgba(255,107,129,.7));transition:opacity .2s}
+.heart .out{fill:none;stroke:rgba(255,255,255,.28);stroke-width:1.6}
+.heart.lost .fill{opacity:0}
+.avatar{width:clamp(70px,13dvh,112px);aspect-ratio:120/100;display:block;overflow:visible}
+.seat.me .avatar{filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
+.avatar .sway{transform-box:fill-box;transform-origin:50% 100%}
+
+/* ===== الطاولة ===== */
+.table{flex:1;min-height:0;position:relative;border-radius:34px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:6px;padding:14px 12px 14px;margin:6px 6px;
+ background:radial-gradient(120% 90% at 50% 38%,#1c6f6a 0%,#124a4d 55%,#0b2f35 100%);
+ box-shadow:0 0 0 5px #8a5a34,0 0 0 9px #4a2c17,0 0 0 11px #2c1a0d,0 22px 50px rgba(0,0,0,.6),inset 0 0 70px rgba(0,0,0,.55)}
+.table::after{content:'';position:absolute;inset:0;border-radius:34px;pointer-events:none;background:repeating-linear-gradient(115deg,rgba(255,255,255,.018) 0 2px,transparent 2px 6px),radial-gradient(60% 40% at 50% 28%,rgba(255,236,170,.2),transparent 70%)}
+.table>*{position:relative;z-index:1}
+
+/* الحامل والعدّاد */
+.stand{perspective:760px;display:flex;flex-direction:column;align-items:center;margin-top:2px;filter:drop-shadow(0 18px 14px rgba(0,0,0,.45))}
+.disp{width:clamp(150px,44vw,196px);aspect-ratio:196/124;position:relative;transform-style:preserve-3d}
+.face{position:absolute;inset:0;border-radius:16px;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden}
+.face.back{background:linear-gradient(145deg,#4a5169,#262b3d 60%,#1a1e2d);border:2px solid #6b7391;box-shadow:inset 0 2px 0 rgba(255,255,255,.18),inset 0 -8px 16px rgba(0,0,0,.4)}
+.face.back .vents{position:absolute;left:12%;right:12%;top:22%;bottom:34%;background:repeating-linear-gradient(0deg,rgba(0,0,0,.55) 0 5px,transparent 5px 11px);border-radius:6px}
+.face.back .logo{position:absolute;left:0;right:0;bottom:9%;text-align:center;font:900 .7rem 'Orbitron',sans-serif;letter-spacing:.25em;color:#8b93b0;direction:ltr}
+.led{position:absolute;top:9%;right:9%;width:12px;height:12px;border-radius:50%;background:#7a5a1a;box-shadow:0 0 0 2px rgba(0,0,0,.4)}
+.led.idle{background:#ffb454;box-shadow:0 0 10px #ffb454,0 0 0 2px rgba(0,0,0,.4)}
+.led.run{background:#34d399;box-shadow:0 0 14px #34d399,0 0 0 2px rgba(0,0,0,.4);animation:blink .5s infinite alternate}
+@keyframes blink{to{opacity:.25}}
+.face.front{transform:rotateY(180deg);background:linear-gradient(160deg,#0b1220,#04070e);border:2px solid #2b3556;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:inset 0 0 26px rgba(0,210,255,.16)}
+.face.front .dg{font:900 clamp(2rem,10vw,2.9rem) 'Orbitron',sans-serif;color:#4fd1c5;text-shadow:0 0 14px rgba(79,209,197,.8);direction:ltr;letter-spacing:.04em}
+.face.front .dg.bad{color:#ff6b81;text-shadow:0 0 16px rgba(255,107,129,.85)}
+.face.front .tg{font:700 .78rem 'Orbitron',sans-serif;color:#9aa0b8;direction:ltr}
+.post{width:14px;height:clamp(14px,3.4dvh,26px);background:linear-gradient(90deg,#2a2f44,#6b7391,#2a2f44);border-radius:2px}
+.base{width:clamp(96px,28vw,128px);height:16px;border-radius:50%;background:radial-gradient(ellipse at 50% 30%,#6b7391,#242a3d 70%);box-shadow:0 6px 0 #14182a}
+
+/* لافتة الهدف */
+.plaque{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;align-items:center;padding:6px 12px;border-radius:12px;background:linear-gradient(160deg,#f4e3b2,#d9b872);color:#3a2605;border:2px solid #8a5a34;box-shadow:0 6px 12px rgba(0,0,0,.4);transform:rotate(4deg)}
+.plaque small{font:700 .7rem 'Cairo',sans-serif;opacity:.8}
+.plaque b{font:900 1.9rem/1 'Orbitron',sans-serif;direction:ltr}
+.plaque span{font:700 .72rem 'Cairo',sans-serif}
+.tmr{position:absolute;top:14px;left:14px;padding:3px 10px;border-radius:999px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.14);font:700 .85rem 'Reem Kufi',sans-serif;color:var(--mute);direction:ltr}
+.tmr.low{color:var(--rose);border-color:rgba(255,107,129,.6)}
+
+/* الرسالة والزر */
+.msg{min-height:2.6em;display:flex;align-items:center;justify-content:center;text-align:center;font:700 1.02rem/1.4 'Reem Kufi',sans-serif;color:#eefaf8;text-shadow:0 2px 6px rgba(0,0,0,.6);padding:0 8px}
+.msg.bad{color:#ffb3be}.msg.good{color:#a7f3d0}
+.buzz{width:clamp(104px,18dvh,150px);aspect-ratio:1;border-radius:50%;border:0;cursor:pointer;position:relative;font:900 1.15rem 'Cairo',sans-serif;color:#fff;
+ background:radial-gradient(circle at 35% 28%,#8ff0e4,#2bb3a4 55%,#13766d);
+ box-shadow:0 10px 0 #0c4d47,0 18px 22px rgba(0,0,0,.55),inset 0 3px 6px rgba(255,255,255,.4);transition:filter .3s,box-shadow .12s,transform .12s;touch-action:manipulation}
+.buzz::before{content:'';position:absolute;inset:-10px;border-radius:50%;border:3px solid rgba(255,255,255,.1);pointer-events:none}
+.buzz.stop{background:radial-gradient(circle at 35% 28%,#ffc2cb,#ff6b81 55%,#b53350);box-shadow:0 10px 0 #7a1d31,0 18px 22px rgba(0,0,0,.55),inset 0 3px 6px rgba(255,255,255,.4)}
+.buzz:active:not(:disabled){transform:translateY(8px);box-shadow:0 2px 0 #0c4d47,0 6px 10px rgba(0,0,0,.5),inset 0 3px 6px rgba(255,255,255,.4)}
+.buzz.stop:active:not(:disabled){box-shadow:0 2px 0 #7a1d31,0 6px 10px rgba(0,0,0,.5),inset 0 3px 6px rgba(255,255,255,.4)}
+.buzz:disabled{filter:grayscale(.85) brightness(.5);cursor:not-allowed}
+.buzz.ready:not(:disabled)::after{content:'';position:absolute;inset:-12px;border-radius:50%;border:3px solid var(--amber);animation:ring 1.2s ease-out infinite;pointer-events:none}
+@keyframes ring{from{transform:scale(.92);opacity:.9}to{transform:scale(1.18);opacity:0}}
+.fx{position:fixed;left:0;top:0;pointer-events:none;z-index:300}
+.fx i{position:absolute;display:block;left:0;top:0}
+.end{position:fixed;inset:0;z-index:250}
+@media (max-height:640px){.avatar{width:62px}.plaque b{font-size:1.5rem}.buzz{width:92px}}
+@media (prefers-reduced-motion:reduce){.led.run,.buzz.ready::after{animation:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <radialGradient id="hg" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#ffc2cb"/><stop offset=".55" stop-color="#ff6b81"/><stop offset="1" stop-color="#c0304f"/></radialGradient>
+</defs></svg>
+<main>
+  <div id="sb" class="glass scorebar"></div>
+  <div id="seatTop" class="seat opp"></div>
+  <div id="table" class="table">
+    <div id="plaque" class="plaque"><small>الهدف</small><b>–</b><span>ثوانٍ</span></div>
+    <div id="tmr" class="tmr">30</div>
+    <div class="stand">
+      <div id="disp" class="disp">
+        <div class="face back"><i id="led" class="led"></i><div class="vents"></div><div class="logo">YZ·TIMER</div></div>
+        <div class="face front"><div id="dg" class="dg">0.00</div><div id="tg" class="tg">TARGET 0.00</div></div>
+      </div>
+      <div class="post"></div><div class="base"></div>
+    </div>
+    <div id="msg" class="msg">جارٍ التحميل…</div>
+    <button id="buzz" class="buzz" disabled>…</button>
+  </div>
+  <div id="seatBot" class="seat me"></div>
+</main>
+<div id="fx" class="fx" aria-hidden="true"></div>
+
+<script type="module">
+import { runTransaction, onValue, serverNow } from '../../shared/firebase.js';
+import { enterRoom, watchRoom, gameRef, goLobby, abortGame } from '../../shared/room.js';
+import { finishGame, makeResult, evBy } from '../../shared/result.js';
+import { countdown, deadline } from '../../shared/timer.js';
+import { toast, sfx, scoreBar } from '../../shared/ui.js';
+import { initGameExit } from '../../shared/leave.js';
+
+const $ = s => document.querySelector(s);
+const h = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches || !window.gsap;
+
+// ===== الإعدادات =====
+const HEARTS = 3;           // قلوب كل لاعب
+const MIN_T = 1, MAX_T = 8; // الرقم المستهدف بالثواني
+const TURN_S = 30;          // مهلة الدور: إن ماطل اللاعب (لم يشغّل أو لم يوقف) تُحتسب عليه ضغطة تلقائية فينفجر قلبه
+const REVEAL_S = 6;         // مدة كشف الرقم الحقيقي
+const MIN_BURST = 300;      // أقل مدة تشغيل محسوبة بالمللي ثانية (حتى لا تدور اللعبة بلا تقدّم بضغطات فورية)
+const START_GRACE = 4;      // ثوانٍ إضافية قبل أول دور ليتحمّل الطرفان
+const END_MS = 5500;        // مدة عرض الفائز قبل العودة للردهة
+
+let ctx, st = null, me = -1, players = {}, scores = {}, ended = false, stopT = null, busy = false;
+let shown = [HEARTS, HEARTS], boomPending = false, revealKey = '', firstRender = true, lastTurnSig = '', lastSeq = -1, seatsSig = '';
+
+const nm = i => players[st?.order?.[i]]?.name || 'لاعب';
+const act = fn => runTransaction(gameRef(ctx.code, 's'), cur => (cur ? fn(cur) : undefined)).catch(() => {});
+const rndT = prev => { let t; do { t = MIN_T + Math.floor(Math.random() * (MAX_T - MIN_T + 1)); } while (t === prev); return t; };
+const fmt = ms => (ms / 1000).toFixed(2);
+
+// ===== قواعد اللعبة =====
+// العدّاد واحد مشترك. اللاعب صاحب الدور يشغّله ثم يوقفه: إن بقي المجموع المتراكم ≤ الهدف فهو آمن ويمرَّر العدّاد للخصم متوقفاً عند قيمته،
+// وإن تجاوز المجموع الهدف عند الإيقاف ينفجر قلب. تجاوز الوقت أثناء التشغيل لا يفجّر شيئاً حتى يضغط اللاعب «أوقف».
+function explode(c, e, why) {
+  const hearts = [...c.hearts]; hearts[c.turn]--;
+  return { ...c, hearts, run: false, t0: 0, phase: 'reveal', rv: { e, T: c.T, who: c.turn, why }, endAt: deadline(REVEAL_S), seq: c.seq + 1 };
+}
+const start = () => act(c => {
+  if (c.phase !== 'idle' || c.run || c.order[c.turn] !== ctx.uid) return;
+  return { ...c, run: true, t0: serverNow(), endAt: deadline(TURN_S), seq: c.seq + 1 };
+});
+const stop = () => act(c => {
+  if (c.phase !== 'idle' || !c.run || c.order[c.turn] !== ctx.uid) return;
+  const e = c.total + Math.max(MIN_BURST, serverNow() - c.t0);
+  if (e > c.T * 1000) return explode(c, e, 'over');
+  const safe = [...c.safe]; safe[c.turn]++;
+  return { ...c, total: e, run: false, t0: 0, turn: 1 - c.turn, safe, endAt: deadline(TURN_S), seq: c.seq + 1 };
+});
+const onTimeout = seq => act(c => {
+  if (c.seq !== seq || serverNow() < c.endAt - 500) return;
+  if (c.phase === 'idle') {                                  // ماطل: لا توقيت آمن له
+    const e = c.run ? c.total + Math.max(MIN_BURST, serverNow() - c.t0) : c.total;
+    return explode(c, e, c.run && e > c.T * 1000 ? 'over' : 'stall');
+  }
+  if (c.phase === 'reveal') {
+    if (Math.min(...c.hearts) <= 0) return { ...c, phase: 'done', winner: c.hearts[0] > 0 ? 0 : 1, seq: c.seq + 1 };
+    return { ...c, phase: 'idle', round: c.round + 1, T: rndT(c.T), total: 0, run: false, t0: 0, turn: c.rv.who, rv: null, endAt: deadline(TURN_S), seq: c.seq + 1 };
+  }
+});
+
+// ===== الرسم: شخصيات =====
+const SUIT = ['#3b5bdb', '#c2255c'], HAIR = ['#2b1d12', '#1b1b1b'], SKIN = ['#e8b88a', '#c68b5a'];
+const MOUTH = { calm: 'M52 49 Q60 52 68 49', tense: 'M52 52 Q60 46 68 52', hurt: 'M50 54 Q60 43 70 54', happy: 'M50 46 Q60 57 70 46' };
+function avatar(i, back) {
+  const s = SUIT[i], hr = HAIR[i], sk = SKIN[i];
+  const face = back
+    ? `<circle cx="60" cy="38" r="25" fill="${hr}"/><path d="M40 52 Q60 62 80 52 L80 58 Q60 66 40 58Z" fill="${hr}"/>`
+    : `<circle cx="60" cy="38" r="24" fill="${sk}"/><path d="M35 36 Q36 12 60 12 Q84 12 85 36 Q76 24 60 24 Q44 24 35 36Z" fill="${hr}"/>
+       <g class="ft"><circle class="eye e1" cx="50" cy="38" r="3.2" fill="#1a1a1a"/><circle class="eye e2" cx="70" cy="38" r="3.2" fill="#1a1a1a"/>
+       <path class="brow b1" d="M44 31 L55 31" stroke="#1a1a1a" stroke-width="2.4" stroke-linecap="round"/><path class="brow b2" d="M65 31 L76 31" stroke="#1a1a1a" stroke-width="2.4" stroke-linecap="round"/>
+       <path class="mouth" d="${MOUTH.calm}" stroke="#7a2b2b" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>`;
+  return `<svg class="avatar" viewBox="0 0 120 100" aria-hidden="true"><g class="sway">
+    <path d="M6 100 C6 72 32 62 60 62 C88 62 114 72 114 100Z" fill="${s}"/><path d="M48 62 L60 78 L72 62Z" fill="#f5f5f5"/>
+    <rect x="52" y="52" width="16" height="14" rx="4" fill="${back ? sk : sk}" opacity=".95"/>${face}</g></svg>`;
+}
+function mood(el, m) {
+  const mo = el.querySelector('.mouth'); if (!mo) return;
+  mo.setAttribute('d', MOUTH[m] || MOUTH.calm);
+  const r = m === 'tense' ? 4.4 : m === 'hurt' ? 2.2 : 3.2;
+  el.querySelectorAll('.eye').forEach(e => e.setAttribute('r', r));
+  const dy = m === 'hurt' ? 3 : m === 'tense' ? -2 : 0;
+  el.querySelectorAll('.brow').forEach(b => b.setAttribute('transform', `translate(0 ${dy})`));
+}
+const HEART = '<svg viewBox="0 0 24 24"><path class="out" d="M12 21s-7-4.5-9.5-9C1 8.5 3 5 6.5 5c2 0 3.5 1 5.5 3 2-2 3.5-3 5.5-3C21 5 23 8.5 21.5 12 19 16.5 12 21 12 21z"/><path class="fill" d="M12 21s-7-4.5-9.5-9C1 8.5 3 5 6.5 5c2 0 3.5 1 5.5 3 2-2 3.5-3 5.5-3C21 5 23 8.5 21.5 12 19 16.5 12 21 12 21z"/></svg>';
+
+function buildSeats() {
+  const sig = (st?.order || []).join() + [players[st.order[0]]?.name, players[st.order[1]]?.name].join();
+  if (sig === seatsSig) return; seatsSig = sig;
+  const mk = (box, i, back) => {
+    box.replaceChildren();
+    const info = h('div', 'info'), name = h('div', 'nm2', nm(i)), hs = h('div', 'hearts');
+    for (let k = 0; k < HEARTS; k++) { const hd = h('div', 'heart'); hd.innerHTML = HEART; hs.append(hd); }
+    info.append(name, hs); box.dataset.i = i;
+    const av = h('div'); av.innerHTML = avatar(i, back);
+    box.append(...(back ? [av, info] : [info, av]));
+  };
+  mk($('#seatTop'), 1 - me, false);
+  mk($('#seatBot'), me, true);
+}
+const seatOf = i => (i === me ? $('#seatBot') : $('#seatTop'));
+function paintHearts(i, n) {
+  seatOf(i).querySelectorAll('.heart').forEach((el, k) => el.classList.toggle('lost', k >= n));
+}
+
+// ===== انفجار القلب (GSAP) =====
+function boom(i, n) {
+  const el = seatOf(i).querySelectorAll('.heart')[n]; if (!el) return;
+  if (reduce) { el.classList.add('lost'); return; }
+  const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, fx = $('#fx');
+  const tl = gsap.timeline();
+  tl.to(el, { scale: 1.7, duration: .22, ease: 'power2.out' })
+    .to(el, { x: '+=3', yoyo: true, repeat: 7, duration: .035 }, 0)
+    .add(() => {
+      el.classList.add('lost');
+      const ring = h('i'); ring.style.cssText = `left:${cx}px;top:${cy}px;width:10px;height:10px;margin:-5px;border-radius:50%;border:3px solid #ff9db0`; fx.append(ring);
+      gsap.to(ring, { scale: 9, opacity: 0, duration: .7, ease: 'power2.out', onComplete: () => ring.remove() });
+      const flash = h('i'); flash.style.cssText = `left:${cx}px;top:${cy}px;width:60px;height:60px;margin:-30px;border-radius:50%;background:radial-gradient(#fff,rgba(255,200,210,.7) 40%,transparent 70%)`; fx.append(flash);
+      gsap.fromTo(flash, { scale: .2, opacity: 1 }, { scale: 3, opacity: 0, duration: .45, ease: 'power2.out', onComplete: () => flash.remove() });
+      for (let k = 0; k < 22; k++) {
+        const p = h('i'), big = k % 3 === 0, sz = big ? 11 : 6, a = Math.random() * Math.PI * 2, d = 50 + Math.random() * 120;
+        p.style.cssText = `left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;margin:${-sz / 2}px;background:${['#ff6b81', '#ffb3be', '#ffd166', '#fff'][k % 4]};border-radius:${big ? '50% 50% 50% 0' : '2px'}`; fx.append(p);
+        gsap.fromTo(p, { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 }, { x: Math.cos(a) * d, y: Math.sin(a) * d + 30 + Math.random() * 40, rotation: Math.random() * 720 - 360, scale: .2, opacity: 0, duration: .8 + Math.random() * .6, ease: 'power3.out', onComplete: () => p.remove() });
+      }
+      gsap.fromTo('#table', { x: 0 }, { x: 0, duration: .5, keyframes: { x: [0, -9, 8, -6, 5, -3, 0] }, ease: 'none' });
+      gsap.fromTo('.seat', { y: 0 }, { keyframes: { y: [0, -4, 3, -2, 0] }, duration: .4 });
+      try { navigator.vibrate?.([60, 40, 90]); } catch { /* غير مدعوم */ }
+      sfx.error();
+    }, '+=.16')
+    .to(el, { scale: 1, x: 0, duration: .3, ease: 'back.out(2)', clearProps: 'transform' });
+}
+
+// ===== شاشة الطاولة =====
+const dg = () => $('#dg');
+function flipTo(front, animate) {
+  const d = $('#disp');
+  if (reduce || !animate) { if (window.gsap) gsap.set(d, { rotateY: front ? 180 : 0 }); else d.style.transform = `rotateY(${front ? 180 : 0}deg)`; return; }
+  gsap.to(d, { rotateY: front ? 180 : 0, duration: .9, ease: 'back.out(1.3)' });
+}
+function reveal(rv, animate) {
+  const over = rv.e > rv.T * 1000;
+  $('#tg').textContent = `TARGET ${rv.T.toFixed(2)}`;
+  dg().classList.toggle('bad', over);
+  const done = () => { dg().textContent = fmt(rv.e); };
+  if (!animate || reduce) { done(); return; }
+  dg().textContent = '0.00';
+  const o = { v: 0 };
+  gsap.to(o, { v: rv.e, duration: 1.1, delay: .7, ease: 'power2.out', onUpdate: () => { dg().textContent = fmt(o.v); }, onComplete: done });
+}
+function verdict(rv) {
+  if (rv.why === 'stall') return ['انتهت مهلة ' + nm(rv.who) + ' فانفجر قلبه 💥', 'bad'];
+  const d = (rv.e - rv.T * 1000) / 1000;
+  const k = d < .25 ? 'قريب جداً!' : d < 1 ? 'قريب' : d < 2.5 ? 'بعيد' : 'بعيد جداً';
+  return [`${nm(rv.who)} تجاوز الهدف بـ ${d.toFixed(2)} ث — ${k} 💥`, 'bad'];
+}
+
+function startTimer() {
+  stopT?.(); stopT = null; const t = $('#tmr');
+  if (!st || st.phase === 'done') { t.hidden = true; return; }
+  const seq = st.seq; t.hidden = st.phase === 'reveal';
+  stopT = countdown(st.endAt, (l, s) => { t.textContent = s; t.classList.toggle('low', s <= 8); }, () => onTimeout(seq));
+}
+
+function renderTable() {
+  const mine = st.order[st.turn] === ctx.uid, idle = st.phase === 'idle', run = idle && st.run;
+  const b = $('#buzz'), m = $('#msg');
+  $('#plaque b').textContent = st.T.toFixed(0);
+  $('#led').className = 'led ' + (st.phase === 'idle' ? (run ? 'run' : 'idle') : '');
+  b.classList.toggle('stop', run);
+  b.classList.toggle('ready', idle && mine);
+  b.disabled = !(idle && mine) || busy;
+  b.textContent = idle ? (mine ? (run ? 'أوقف ⏹' : 'شغّل ▶') : `دور ${nm(st.turn)}`) : st.phase === 'reveal' ? '…' : '🏁';
+  m.className = 'msg';
+  if (idle) {
+    m.textContent = mine
+      ? (run ? 'العدّاد يعمل… لا تتأخر! أوقفه قبل أن يتجاوز الهدف' : st.total > 0 ? 'العدّاد متوقف عند قيمة مخفية… شغّله وأوقفه بسرعة!' : 'شغّل العدّاد ثم أوقفه قبل الهدف')
+      : (run ? `${nm(st.turn)} يلعب… 😬` : `بانتظار ${nm(st.turn)}`);
+  } else if (st.phase === 'reveal') {
+    const [t, k] = verdict(st.rv); m.textContent = t; m.classList.add(k);
+  } else if (st.phase === 'done') {
+    m.textContent = st.winner === me ? 'فزت! 🎉' : `فاز ${nm(st.winner)}`; m.classList.add(st.winner === me ? 'good' : 'bad');
+  }
+}
+
+function renderSeats() {
+  [0, 1].forEach(i => seatOf(i)?.classList.toggle('turn', st.phase === 'idle' && st.turn === i));
+  const opp = 1 - me, oe = $('#seatTop');
+  let om = 'calm';
+  if (st.phase === 'idle' && st.turn === opp && st.run) om = 'tense';
+  else if (st.phase === 'reveal') om = st.rv.who === opp ? 'hurt' : 'happy';
+  else if (st.phase === 'done') om = st.winner === opp ? 'happy' : 'hurt';
+  if (!reduce && om === 'tense') gsap.to(oe.querySelector('.sway'), { x: 1.6, yoyo: true, repeat: -1, duration: .07, overwrite: true });
+  else if (window.gsap) gsap.to(oe.querySelector('.sway'), { x: 0, duration: .15, overwrite: true });
+  mood(oe, om);
+}
+
+function render() {
+  if (!st || me < 0) return;
+  buildSeats();
+  const isNew = st.seq !== lastSeq; lastSeq = st.seq;
+  const rk = st.phase === 'reveal' ? 'r' + st.round + ':' + st.rv.who + ':' + st.seq : '';
+
+  // قلوب: أثناء كشف الجولة نؤجل إخفاء القلب حتى لحظة الانفجار
+  if (st.phase === 'reveal' && rk !== revealKey) {
+    revealKey = rk;
+    const who = st.rv.who, before = st.hearts[who] + 1;
+    if (firstRender) { shown = [...st.hearts]; flipTo(true, false); reveal(st.rv, false); }
+    else {
+      boomPending = true; shown = [...st.hearts]; shown[who] = before;
+      flipTo(true, true); reveal(st.rv, true);
+      setTimeout(() => { boom(who, st.hearts[who]); boomPending = false; shown = [...st.hearts]; }, 1500);
+    }
+    sfx.turn();
+  } else if (st.phase === 'idle' && revealKey) {              // جولة جديدة: يعود العدّاد للخلف ويُصفَّر
+    revealKey = ''; boomPending = false; shown = [...st.hearts];
+    flipTo(false, !firstRender); dg().textContent = '0.00'; dg().classList.remove('bad');
+  } else if (st.phase === 'done') {
+    if (!revealKey) { flipTo(true, false); }
+    if (!boomPending) shown = [...st.hearts];
+  } else if (!boomPending) shown = [...st.hearts];
+  if (firstRender && st.phase === 'idle') flipTo(false, false);
+  [0, 1].forEach(i => paintHearts(i, boomPending && i === st.rv?.who ? shown[i] : shown[i]));
+
+  renderTable(); renderSeats();
+  if (isNew) startTimer();
+
+  const sig = st.phase + st.turn + st.round;
+  if (st.phase === 'idle' && st.order[st.turn] === ctx.uid && sig !== lastTurnSig && !firstRender) sfx.turn();
+  lastTurnSig = sig; firstRender = false;
+
+  if (st.phase === 'done' && !ended) {
+    ended = true; stopT?.();
+    setTimeout(() => { st.winner === me ? sfx.win() : sfx.lose(); }, 2300);
+    if (ctx.isHost) setTimeout(() => {
+      const w = st.winner;
+      finishGame(ctx, makeResult('win', [st.order[w], st.order[1 - w]], { hearts: st.hearts, rounds: st.round, ev: evBy(st.order, st.safe, 's') }));
+    }, END_MS);
+  }
+}
+
+// ===== الزر =====
+$('#buzz').addEventListener('pointerdown', async e => {
+  if (!st || busy || st.phase !== 'idle' || st.order[st.turn] !== ctx.uid) return;
+  e.preventDefault(); busy = true; sfx.click();
+  if (window.gsap && !reduce) gsap.fromTo('#buzz', { scale: .93 }, { scale: 1, duration: .35, ease: 'elastic.out(1,.4)' });
+  try { await (st.run ? stop() : start()); } finally { busy = false; if (st) renderTable(); }
+});
+$('#buzz').addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); $('#buzz').dispatchEvent(new PointerEvent('pointerdown')); } });
+
+// ===== التشغيل =====
+try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
+const ids = Object.keys(ctx.players || {});
+if (ids.length !== 2) { toast('اللعبة تحتاج لاعبين اثنين', 'error'); abortGame(ctx); }
+else {
+  if (ctx.isHost) {
+    const other = ids.find(i => i !== ctx.meta.host);
+    runTransaction(gameRef(ctx.code, 's'), cur => cur || { order: [ctx.meta.host, other], round: 1, T: rndT(0), total: 0, run: false, t0: 0, turn: 0, hearts: [HEARTS, HEARTS], safe: [0, 0], phase: 'idle', endAt: deadline(TURN_S + START_GRACE), seq: 0 });
+  }
+  players = ctx.players;
+  const ex = initGameExit(ctx, { isOver: () => st?.phase === 'done', onGone: () => stopT?.() });
+  onValue(gameRef(ctx.code, 's'), s => { st = s.val(); if (st) { me = st.order.indexOf(ctx.uid); render(); } });
+  watchRoom(ctx.code, {
+    meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },
+    players: p => { players = p || players; scoreBar($('#sb'), players, scores, ctx.uid); if (st) { seatsSig = ''; render(); } },
+    scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
+  });
+}
+</script>
+</body>
+</html>

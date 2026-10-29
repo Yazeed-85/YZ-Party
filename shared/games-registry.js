@@ -11,6 +11,7 @@ export const GAMES = [
 
   { id: "liars-bar",   name: "بار الكذّابين", icon: "🔫",     desc: "اكذب بذكاء أو مت بشرف",       min: 2, max: 4, ready: true },
   { id: "hot-cold",    name: "حار بارد",  icon: "🔥",     desc: "خمّن كلمتك السرية بمساعدة خصمك",  min: 2, max: 2, ready: true },
+  { id: "counter",    name: "العدّاد",       icon: "⏱️",     desc: "أوقف العدّاد المخفي قبل الهدف وإلا انفجر قلبك", min: 2, max: 2, ready: true },
   { id: "xo",          name: "X & O",  icon: "⚔️",      desc: "ثلاث قطع متتالية تحسم الجولة", min: 2, max: 2, ready: true },
   { id: "codenames",   name: "الكلمات المشفرة",  icon: "🕵️‍♂️",  desc: "فريقان: قائد يلمّح وعميل يخمّن (4 لاعبين)", min: 4, max: 4, ready: true }
 ];
