@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>YZ Party</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/style.css">
@@ -289,6 +289,12 @@ enterAnim('#home');
 Promise.all(GAMES.map(async g => IMG.set(g.id, await probe(g.id)))).then(() => { imgsReady = true; if (S.meta) render(); });
 ready.then(() => sweepRooms());
 initPress();
+// القائمة الرئيسية ثابتة: لا تمرير ولا سحب جانبي ما دامت ظاهرة (الردهة تتمرّر كالمعتاد)
+{
+  const hm = $('#home'), lock = () => { const on = !hm.hidden; document.documentElement.classList.toggle('homelock', on); document.body.classList.toggle('homelock', on); };
+  new MutationObserver(lock).observe(hm, { attributes: true, attributeFilter: ['hidden'] }); lock();
+  document.addEventListener('touchmove', e => { if (document.body.classList.contains('homelock') && matchMedia('(min-height:561px)').matches && !e.target.closest?.('.fbody,.inst-card,input')) e.preventDefault(); }, { passive: false });
+}
 initInstall();                                             // للهاتف فقط: دليل «أضف للشاشة الرئيسية»
 // الأصدقاء: أيقونة بجانب الصوت + دعوات. الدعوة تُنشئ الغرفة تلقائياً إن لم تكن في غرفة، والقبول ينقلك للغرفة مباشرة
 const myName = () => cleanName($('#name').value) || savedName();

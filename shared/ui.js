@@ -1,4 +1,10 @@
 // أدوات واجهة مشتركة: إشعارات، أصوات، انتقالات GSAP، شريط النقاط، حوار تأكيد، شاشة نتيجة
+// ===== قفل التكبير: Safari على iOS يتجاهل user-scalable=no، فنمنع إيماءات القرص والتكبير صراحةً =====
+// (النقر المزدوج السريع يمنعه touch-action في style.css، ولا نلغي touchend حتى لا تضيع نقرات الأزرار السريعة)
+["gesturestart", "gesturechange", "gestureend"].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+document.addEventListener("touchmove", e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+document.addEventListener("wheel", e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });   // قرص لوحة اللمس على الكمبيوتر
+
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const anim = () => window.gsap && !reduce;
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };

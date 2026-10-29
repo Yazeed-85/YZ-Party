@@ -33,7 +33,7 @@ export function badgeSVG(t) {
   return `<svg viewBox="-4 -4 32 32" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="${c}"/></linearGradient></defs>${rays}<circle cx="12" cy="12" r="11" fill="none" stroke="${c}" stroke-opacity=".5"/><polygon points="${pts.join(" ")}" fill="url(#${id})" stroke="${c}" stroke-width=".6"/><circle cx="12" cy="12" r="${t >= 5 ? 3 : 2}" fill="${t === 7 ? "#fff" : c}"/></svg>`;
 }
 
-function inject() {
+export function inject() {
   if (document.getElementById("lv-css")) return; const s = document.createElement("style"); s.id = "lv-css";
   s.textContent = `.lv{display:inline-flex;align-items:center;gap:3px;vertical-align:middle;margin-inline-start:6px;font:700 .72rem 'Reem Kufi',sans-serif;color:var(--c);line-height:1}
 .lv b{padding:2px 8px;border-radius:999px;border:1px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);box-shadow:0 0 calc(var(--g)*1px) color-mix(in srgb,var(--c) 70%,transparent);text-shadow:0 0 calc(var(--g)*.6px) var(--c)}
@@ -41,8 +41,8 @@ function inject() {
 .lv.t0 b{background:none;border-color:rgba(255,255,255,.55);box-shadow:none;text-shadow:none}
 .lv.t7 b{color:#fff;background:linear-gradient(135deg,#7c3aed,#c026d3);border-color:#d8b4fe;animation:lvp 1.8s ease-in-out infinite alternate}.lv.t7 svg{animation:lvp 1.8s ease-in-out infinite alternate}
 .lv.big{font-size:1.15rem}@keyframes lvs{to{transform:rotate(360deg)}}@keyframes lvp{from{filter:drop-shadow(0 0 4px #a855f7) brightness(1)}to{filter:drop-shadow(0 0 14px #e879f9) brightness(1.25)}}
-.ntf{position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9999;width:min(380px,92vw);padding:16px 18px;border-radius:22px;background:rgba(18,22,42,.96);border:1px solid rgba(255,255,255,.14);box-shadow:0 20px 50px rgba(0,0,0,.5);text-align:center;direction:rtl;color:#eceef8;font-family:'Cairo',sans-serif;overflow:hidden}
-.ntf .ic{font-size:2.4rem}.ntf p{margin:4px 0 0;line-height:1.7}.ntf .xg{font:700 1.7rem 'Reem Kufi',sans-serif;color:#ffb454}.ntf .xb{height:10px;border-radius:6px;background:rgba(255,255,255,.1);margin-top:10px;overflow:hidden}.ntf .xb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#4fd1c5,#a855f7);border-radius:6px}
+.ntf{position:fixed;top:max(14px,env(safe-area-inset-top));left:0;right:0;margin-inline:auto;z-index:9999;width:min(380px,92vw);padding:16px 18px;border-radius:22px;background:rgba(18,22,42,.96);border:1px solid rgba(255,255,255,.14);box-shadow:0 20px 50px rgba(0,0,0,.5);text-align:center;direction:rtl;color:#eceef8;font-family:'Cairo',sans-serif;overflow:hidden}
+.ntf .ln+.ln{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)}.ntf .ic{font-size:2.4rem;line-height:1.2}.ntf p{margin:4px 0 0;line-height:1.7}.ntf .xg{direction:ltr;unicode-bidi:isolate;font:700 1.7rem 'Reem Kufi',sans-serif;color:#ffb454}.ntf .xb{height:10px;border-radius:6px;background:rgba(255,255,255,.1);margin-top:10px;overflow:hidden}.ntf .xb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#4fd1c5,#a855f7);border-radius:6px}
 .ntf .dot{position:absolute;left:50%;top:48px;width:7px;height:7px;border-radius:50%;pointer-events:none}`;
   document.head.append(s);
 }

@@ -1,6 +1,9 @@
 :root{--ink:#090b13;--text:#eceef8;--mute:#9aa0b8;--lagoon:#4fd1c5;--amber:#ffb454;--rose:#ff6b81;
 --glass:rgba(255,255,255,.055);--line:rgba(255,255,255,.1)}
 *{box-sizing:border-box;margin:0;padding:0}
+/* بلا تكبير أبداً: القرص واللمستان السريعتان (touch-action يمنعهما في Safari وChrome، وui.js يمنع إيماءات Safari الأخرى) */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:pan-x pan-y}
+.fbody,.inst-card,.sheet-card{touch-action:pan-y}
 [hidden]{display:none!important}
 html,body{min-height:100%}
 body{font-family:'Cairo',sans-serif;color:var(--text);background:var(--ink);
@@ -103,7 +106,7 @@ input:focus-visible{border-color:var(--lagoon);box-shadow:0 0 0 3px rgba(79,209,
 .fbody{overflow-y:auto;padding:6px 16px 22px;display:flex;flex-direction:column;gap:8px}.fbody h3{margin:12px 0 2px;font-size:.95rem;color:var(--amber)}
 .frrow{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:14px;background:rgba(0,0,0,.25)}.frt{flex:1;min-width:0;display:flex;flex-direction:column}.frt small{color:var(--mute);font-size:.74rem}
 .frrow .dot.gray{background:#6b7084}.frrow.onl .frt small{color:#34d399}
-.fnote{color:var(--mute);font-size:.85rem;line-height:1.6;padding:6px 2px}.fadd{display:flex;gap:8px}.fadd input{padding:10px 12px;font-size:.95rem}
+.fnote{color:var(--mute);font-size:.85rem;line-height:1.6;padding:6px 2px}.fadd{display:flex;gap:8px}.fadd input{padding:10px 12px;font-size:16px}
 .kv{display:block;direction:ltr;text-align:center;padding:8px;border-radius:12px;background:rgba(0,0,0,.3);color:var(--amber);letter-spacing:1px;font-size:.85rem;user-select:all}
 .invstack{position:fixed;top:calc(64px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:350;display:flex;flex-direction:column;gap:8px;width:min(92vw,380px)}
 .inv{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#12172a;border-radius:18px}.invt{flex:1;min-width:0}.inva{display:flex;gap:6px}
@@ -133,3 +136,8 @@ body.inroom .fab.inst{display:none}
 .inv{position:relative;overflow:hidden}.inv .ibar{position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--lagoon),var(--amber));transform-origin:right}
 
 .joke{padding:18px;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:min(86vw,340px);background:#12172a}.joke-img{max-width:100%;max-height:52dvh;border-radius:16px;display:block}.joke-emoji{font-size:5rem;line-height:1}.joke-t{font:700 1.5rem 'Reem Kufi',sans-serif;color:var(--amber);text-align:center}
+
+/* القائمة الرئيسية (قبل دخول الغرفة): ثابتة تماماً بلا تمرير ولا سحب جانبي. تُفعَّل بالصنف homelock من index.html */
+html.homelock,body.homelock{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:none}
+body.homelock main{height:100dvh;min-height:0}
+@media (max-height:560px){html.homelock,body.homelock{overflow:auto;touch-action:pan-y}body.homelock main{height:auto;min-height:100dvh}}   /* هاتف أفقي: نسمح بالتمرير حتى لا يُقصّ المحتوى */
