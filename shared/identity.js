@@ -11,8 +11,17 @@ export const parsePid = s => { const t = (s || "").toUpperCase().replace(/^YZ/, 
 export const fmtKey = k => (k || "").match(/.{1,4}/g)?.join("-") || "";
 export const parseKey = s => { const t = (s || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); return /^[A-Z0-9]{24}$/.test(t) ? t : null; };
 
-const load = () => { try { const v = JSON.parse(localStorage.getItem(LS)); return v?.pid && v?.key ? v : null; } catch { return null; } };
-const save = v => { try { localStorage.setItem(LS, JSON.stringify({ pid: v.pid, key: v.key })); } catch { /* التخزين ممنوع */ } };
+// نسخة ثانية من الهوية في كوكي: آيفون يعزل تخزين «التطبيق على الشاشة الرئيسية» عن Safari تماماً (localStorage وجلسة Firebase)،
+// لكنه ينسخ الكوكيات مرة واحدة لحظة الإضافة للشاشة الرئيسية. فمن فتح اللعبة في Safari ثم أضافها يجد التطبيق بنفس هويته (أصدقاؤه ومستواه).
+const CK = "yz_ident";
+const ckSet = v => { try { document.cookie = `${CK}=${v.pid}.${v.key}; max-age=${400 * 86400}; path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`; } catch { /* ممنوع */ } };
+const ckDel = () => { try { document.cookie = `${CK}=; max-age=0; path=/`; } catch { /* ممنوع */ } };
+const ckGet = () => { try { const m = document.cookie.match(new RegExp(`(?:^|; )${CK}=([A-Z0-9]{8})\\.([A-Z0-9]{24})`)); return m ? { pid: m[1], key: m[2] } : null; } catch { return null; } };
+const lsGet = () => { try { const v = JSON.parse(localStorage.getItem(LS)); return v?.pid && v?.key ? v : null; } catch { return null; } };
+const lsSet = v => { try { localStorage.setItem(LS, JSON.stringify({ pid: v.pid, key: v.key })); } catch { /* التخزين ممنوع */ } };
+const save = v => { lsSet(v); ckSet(v); };
+// الأولوية للتخزين المحلي؛ وإن كان فارغاً (تطبيق آيفون الجديد) نستعيد من الكوكي ونثبّته محلياً. وجود أحدهما يجدّد الآخر
+const load = () => { const v = lsGet() || ckGet(); if (v) { lsSet(v); ckSet(v); } return v; };
 try { navigator.storage?.persist?.(); } catch { /* طلب إبقاء البيانات: اختياري */ }
 
 async function linkNow(uid, s) {
@@ -42,7 +51,7 @@ export const identity = () => (P ??= (async () => {
     // الحساب حُذف من لوحة التحكم (الرمز لم يعد موجوداً): نبدأ هوية جديدة بدل البقاء بهوية ميتة. أي فشل اتصال لا يمسح شيئاً
     try {
       if (s && (await get(ref(db, `keys/${s.key}`))).val() === null) {
-        try { localStorage.removeItem(LS); } catch { /* ممنوع */ }
+        try { localStorage.removeItem(LS); } catch { /* ممنوع */ } ckDel();
         return { ...(await createNew(u.uid)), ok: true };
       }
     } catch { /* نكمل للرد الاحتياطي */ }
