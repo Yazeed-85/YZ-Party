@@ -127,12 +127,9 @@ body.inroom #lobby{padding-top:44px}
 #mute{color:var(--mute);padding:0}
 .cm-chev{display:none!important}
 
-/* بلا شريط تمرير في أي مكان من النظام (التمرير يعمل باللمس والعجلة) */
-.cm-msgs,.cm-vlist{scrollbar-width:none;-ms-overflow-style:none}
-.cm-msgs::-webkit-scrollbar,.cm-vlist::-webkit-scrollbar{display:none;width:0;height:0}
-/* أنا على اليمين ومن أكلّمه على اليسار */
-.cm-msg{align-self:flex-end;align-items:flex-end}
-.cm-msg.me{align-self:flex-start;align-items:flex-start}
-.cm-qh{cursor:grab}.cm-qh:active{cursor:grabbing}
-.cm-qt{user-select:none;-webkit-user-select:none}
-.cm-pin{background:transparent;color:var(--mute)}.cm-pin.on{color:var(--lagoon);background:rgba(79,209,197,.16)}
+/* ===== الكيبورد ظاهر: المحادثة تلتصق به من الأسفل (يضبط الصنف kb في comms.js) ===== */
+.cm-quick.kb{width:100%;border-radius:20px 20px 0 0;border-bottom:0;background:rgba(18,23,42,.94);box-shadow:0 -10px 30px rgba(0,0,0,.4)}
+.cm-quick.kb .cm-chat{min-height:0}
+.cm-sheet.kb{align-items:end;padding-bottom:0;padding-top:8px}
+.cm-sheet.kb .cm-panel{height:100%;max-height:none;border-radius:22px 22px 0 0;border-bottom:0}
+.cm-sheet.kb .cm-voice{display:none}
