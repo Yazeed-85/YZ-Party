@@ -44,9 +44,9 @@ body.inroom #lobby{padding-top:44px}
 .cm-quick .cm-chat{min-height:170px}
 .cm-msgs{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 12px;display:flex;flex-direction:column;touch-action:pan-y}
 .cm-empty{margin:auto;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--mute);font-size:.88rem;opacity:.85;padding:14px}
-.cm-msg{display:flex;flex-direction:column;align-items:flex-start;max-width:88%;margin-top:9px}
+.cm-msg{display:flex;flex-direction:column;align-items:flex-end;max-width:88%;margin-top:9px;margin-right:auto;margin-left:0}
 .cm-msg.grp{margin-top:2px}
-.cm-msg.me{align-self:flex-end;align-items:flex-end}
+.cm-msg.me{align-items:flex-start;margin-left:auto;margin-right:0}
 .cm-mn{font-size:.72rem;font-weight:700;margin:0 8px 2px}
 .cm-mb{display:flex;align-items:flex-end;gap:8px;padding:6px 12px;border-radius:15px 15px 15px 5px;background:rgba(255,255,255,.09);line-height:1.5;font-size:.95rem;overflow-wrap:anywhere}
 .cm-msg.me .cm-mb{background:rgba(79,209,197,.2);border:1px solid rgba(79,209,197,.34);border-radius:15px 15px 5px 15px}
@@ -127,9 +127,10 @@ body.inroom #lobby{padding-top:44px}
 #mute{color:var(--mute);padding:0}
 .cm-chev{display:none!important}
 
-/* ===== الكيبورد ظاهر: المحادثة تلتصق به من الأسفل (يضبط الصنف kb في comms.js) ===== */
-.cm-quick.kb{width:100%;border-radius:20px 20px 0 0;border-bottom:0;background:rgba(18,23,42,.94);box-shadow:0 -10px 30px rgba(0,0,0,.4)}
-.cm-quick.kb .cm-chat{min-height:0}
-.cm-sheet.kb{align-items:end;padding-bottom:0;padding-top:8px}
-.cm-sheet.kb .cm-panel{height:100%;max-height:none;border-radius:22px 22px 0 0;border-bottom:0}
-.cm-sheet.kb .cm-voice{display:none}
+
+/* رسائلك يميناً ورسائل غيرك يساراً (هوامش فيزيائية فلا تتأثر بالاتجاه)، وبلا شريط تمرير ظاهر */
+.cm-msgs,.cm-vlist{scrollbar-width:none;-ms-overflow-style:none}
+.cm-msgs::-webkit-scrollbar,.cm-vlist::-webkit-scrollbar{display:none;width:0;height:0}
+/* سحب النافذة ودبوس التثبيت: للكمبيوتر فقط */
+.cm-pinb{color:var(--mute)}.cm-pinb.on{color:var(--lagoon);background:rgba(79,209,197,.18)}
+@media (hover:hover) and (pointer:fine){.cm-qh{cursor:grab;user-select:none;-webkit-user-select:none}.cm-qh.drag{cursor:grabbing}}

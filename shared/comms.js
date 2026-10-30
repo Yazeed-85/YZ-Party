@@ -43,14 +43,6 @@ function fit(o) {
 
 // الكيبورد ظاهر؟ (على iOS/أندرويد يصغّر visualViewport بينما يبقى innerHeight ثابتاً)
 const kbOn = () => { const vv = window.visualViewport; return !!vv && innerHeight - vv.height > 120; };
-// يضيف الصنف kb للعنصر ما دام الكيبورد ظاهراً (تستعمله اللوحة الكاملة لتلتصق بالكيبورد)
-function kbWatch(o) {
-  const vv = window.visualViewport; if (!vv) return () => {};
-  const f = () => o.classList.toggle("kb", kbOn());
-  vv.addEventListener("resize", f); f();
-  return () => vv.removeEventListener("resize", f);
-}
-
 let C = null;
 export function initComms(opts = {}) { return (C ??= build(opts)); }
 
@@ -161,7 +153,7 @@ function build({ mode = "game" } = {}) {
       row.append(b); list.append(row); prev = d; count++;
       while (count > 140) { list.querySelector(".cm-msg")?.remove(); count--; }
       if (stick) toEnd(); else if (live) { more.hidden = false; if (G()) gsap.fromTo(more, { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: .35, ease: "back.out(2)" }); }
-      if (live && G()) gsap.from(b, { y: 16, scale: .9, opacity: 0, duration: .5, ease: "back.out(2)", transformOrigin: mine ? "0% 100%" : "100% 100%" });
+      if (live && G()) gsap.from(b, { y: 16, scale: .9, opacity: 0, duration: .5, ease: "back.out(2)", transformOrigin: mine ? "100% 100%" : "0% 100%" });
     }
     const reset = () => { list.replaceChildren(empty); empty.hidden = false; prev = null; count = 0; more.hidden = true; };
     return { root, add, toEnd: pinEnd, reset, focus: () => inp.focus({ preventScroll: true }), blur: () => inp.blur() };
@@ -195,53 +187,100 @@ function build({ mode = "game" } = {}) {
   chat._seen = new Set();
 
   // ---- نافذة الكتابة السريعة (أيقونة الدردشة) ----
-  const quick = h("div", "cm-quick"), qHead = h("div", "cm-qh"), qBody = h("div", "cm-qb");
+  const quick = h("div", "cm-quick"), qHead = h("div", "cm-qh"), qBody = h("div", "cm-qb"), pinB = h("button", "cm-b cm-ibtn cm-pinb");
   quick.hidden = true;
   { const t = h("div", "cm-qt"); t.append(h("span", "cm-hash", "#"), h("span", "", "المحادثة النصية"));
     const x = h("button", "cm-b cm-ibtn"); x.type = "button"; x.setAttribute("aria-label", "إغلاق"); x.append(ic("close", 16));
     x.onclick = () => closeQuick();
-    qHead.append(t, x); quick.append(qHead, qBody); document.body.append(quick); }
-  // النافذة ثابتة فعلاً: ارتفاعها يُحسب مرة واحدة عند الفتح، ومع ظهور الكيبورد (iOS يزيح المنظر المرئي) نعوّض الإزاحة فلا تتحرك
-  let baseTop = 0, unQ = null;
-  function stickQuick() {
-    const vv = window.visualViewport;
-    if (vv && kbOn()) {                                          // الكيبورد ظاهر: النافذة تلتصق به من الأسفل بعرض الشاشة (مثل تطبيقات المراسلة)
-      const H = Math.round(Math.min(vv.height, Math.max(150, Math.min((vv.height - 12) * .72, 400))));
-      quick.classList.add("kb"); quick.style.maxHeight = "none"; quick.style.left = "0px"; quick.style.height = H + "px";
-      quick.style.top = Math.round(vv.offsetTop + vv.height - H) + "px";
-      return;
-    }
-    if (quick.classList.contains("kb")) { quick.classList.remove("kb"); quick.style.height = ""; return placeQuick(); }   // اختفى الكيبورد: نعود لنافذة الأعلى
-    quick.style.top = baseTop + (vv ? vv.offsetTop : 0) + "px";
+    pinB.type = "button"; pinB.append(ic("pin", 16)); pinB.hidden = true;
+    pinB.onclick = () => { pinned = !pinned; lsSet("yz_cm_pin", pinned ? "1" : "0"); pinB.classList.toggle("on", pinned); pinB.setAttribute("aria-pressed", String(pinned)); sfx.click(); };
+    pinB.setAttribute("aria-label", "تثبيت النافذة");
+    qHead.append(t, pinB, x); quick.append(qHead, qBody); document.body.append(quick); }
+  // سحب النافذة من إطارها العلوي (الكمبيوتر فقط) ويُحفظ المكان
+  qHead.addEventListener("pointerdown", e => {
+    if (!DESK.matches || e.button !== 0 || e.target.closest("button")) return;
+    const sx = e.clientX, sy = e.clientY, ox = vLeft, oy = vTop; try { qHead.setPointerCapture(e.pointerId); } catch { /* غير مدعوم */ }
+    qHead.classList.add("drag");
+    const mv = ev => { vLeft = ox + ev.clientX - sx; vTop = oy + ev.clientY - sy; clampQuick(); stickQuick(); };
+    const up = () => { qHead.removeEventListener("pointermove", mv); qHead.removeEventListener("pointerup", up); qHead.removeEventListener("pointercancel", up); qHead.classList.remove("drag"); lsSet("yz_cm_pos", JSON.stringify({ x: Math.round(vLeft), y: Math.round(vTop) })); };
+    qHead.addEventListener("pointermove", mv); qHead.addEventListener("pointerup", up); qHead.addEventListener("pointercancel", up);
+  });
+  // النافذة السريعة. الهاتف: نافذة منبثقة في منتصف المساحة المرئية فوق الكيبورد، تُحسب مرة واحدة بعد استقرار الكيبورد ثم لا تتحرك أبداً.
+  // الكمبيوتر: تحت الشريط، قابلة للسحب (يُحفظ مكانها yz_cm_pos) ومعها دبوس تثبيت (yz_cm_pin) يمنع إغلاقها بلمسة خارجية.
+  const DESK = matchMedia("(hover:hover) and (pointer:fine)");
+  const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* التخزين ممنوع */ } };
+  let vTop = 0, vLeft = 0, unQ = null, tokQ = 0, pinned = lsGet("yz_cm_pin") === "1";
+  // المكان محفوظ بإحداثيات المنظر المرئي، ونضيف إزاحته (iOS يزيح المنظر مع الكيبورد) فيبقى مكانه على الشاشة ثابتاً
+  function stickQuick() { const vv = window.visualViewport; quick.style.top = vTop + (vv?.offsetTop || 0) + "px"; quick.style.left = vLeft + (vv?.offsetLeft || 0) + "px"; }
+  function clampQuick() {
+    const vv = window.visualViewport, vw = vv?.width || innerWidth, vh = vv?.height || innerHeight, w = quick.offsetWidth, hh = quick.offsetHeight;
+    vLeft = Math.max(6, Math.min(vw - w - 6, vLeft)); vTop = Math.max(6, Math.min(vh - hh - 6, vTop));
   }
-  function placeQuick() {
-    const r = dock.getBoundingClientRect(); baseTop = Math.max(r.bottom + 8, 8);
-    quick.style.maxHeight = Math.max(170, Math.min(320, innerHeight * .4)) + "px";
-    quick.style.left = Math.max(8, (innerWidth - quick.offsetWidth) / 2) + "px"; stickQuick();
+  function placeQuick(provisional) {
+    const vv = window.visualViewport, vw = vv?.width || innerWidth, vh = vv?.height || innerHeight;
+    if (DESK.matches) {
+      quick.style.width = ""; quick.style.height = ""; quick.style.maxHeight = Math.max(170, Math.min(320, innerHeight * .4)) + "px";
+      let p = null; try { p = JSON.parse(lsGet("yz_cm_pos")); } catch { /* تالف */ }
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) { vLeft = p.x; vTop = p.y; }
+      else { vLeft = (innerWidth - quick.offsetWidth) / 2; vTop = Math.max(dock.getBoundingClientRect().bottom + 8, 8); }
+      clampQuick();
+    } else {
+      const w = Math.round(Math.min(vw * .88, 360)), H = Math.round(Math.min(Math.max(vh - 24, 140), Math.max(170, Math.min(vh * .72, 330))));
+      quick.style.width = w + "px"; quick.style.maxHeight = "none"; quick.style.height = H + "px";
+      vLeft = (vw - w) / 2; vTop = provisional ? 8 : Math.max(8, (vh - H) / 2);
+    }
+    stickQuick();
+  }
+  // ننتظر استقرار الكيبورد (أو غيابه) ثم نستدعي cb مرة واحدة
+  function settleKb(tok, cb) {
+    const t0 = performance.now(); let last = -1, since = t0;
+    const step = now => {
+      if (tok !== tokQ || !S.quick) return;
+      const hgt = window.visualViewport ? window.visualViewport.height : innerHeight; if (hgt !== last) { last = hgt; since = now; }
+      const kb = kbOn();
+      if ((kb && now - since > 140) || (!kb && now - t0 > 450) || now - t0 > 900) return cb();
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
   function openQuick() {
     if (S.quick || !ready_()) return;
     if (S.P) closePanel(true);
-    hideBubble(true); S.quick = true; qBody.append(chat.root); quick.hidden = false; placeQuick(); chat.toEnd(); markRead();
-    bChat.classList.add("on");
-    const vv = window.visualViewport, out = e => { if (!quick.contains(e.target) && !dock.contains(e.target) && !e.target.closest?.(".cm-bub")) closeQuick(); };
-    vv?.addEventListener("scroll", stickQuick); vv?.addEventListener("resize", stickQuick);
+    hideBubble(true); S.quick = true; const tok = ++tokQ; qBody.append(chat.root); quick.hidden = false; markRead();
+    bChat.classList.add("on"); pinB.hidden = !DESK.matches; pinB.classList.toggle("on", pinned);
+    const vv = window.visualViewport, out = e => { if (DESK.matches && pinned) return; if (!quick.contains(e.target) && !dock.contains(e.target) && !e.target.closest?.(".cm-bub")) closeQuick(); };
+    const onVV = () => { if (DESK.matches) clampQuick(); stickQuick(); };
+    vv?.addEventListener("scroll", onVV); vv?.addEventListener("resize", onVV);
     setTimeout(() => document.addEventListener("pointerdown", out, true), 0);       // أي لمسة خارج المحادثة تغلقها
-    unQ = () => { vv?.removeEventListener("scroll", stickQuick); vv?.removeEventListener("resize", stickQuick); document.removeEventListener("pointerdown", out, true); };
-    const r = bChat.getBoundingClientRect(), cx = r.left + r.width / 2 - quick.getBoundingClientRect().left;
-    if (G()) { gsap.fromTo(quick, { scale: .15, opacity: 0, y: -16, transformOrigin: `${cx}px 0px` }, { scale: 1, opacity: 1, y: 0, duration: .55, ease: "back.out(1.8)", onComplete: () => { chat.focus(); chat.toEnd(); } }); }
-    else { chat.focus(); chat.toEnd(); }
+    unQ = () => { vv?.removeEventListener("scroll", onVV); vv?.removeEventListener("resize", onVV); document.removeEventListener("pointerdown", out, true); };
     sfx.click();
+    if (DESK.matches) {
+      placeQuick(); chat.toEnd();
+      const r = bChat.getBoundingClientRect(), cx = r.left + r.width / 2 - quick.getBoundingClientRect().left;
+      if (G()) gsap.fromTo(quick, { scale: .15, opacity: 0, y: -16, transformOrigin: `${cx}px 0px` }, { scale: 1, opacity: 1, y: 0, duration: .55, ease: "back.out(1.8)", onComplete: () => { chat.focus(); chat.toEnd(); } });
+      else { chat.focus(); chat.toEnd(); }
+      return;
+    }
+    // الهاتف: نركّز الحقل فوراً داخل اللمسة (iOS لا يفتح الكيبورد إلا هكذا) والنافذة شفافة في الأعلى حتى لا يزيح iOS الصفحة،
+    // ثم حين يستقر الكيبورد نضعها في مكانها النهائي ونظهرها بحركة واحدة
+    placeQuick(true); quick.style.opacity = "0"; chat.toEnd(); chat.focus();
+    settleKb(tok, () => {
+      placeQuick(); chat.toEnd();
+      if (G()) gsap.fromTo(quick, { scale: .92, opacity: 0, y: 10, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, y: 0, duration: .3, ease: "power2.out", clearProps: "transform,opacity" });
+      else quick.style.opacity = "";
+    });
   }
   function closeQuick(instant) {
-    if (!S.quick) return; S.quick = false; chat.blur(); bChat.classList.remove("on"); unQ?.(); unQ = null;
-    const docked = quick.classList.contains("kb");
-    const done = () => { quick.hidden = true; quick.classList.remove("kb"); quick.style.height = ""; window.gsap?.set(quick, { clearProps: "transform,opacity" }); };
+    if (!S.quick) return; S.quick = false; tokQ++; chat.blur(); bChat.classList.remove("on"); unQ?.(); unQ = null;
+    const done = () => { quick.hidden = true; quick.style.opacity = ""; window.gsap?.set(quick, { clearProps: "transform,opacity" }); };
     if (!G() || instant) return done();
-    if (docked) return void gsap.to(quick, { y: 140, opacity: 0, duration: .26, ease: "power2.in", onComplete: done });   // الملتصقة بالكيبورد تنزل للأسفل بدل الانكماش نحو الأيقونة
+    if (!DESK.matches) return void gsap.to(quick, { scale: .94, opacity: 0, duration: .2, ease: "power2.in", onComplete: done });
     const r = bChat.getBoundingClientRect(), cx = r.left + r.width / 2 - quick.getBoundingClientRect().left;
     gsap.to(quick, { scale: .15, opacity: 0, y: -16, transformOrigin: `${cx}px 0px`, duration: .32, ease: "power3.in", onComplete: done });
   }
+
+  DESK.addEventListener?.("change", () => { pinB.hidden = !DESK.matches || !S.quick; });
 
   // ============================== القناة الصوتية ==============================
   function persist() { const E = S.eng; flagSet(E?.on ? { c: S.code, m: E.muted } : null); }
@@ -257,7 +296,7 @@ function build({ mode = "game" } = {}) {
   async function joinVoice(auto) {
     const E = S.eng; if (!E || E.on || E.joining) return;
     micD.pulse(true);
-    try { await E.join({ muted: auto ? !!flagGet()?.m : false }); persist(); sfx.join(); paintMic(); }
+    try { await E.join({ muted: auto ? !!flagGet()?.m : false, auto }); persist(); sfx.join(); paintMic(); }
     catch (e) {
       rulesHint(e);
       if (auto) bubble({ icon: makeMic(16, "off").el, title: "الصوت", text: "تعذّرت العودة للقناة الصوتية. المس المايك للانضمام" });
@@ -271,14 +310,15 @@ function build({ mode = "game" } = {}) {
     E.setMuted(m, true); persist(); paintMic(); renderVoice();
     if (!quiet) m ? sfx.mute() : sfx.unmute();
   }
-  // لمسة = كتم/فتح، لمستان = القناة الصوتية. الكتم فوري، فإن جاءت اللمسة الثانية خلال 320ms نتراجع عنه بصمت ونفتح اللوحة
+  // لمسة = انضمام/كتم/فتح، لمستان = اللوحة. الانضمام يبدأ فوراً داخل اللمسة نفسها (iOS لا يعرض إذن المايك إلا من لمسة مباشرة، وأي تأخير يفشله)،
+  // والكتم فوري وإن جاءت اللمسة الثانية خلال 320ms نتراجع عنه بصمت ونفتح اللوحة
   let lastTap = 0, undo = null;
   bMic.onclick = () => {
     const now = performance.now();
     if (now - lastTap < 320) { lastTap = 0; undo?.(); undo = null; return openPanel("voice", { join: false }); }
-    lastTap = now;
+    lastTap = now; undo = null;
     if (!ready_()) return;
-    if (!inVoice()) { const t = setTimeout(() => { undo = null; joinVoice(); }, 320); undo = () => clearTimeout(t); }
+    if (!inVoice()) joinVoice();
     else { const was = S.eng.muted; setMute(!was); undo = () => setMute(was, true); }
   };
   let lastC = 0, undoC = null;                                  // لمسة = فتح/إغلاق الكتابة، لمستان = اللوحة الكاملة
@@ -409,7 +449,7 @@ function build({ mode = "game" } = {}) {
     bigBtn.onclick = () => setMute(!S.eng.muted); lv.onclick = () => leaveVoice(); jb.onclick = () => joinVoice();
     panel.append(top, T.sec, V.sec); sheet.append(panel); document.body.append(sheet);
     const P = S.P = P_ = { sheet, panel, rows, ul, ctl, joinBox, vEmpty, bigMic, bigLbl, bigBtn, tPrev: T.prev, vPrev: V.prev, vCount: V.cnt, unT: T.un, vHead: V.hd, vHeadDot: V.dot, T, V, view: null, off: [] };
-    P.off.push(fit(sheet)); P.off.push(kbWatch(sheet));
+    P.off.push(fit(sheet));
     // النقر على قسم = الدخول لقناته. النقر على القسم المفتوح من عنوانه = العودة للقائمة
     const close = () => closePanel(); x.onclick = close; P.off.push(dismissOutside(sheet, close));
     T.full.append(chat.root);
