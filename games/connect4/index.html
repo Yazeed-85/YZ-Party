@@ -31,6 +31,7 @@ import { runTransaction, onValue } from '../../shared/firebase.js';
 import { enterRoom, watchRoom, gameRef, goLobby, abortGame } from '../../shared/room.js';
 import { finishGame, makeResult } from '../../shared/result.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
+import '../../shared/comms-auto.js';
 import { initGameExit } from '../../shared/leave.js';
 
 const R = 6, C = 7, $ = s => document.querySelector(s);

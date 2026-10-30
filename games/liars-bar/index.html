@@ -116,7 +116,7 @@ main{max-width:520px;height:calc(100dvh - env(safe-area-inset-top,0px) - env(saf
     <div class="chip tg" id="cTarget"></div>
     <div class="chip" id="cAlive"></div>
     <div class="chip sp" id="cTime" hidden></div>
-    <button class="chip btnc" id="bSnd" aria-label="الصوت">🔊</button>
+    <button class="chip btnc" id="bSnd" aria-label="الصوت"></button>
     <button class="chip btnc" id="bHelp" aria-label="القواعد">؟</button>
   </div>
   <div class="tbar"><i id="tbi"></i></div>
@@ -149,6 +149,8 @@ import { enterRoom, watchRoom, gameRef, roomRef, goLobby, abortGame, backToLobby
 import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar, confirmDialog, showOverlay, isMuted, toggleMute } from '../../shared/ui.js';
+import '../../shared/comms-auto.js';
+import { makeSpeaker } from '../../shared/icons.js';
 import { initGroupExit } from '../../shared/leave.js';
 
 // ===== محرّك القواعد (دوال نقية بلا شبكة، تُختبر بمحاكاة آلاف المباريات) =====
@@ -685,8 +687,8 @@ function hostSchedule() {
   const n = Object.keys(players).length;
   if (n < 2 || n > 4) { toast('اللعبة تتسع لـ 2 إلى 4 لاعبين', 'error'); abortGame(ctx); return; }
   fit(); new ResizeObserver(() => { fit(); if (myHand.length) renderHand(false); }).observe($('#scene')); addEventListener('resize', fit);
-  $('#bSnd').textContent = isMuted() ? '🔇' : '🔊';
-  $('#bSnd').onclick = () => { const m = toggleMute(); $('#bSnd').textContent = m ? '🔇' : '🔊'; if (m) stopSnd(); };
+  const snd = makeSpeaker(16, isMuted()); $('#bSnd').append(snd.el);   // أيقونة الصوت المرسومة بالكود
+  $('#bSnd').onclick = () => { const m = toggleMute(); snd.set(m); if (m) stopSnd(); };
   $('#bHelp').onclick = () => { sfx.click(); showRules(); };
   $('#bPlay').onclick = () => { sfx.click(); doPlay(); }; $('#bLiar').onclick = () => { sfx.click(); doLiar(); };
   buildEnter(); unlockAudio();

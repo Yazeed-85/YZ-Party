@@ -87,6 +87,7 @@ import { enterRoom, watchRoom, gameRef, roomRef, goLobby, abortGame } from '../.
 import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
+import '../../shared/comms-auto.js';
 import { initGameExit } from '../../shared/leave.js';
 import { analyze } from './judge.js';
 
@@ -114,6 +115,8 @@ const actx = () => (ac ??= new AC());
 const decode = ab => new Promise((res, rej) => { const p = actx().decodeAudioData(ab, res, rej); p?.then?.(res, rej); });
 async function mic() {
   if (stream && stream.active) return stream;
+  const vt = window.YZComms?.micTrack?.();                  // مايك القناة الصوتية مفتوح: نستنسخ مساره بدل فتح التقاط ثانٍ (يتعارضان على iOS) ونتجاهل كتم القناة
+  if (vt) { const c = vt.clone(); c.enabled = true; stream = new MediaStream([c]); return stream; }
   stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
   return stream;
 }
