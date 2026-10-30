@@ -127,12 +127,23 @@ function build({ mode = "game" } = {}) {
     send.type = "submit"; send.setAttribute("aria-label", "إرسال"); send.append(sendIcon(20));
     more.type = "button"; more.hidden = true; list.append(empty); form.append(inp, send); root.append(list, more, form);
     let prev = null, count = 0, lastSend = 0;
-    // pin = أنا عند آخر المحادثة. ما دام مثبّتاً نبقى في الأسفل حتى لو تغيّر ارتفاع القائمة (ظهور الكيبورد أو انتهاء حركة الفتح)
-    let pin = true;
+    // pin = أنا عند آخر المحادثة، وهو الوضع الدائم. لا نتركه إلا إذا سحب اللاعب القائمة بنفسه للأعلى (عجلة/لمس)،
+    // وأحداث scroll التي نسببها نحن (تغيّر الحجم، الكيبورد، الحركات) لا تفكّ التثبيت أبداً.
+    let pin = true, ut = -1e9;
     const near = () => list.scrollHeight - list.scrollTop - list.clientHeight < 70;
     const toEnd = () => { pin = true; list.scrollTop = list.scrollHeight; more.hidden = true; };
-    const pinEnd = () => { toEnd(); requestAnimationFrame(() => { toEnd(); requestAnimationFrame(toEnd); }); };   // القياس يتأخر إطاراً أو اثنين بعد الإظهار
-    list.addEventListener("scroll", () => { pin = near(); if (pin) more.hidden = true; }, { passive: true });
+    const pinEnd = () => {                                     // نثبّت الأسفل عدة إطارات: القياس والحركات والكيبورد قد تغيّر الارتفاع بعد الفتح
+      toEnd(); const t0 = performance.now();
+      const tick = () => { if (!pin) return; list.scrollTop = list.scrollHeight; if (performance.now() - t0 < 600) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    };
+    const touched = () => { ut = performance.now(); };
+    for (const ev of ["wheel", "touchstart", "touchmove", "pointerdown"]) list.addEventListener(ev, touched, { passive: true });
+    list.addEventListener("scroll", () => {
+      if (performance.now() - ut < 1200) pin = near();         // اللاعب هو من يتمرّر: يحق له الصعود
+      else if (near()) pin = true;                              // وبلوغه الأسفل يعيد التثبيت
+      if (pin) more.hidden = true;
+    }, { passive: true });
     if (window.ResizeObserver) new ResizeObserver(() => { if (pin && list.clientHeight) list.scrollTop = list.scrollHeight; }).observe(list);
     more.onclick = () => { toEnd(); };
     form.onsubmit = e => {
@@ -145,18 +156,18 @@ function build({ mode = "game" } = {}) {
     };
     function add(k, d, live) {
       empty.hidden = true;
-      const mine = d.u === S.uid, stick = near() || mine;
+      const mine = d.u === S.uid, stick = pin || mine;
       const grp = prev && prev.u === d.u && (d.t || 0) - (prev.t || 0) < 60000;
       const row = h("div", "cm-msg" + (mine ? " me" : "") + (grp ? " grp" : ""));
       if (!mine && !grp) { const n = h("span", "cm-mn", d.n || "لاعب"); n.style.color = hue(d.u); row.append(n); }
       const b = h("div", "cm-mb"), tx = h("span", "cm-mt", d.m); tx.dir = "auto"; b.append(tx, h("time", "cm-tm", fmtTime(d.t)));
       row.append(b); list.append(row); prev = d; count++;
       while (count > 140) { list.querySelector(".cm-msg")?.remove(); count--; }
-      if (stick) toEnd(); else if (live) { more.hidden = false; if (G()) gsap.fromTo(more, { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: .35, ease: "back.out(2)" }); }
+      if (stick) pinEnd(); else if (live) { more.hidden = false; if (G()) gsap.fromTo(more, { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: .35, ease: "back.out(2)" }); }
       if (live && G()) gsap.from(b, { y: 16, scale: .9, opacity: 0, duration: .5, ease: "back.out(2)", transformOrigin: mine ? "100% 100%" : "0% 100%" });
     }
-    const reset = () => { list.replaceChildren(empty); empty.hidden = false; prev = null; count = 0; more.hidden = true; };
-    return { root, add, toEnd: pinEnd, reset, focus: () => inp.focus({ preventScroll: true }), blur: () => inp.blur() };
+    const reset = () => { list.replaceChildren(empty); empty.hidden = false; prev = null; count = 0; more.hidden = true; pin = true; };
+    return { root, add, toEnd: pinEnd, reset, input: inp, onBlur: f => inp.addEventListener("blur", f), focus: () => inp.focus({ preventScroll: true }), blur: () => inp.blur() };
   })();
 
   const lastRead = () => sessionStorage.getItem("yz_cr_" + S.code) || "";
@@ -210,7 +221,12 @@ function build({ mode = "game" } = {}) {
   const DESK = matchMedia("(hover:hover) and (pointer:fine)");
   const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* التخزين ممنوع */ } };
-  let vTop = 0, vLeft = 0, unQ = null, tokQ = 0, pinned = lsGet("yz_cm_pin") === "1";
+  let vTop = 0, vLeft = 0, unQ = null, tokQ = 0, pinned = lsGet("yz_cm_pin") === "1", armed = false;
+  const kbProxy = h("input"); kbProxy.type = "text"; kbProxy.tabIndex = -1; kbProxy.setAttribute("aria-hidden", "true"); kbProxy.autocomplete = "off";
+  kbProxy.style.cssText = "position:fixed;top:0;left:0;width:2px;height:2px;opacity:.01;border:0;padding:0;margin:0;font-size:16px;pointer-events:none;background:transparent;color:transparent;caret-color:transparent";
+  document.body.append(kbProxy);
+  // على الهاتف: أي إغلاق للكيبورد (زر ✓ فوقه أو لمسة خارجية) يغلق النافذة معه
+  chat.onBlur(() => { if (!S.quick || DESK.matches || !armed) return; setTimeout(() => { if (S.quick && armed && document.activeElement !== chat.input) closeQuick(); }, 80); });
   // المكان محفوظ بإحداثيات المنظر المرئي، ونضيف إزاحته (iOS يزيح المنظر مع الكيبورد) فيبقى مكانه على الشاشة ثابتاً
   function stickQuick() { const vv = window.visualViewport; quick.style.top = vTop + (vv?.offsetTop || 0) + "px"; quick.style.left = vLeft + (vv?.offsetLeft || 0) + "px"; }
   function clampQuick() {
@@ -264,15 +280,18 @@ function build({ mode = "game" } = {}) {
     }
     // الهاتف: نركّز الحقل فوراً داخل اللمسة (iOS لا يفتح الكيبورد إلا هكذا) والنافذة شفافة في الأعلى حتى لا يزيح iOS الصفحة،
     // ثم حين يستقر الكيبورد نضعها في مكانها النهائي ونظهرها بحركة واحدة
-    placeQuick(true); quick.style.opacity = "0"; chat.toEnd(); chat.focus();
+    // حقل وسيط مخفي نركّز عليه داخل اللمسة فيبدأ الكيبورد فوراً، ثم ننقل التركيز للحقل الحقيقي حين تستقر النافذة (نقل التركيز بين حقلين لا يغلق الكيبورد)
+    placeQuick(true); quick.style.opacity = "0"; chat.toEnd(); armed = false;
+    kbProxy.focus({ preventScroll: true });
     settleKb(tok, () => {
-      placeQuick(); chat.toEnd();
+      placeQuick(); chat.toEnd(); chat.focus(); kbProxy.blur();
+      setTimeout(() => { if (tok === tokQ) armed = true; }, 450);
       if (G()) gsap.fromTo(quick, { scale: .92, opacity: 0, y: 10, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, y: 0, duration: .3, ease: "power2.out", clearProps: "transform,opacity" });
       else quick.style.opacity = "";
     });
   }
   function closeQuick(instant) {
-    if (!S.quick) return; S.quick = false; tokQ++; chat.blur(); bChat.classList.remove("on"); unQ?.(); unQ = null;
+    if (!S.quick) return; S.quick = false; tokQ++; armed = false; chat.blur(); kbProxy.blur(); bChat.classList.remove("on"); unQ?.(); unQ = null;
     const done = () => { quick.hidden = true; quick.style.opacity = ""; window.gsap?.set(quick, { clearProps: "transform,opacity" }); };
     if (!G() || instant) return done();
     if (!DESK.matches) return void gsap.to(quick, { scale: .94, opacity: 0, duration: .2, ease: "power2.in", onComplete: done });
