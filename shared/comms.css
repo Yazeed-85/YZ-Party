@@ -126,3 +126,13 @@ body.inroom #lobby{padding-top:44px}
 #mute,#bSnd{display:grid;place-items:center}
 #mute{color:var(--mute);padding:0}
 .cm-chev{display:none!important}
+
+/* بلا شريط تمرير في أي مكان من النظام (التمرير يعمل باللمس والعجلة) */
+.cm-msgs,.cm-vlist{scrollbar-width:none;-ms-overflow-style:none}
+.cm-msgs::-webkit-scrollbar,.cm-vlist::-webkit-scrollbar{display:none;width:0;height:0}
+/* أنا على اليمين ومن أكلّمه على اليسار */
+.cm-msg{align-self:flex-end;align-items:flex-end}
+.cm-msg.me{align-self:flex-start;align-items:flex-start}
+.cm-qh{cursor:grab}.cm-qh:active{cursor:grabbing}
+.cm-qt{user-select:none;-webkit-user-select:none}
+.cm-pin{background:transparent;color:var(--mute)}.cm-pin.on{color:var(--lagoon);background:rgba(79,209,197,.16)}
