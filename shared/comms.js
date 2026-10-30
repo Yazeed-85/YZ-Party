@@ -154,7 +154,7 @@ function build({ mode = "game" } = {}) {
   })();
 
   const lastRead = () => sessionStorage.getItem("yz_cr_" + S.code) || "";
-  const chatVisible = () => S.quick || (S.P?.view === "text");
+  const chatVisible = () => S.quick || !!S.P;
   function markRead() { try { if (S.lastKey) sessionStorage.setItem("yz_cr_" + S.code, S.lastKey); } catch { /* التخزين ممنوع */ } S.unread = 0; paintUnread(); }
   let firstChat = true, lastPreview = [];
   function onChat(snap) {
@@ -184,31 +184,34 @@ function build({ mode = "game" } = {}) {
   const quick = h("div", "cm-quick"), qHead = h("div", "cm-qh"), qBody = h("div", "cm-qb");
   quick.hidden = true;
   { const t = h("div", "cm-qt"); t.append(h("span", "cm-hash", "#"), h("span", "", "المحادثة النصية"));
-    const ex = h("button", "cm-b cm-ibtn"); ex.type = "button"; ex.setAttribute("aria-label", "فتح اللوحة الكاملة"); ex.append(ic("expand", 16));
     const x = h("button", "cm-b cm-ibtn"); x.type = "button"; x.setAttribute("aria-label", "إغلاق"); x.append(ic("close", 16));
-    ex.onclick = () => openPanel("text"); x.onclick = () => closeQuick();
-    qHead.append(t, ex, x); quick.append(qHead, qBody); document.body.append(quick); }
-  let unfitQ = null;
+    x.onclick = () => closeQuick();
+    qHead.append(t, x); quick.append(qHead, qBody); document.body.append(quick); }
+  // النافذة ثابتة فعلاً: ارتفاعها يُحسب مرة واحدة عند الفتح، ومع ظهور الكيبورد (iOS يزيح المنظر المرئي) نعوّض الإزاحة فلا تتحرك
+  let baseTop = 0, unQ = null;
+  function stickQuick() { const vv = window.visualViewport; quick.style.top = baseTop + (vv ? vv.offsetTop : 0) + "px"; }
   function placeQuick() {
-    const r = dock.getBoundingClientRect(), vv = window.visualViewport, vh = vv ? vv.height : innerHeight, top = Math.max(r.bottom + 8, 8);
-    quick.style.top = top + "px"; quick.style.maxHeight = Math.max(160, Math.min(380, vh - top - 10)) + "px";
-    const w = quick.offsetWidth; quick.style.left = Math.max(8, (innerWidth - w) / 2) + "px";
+    const r = dock.getBoundingClientRect(); baseTop = Math.max(r.bottom + 8, 8);
+    quick.style.maxHeight = Math.max(170, Math.min(320, innerHeight * .4)) + "px";
+    quick.style.left = Math.max(8, (innerWidth - quick.offsetWidth) / 2) + "px"; stickQuick();
   }
   function openQuick() {
     if (S.quick || !ready_()) return;
     if (S.P) closePanel(true);
     hideBubble(true); S.quick = true; qBody.append(chat.root); quick.hidden = false; placeQuick(); chat.toEnd(); markRead();
     bChat.classList.add("on");
-    const vv = window.visualViewport; unfitQ = () => placeQuick(); vv?.addEventListener("resize", unfitQ); addEventListener("resize", unfitQ);
+    const vv = window.visualViewport, out = e => { if (!quick.contains(e.target) && !dock.contains(e.target) && !e.target.closest?.(".cm-bub")) closeQuick(); };
+    vv?.addEventListener("scroll", stickQuick); vv?.addEventListener("resize", stickQuick);
+    setTimeout(() => document.addEventListener("pointerdown", out, true), 0);       // أي لمسة خارج المحادثة تغلقها
+    unQ = () => { vv?.removeEventListener("scroll", stickQuick); vv?.removeEventListener("resize", stickQuick); document.removeEventListener("pointerdown", out, true); };
     const r = bChat.getBoundingClientRect(), cx = r.left + r.width / 2 - quick.getBoundingClientRect().left;
     if (G()) { gsap.fromTo(quick, { scale: .15, opacity: 0, y: -16, transformOrigin: `${cx}px 0px` }, { scale: 1, opacity: 1, y: 0, duration: .55, ease: "back.out(1.8)", onComplete: () => chat.focus() }); }
     else chat.focus();
     sfx.click();
   }
   function closeQuick(instant) {
-    if (!S.quick) return; S.quick = false; chat.blur(); bChat.classList.remove("on");
-    const vv = window.visualViewport; vv?.removeEventListener("resize", unfitQ); removeEventListener("resize", unfitQ);
-    const done = () => { quick.hidden = true; window.gsap?.set(quick, { clearProps: "all" }); };
+    if (!S.quick) return; S.quick = false; chat.blur(); bChat.classList.remove("on"); unQ?.(); unQ = null;
+    const done = () => { quick.hidden = true; window.gsap?.set(quick, { clearProps: "transform,opacity" }); };
     if (!G() || instant) return done();
     const r = bChat.getBoundingClientRect(), cx = r.left + r.width / 2 - quick.getBoundingClientRect().left;
     gsap.to(quick, { scale: .15, opacity: 0, y: -16, transformOrigin: `${cx}px 0px`, duration: .32, ease: "power3.in", onComplete: done });
@@ -252,7 +255,14 @@ function build({ mode = "game" } = {}) {
     if (!inVoice()) { const t = setTimeout(() => { undo = null; joinVoice(); }, 320); undo = () => clearTimeout(t); }
     else { const was = S.eng.muted; setMute(!was); undo = () => setMute(was, true); }
   };
-  bChat.onclick = () => (S.quick ? closeQuick() : openQuick());
+  let lastC = 0, undoC = null;                                  // لمسة = فتح/إغلاق الكتابة، لمستان = اللوحة الكاملة
+  bChat.onclick = () => {
+    const now = performance.now();
+    if (now - lastC < 320) { lastC = 0; undoC?.(); undoC = null; return openPanel("list"); }
+    lastC = now; const was = S.quick;
+    was ? closeQuick() : openQuick();
+    undoC = () => { was ? openQuick() : closeQuick(true); };
+  };
 
   // ---- ما يظهر في كل مكان عن الصوت (تُستدعى عند أي تغيير) ----
   function renderVoice() { paintMic(); paintFabTalk(); if (S.P) { paintVoicePanel(); paintPreviews(); } }
@@ -375,8 +385,6 @@ function build({ mode = "game" } = {}) {
     const P = S.P = P_ = { sheet, panel, rows, ul, ctl, joinBox, vEmpty, bigMic, bigLbl, bigBtn, tPrev: T.prev, vPrev: V.prev, vCount: V.cnt, unT: T.un, vHead: V.hd, vHeadDot: V.dot, T, V, view: null, off: [] };
     P.off.push(fit(sheet));
     // النقر على قسم = الدخول لقناته. النقر على القسم المفتوح من عنوانه = العودة للقائمة
-    const pick = k => () => setView(S.P.view === k ? "list" : k, { join: true });
-    T.hd.onclick = pick("text"); V.hd.onclick = pick("voice"); T.prev.onclick = () => setView("text"); V.prev.onclick = () => setView("voice", { join: true });
     const close = () => closePanel(); x.onclick = close; P.off.push(dismissOutside(sheet, close));
     T.full.append(chat.root);
     paintPreviews(); paintVoicePanel(); paintUnread();
@@ -384,29 +392,16 @@ function build({ mode = "game" } = {}) {
     flyFrom(sheet, panel, o.from || fab || bMic);
   }
 
+  // القسمان مفتوحان معاً دائماً (لا طيّ ولا تصغير)
   function setView(k, o = {}) {
-    const P = S.P; if (!P || (P.view === k && !o.first)) return;
-    const old = P.view; P.view = k;
-    const grow = e => parseFloat(getComputedStyle(e).flexGrow) || 0, before = [grow(P.T.sec), grow(P.V.sec)];
-    for (const [sec, key] of [[P.T, "text"], [P.V, "voice"]]) {
-      sec.sec.classList.toggle("is-open", k === key);
-      sec.sec.classList.toggle("is-min", k !== "list" && k !== key);
-      sec.hd.setAttribute("aria-expanded", k === key);
+    const P = S.P; if (!P) return;
+    if (!P.view) {
+      P.view = "both";
+      for (const sec of [P.T, P.V]) { sec.sec.classList.add("is-open"); sec.chev.hidden = true; }
+      P.T.full.append(chat.root); chat.toEnd(); markRead();
+      if (G()) gsap.from([P.T.full, P.V.full], { opacity: 0, y: 14, duration: .45, delay: .25, stagger: .08, ease: "power3.out", clearProps: "opacity,transform" });
     }
-    if (k === "text") { P.T.full.append(chat.root); chat.toEnd(); markRead(); if (!o.first && !matchMedia("(pointer:coarse)").matches) chat.focus(); }
-    if (G() && !o.first) {
-      gsap.from(P.T.sec, { flexGrow: before[0], duration: .6, ease: "power3.inOut", clearProps: "flexGrow" });
-      gsap.from(P.V.sec, { flexGrow: before[1], duration: .6, ease: "power3.inOut", clearProps: "flexGrow" });
-    }
-    const open = k === "text" ? P.T : k === "voice" ? P.V : null;
-    if (G() && open && old !== k) gsap.fromTo(open.full, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: .45, delay: o.first ? .25 : .2, ease: "power3.out", clearProps: "opacity,transform" });
-    if (G()) { gsap.to(P.T.chev, { rotation: k === "text" ? -90 : 0, duration: .4, ease: "back.out(2)" }); gsap.to(P.V.chev, { rotation: k === "voice" ? -90 : 0, duration: .4, ease: "back.out(2)" }); }
-    else { P.T.chev.style.transform = k === "text" ? "rotate(-90deg) scaleX(-1)" : ""; P.V.chev.style.transform = k === "voice" ? "rotate(-90deg) scaleX(-1)" : ""; }
-    // القسم المطويّ يُخفى بعد انتهاء حركة الطيّ (لا يُنتقل إليه بالـTab وهو غير ظاهر)
-    P.sheet.classList.remove("settled"); P.settle?.kill?.(); clearTimeout(P.settleT);
-    P.settleT = setTimeout(() => P.sheet?.classList.add("settled"), G() && !o.first ? 650 : 0);
-    if (k === "voice" && o.join !== false && !inVoice()) joinVoice();
-    if (k === "voice") paintVoicePanel();
+    paintVoicePanel();
   }
 
   function closePanel(instant) {
