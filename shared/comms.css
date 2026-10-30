@@ -1,0 +1,117 @@
+/* نظام التواصل (comms.js). لا انتقالات ولا حركات CSS هنا: كل الحركة بـ GSAP. */
+:root{--yz-cut:#12172a;--cm-red:#ff4d5e;--cm-green:#34d399}
+
+/* ===== الشريط العلوي: دردشة + مايك ===== */
+.cm-dock{position:fixed;left:0;top:0;z-index:140;pointer-events:none;will-change:transform}
+.cm-pill{pointer-events:auto;display:flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:rgba(18,23,42,.93);border:1px solid rgba(255,255,255,.15);box-shadow:0 6px 18px rgba(0,0,0,.45);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.cm-b{position:relative;display:grid;place-items:center;padding:0;border:0;background:transparent;color:var(--text);font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.cm-pill .cm-b{width:30px;height:30px;border-radius:50%}
+.cm-bchat{color:#d9dcf0}
+.cm-bchat.on{color:var(--lagoon);background:rgba(79,209,197,.16)}
+.cm-bmic.muted{background:rgba(255,77,94,.14)}
+.cm-bmic.live{background:rgba(255,255,255,.06)}
+.cm-bmic.has::after{content:'';position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--cm-green);box-shadow:0 0 0 2px #12172a}
+.cm-sep{width:1px;height:16px;background:rgba(255,255,255,.15)}
+.cm-ring{position:absolute;inset:-1px;border-radius:50%;border:2px solid var(--cm-green);opacity:0;pointer-events:none}
+.cm-badge{min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--rose);color:#2a0710;font:700 .7rem 'Cairo',sans-serif;display:grid;place-items:center;line-height:1}
+.cm-pill .cm-badge{position:absolute;top:-5px;right:-5px;box-shadow:0 0 0 2px #12172a}
+.yzc-slot{flex:none;width:76px;align-self:stretch;min-height:34px}
+body.inroom #lobby{padding-top:44px}
+
+/* ===== زر التواصل (الرئيسية والردهة) ===== */
+.fab.cm-fab{left:112px;display:grid;place-items:center;color:var(--text)}
+.fab.cm-fab.dim{opacity:.55;color:var(--mute)}
+.fab.cm-fab.live{color:var(--lagoon);border-color:var(--lagoon);box-shadow:0 0 0 2px rgba(79,209,197,.22),0 0 16px rgba(79,209,197,.5)}
+.fab.cm-fab.in{position:absolute;top:12px;left:auto;right:12px;width:36px;height:36px}
+
+/* ===== الفقاعة الودّية ===== */
+.cm-bub{position:fixed;z-index:150;display:flex;align-items:center;gap:9px;max-width:min(86vw,272px);padding:7px 14px 7px 8px;border-radius:18px;background:rgba(18,23,42,.97);border:1px solid rgba(255,255,255,.16);box-shadow:0 12px 30px rgba(0,0,0,.5);color:var(--text);font:inherit;text-align:start;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.cm-bi{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:rgba(79,209,197,.16);color:var(--lagoon)}
+.cm-bt{display:flex;flex-direction:column;min-width:0;line-height:1.4;font-size:.82rem}
+.cm-bt b{font-size:.76rem;color:var(--amber)}
+.cm-bt span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;color:#dfe2f3;overflow-wrap:anywhere}
+
+/* ===== نافذة الكتابة السريعة ===== */
+.cm-quick{position:fixed;z-index:160;width:min(92vw,360px);display:flex;flex-direction:column;background:rgba(18,23,42,.97);border:1px solid rgba(255,255,255,.15);border-radius:20px;box-shadow:0 22px 50px rgba(0,0,0,.6);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);overflow:hidden}
+.cm-qh{display:flex;align-items:center;gap:4px;padding:7px 10px 7px 8px;border-bottom:1px solid var(--line);flex:none}
+.cm-qt{flex:1;display:flex;gap:6px;font-weight:700;font-size:.95rem;padding-inline-start:6px}
+.cm-hash{color:var(--mute);font-weight:900}
+.cm-qb{display:flex;flex-direction:column;min-height:0;flex:1}
+.cm-ibtn{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.07);color:var(--text);flex:none}
+
+/* ===== عرض المحادثة (يُستخدم في النافذة السريعة وفي اللوحة) ===== */
+.cm-chat{position:relative;display:flex;flex-direction:column;min-height:0;flex:1}
+.cm-quick .cm-chat{min-height:170px}
+.cm-msgs{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 12px;display:flex;flex-direction:column;touch-action:pan-y}
+.cm-empty{margin:auto;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--mute);font-size:.88rem;opacity:.85;padding:14px}
+.cm-msg{display:flex;flex-direction:column;align-items:flex-start;max-width:88%;margin-top:9px}
+.cm-msg.grp{margin-top:2px}
+.cm-msg.me{align-self:flex-end;align-items:flex-end}
+.cm-mn{font-size:.72rem;font-weight:700;margin:0 8px 2px}
+.cm-mb{display:flex;align-items:flex-end;gap:8px;padding:6px 12px;border-radius:15px 15px 15px 5px;background:rgba(255,255,255,.09);line-height:1.5;font-size:.95rem;overflow-wrap:anywhere}
+.cm-msg.me .cm-mb{background:rgba(79,209,197,.2);border:1px solid rgba(79,209,197,.34);border-radius:15px 15px 5px 15px}
+.cm-msg.grp:not(.me) .cm-mb{border-radius:15px 15px 15px 5px}
+.cm-mt{white-space:pre-wrap}
+.cm-tm{font-size:.62rem;color:var(--mute);white-space:nowrap;direction:ltr;flex:none;padding-bottom:2px}
+.cm-more{position:absolute;left:0;right:0;margin-inline:auto;width:max-content;bottom:62px;padding:5px 14px;border-radius:999px;border:1px solid rgba(79,209,197,.5);background:#12313a;color:var(--lagoon);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+.cm-comp{display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid var(--line);flex:none}
+.cm-in{flex:1;min-width:0;padding:10px 16px;border-radius:999px;font-size:16px}
+.cm-send{flex:none;width:42px;height:42px;border-radius:50%;background:var(--lagoon);color:#06231f}
+
+/* ===== اللوحة الكاملة: قسمان ===== */
+.cm-panel{width:min(520px,100%);height:min(86dvh,640px);max-height:none;overflow:hidden}
+.cm-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 10px 16px;border-bottom:1px solid var(--line);flex:none}
+.cm-title{display:flex;align-items:center;gap:8px;font:700 1.2rem 'Reem Kufi',sans-serif}
+.cm-title svg{color:var(--lagoon)}
+.cm-sec{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
+.cm-sec+.cm-sec{border-top:1px solid var(--line)}
+.cm-sec.is-open{flex-grow:1}
+.cm-sec.is-min{flex-grow:0}
+.cm-sh{display:flex;align-items:center;gap:8px;width:100%;flex:none;padding:12px 16px;border:0;background:transparent;color:var(--text);font:inherit;font-weight:700;font-size:1.02rem;cursor:pointer;text-align:start;-webkit-tap-highlight-color:transparent}
+.cm-sn{flex:1}
+.cm-sec.is-open .cm-sh{color:var(--lagoon)}
+.cm-sec.is-open .cm-hash{color:var(--lagoon)}
+.cm-chev{flex:none;color:var(--mute);transform:scaleX(-1)}
+.cm-sh .cm-badge{background:var(--rose)}
+.cm-count{min-width:22px;height:22px;padding:0 6px;border-radius:999px;display:grid;place-items:center;font:700 .78rem 'Cairo',sans-serif;background:rgba(52,211,153,.18);color:var(--cm-green)}
+.cm-live{width:9px;height:9px;border-radius:50%;background:var(--cm-green);box-shadow:0 0 8px var(--cm-green)}
+.cm-sb{position:relative;flex:1 1 0;min-height:0;overflow:hidden}
+.settled .cm-sec.is-min .cm-sb{visibility:hidden}
+.cm-full{display:none}
+.cm-sec.is-open .cm-full{display:flex;flex-direction:column;height:100%}
+.cm-sec.is-open .cm-prev,.cm-sec.is-min .cm-prev{display:none}
+.cm-prev{display:flex;flex-direction:column;gap:7px;padding:0 16px 14px;cursor:pointer;height:100%;overflow:hidden}
+.cm-pe{color:var(--mute);font-size:.88rem;padding:2px 0}
+.cm-pl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.88rem;color:#cfd3e8}
+.cm-pl b{color:var(--amber);font-weight:700}
+.cm-fake{margin-top:auto;padding:9px 14px;border-radius:999px;border:1px dashed rgba(255,255,255,.2);color:var(--mute);font-size:.88rem}
+.cm-fake.on{color:var(--cm-green);border-color:rgba(52,211,153,.5)}
+.cm-pav{display:flex;flex-wrap:wrap;gap:8px}
+.cm-text .cm-full .cm-chat{height:100%}
+
+/* ===== القناة الصوتية ===== */
+.cm-vfull{padding:0 12px 12px;gap:10px;overflow:hidden}
+.cm-vlist{list-style:none;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;overscroll-behavior:contain;touch-action:pan-y}
+.cm-vrow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:15px;background:rgba(0,0,0,.26)}
+.cm-vrow.bad{box-shadow:inset 0 0 0 1px rgba(255,107,129,.5)}
+.cm-av{position:relative;flex:none;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.07);border:2px solid var(--c);color:var(--c);font-weight:900;font-family:'Cairo',sans-serif;line-height:1}
+.cm-av .cm-ring{inset:-5px}
+.cm-vinfo{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.35}
+.cm-vinfo b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cm-vinfo small{color:var(--mute);font-size:.74rem}
+.cm-spk{background:transparent;color:var(--mute)}
+.cm-rm{flex:none}
+.cm-vempty{text-align:center;padding:18px 0}
+.cm-vctl{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}
+.cm-bigwrap{display:flex;align-items:center;gap:10px}
+.cm-bigmic{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22)}
+.cm-bigmic.muted{background:rgba(255,77,94,.16);border-color:rgba(255,77,94,.55)}
+.cm-bl{font-size:.85rem;color:var(--mute)}
+.cm-leave{display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:999px;border:1px solid rgba(255,77,94,.5);background:rgba(255,77,94,.1);color:#ff7686;font-weight:700;font-size:.92rem}
+.cm-joinbox{display:flex;flex-direction:column;align-items:center;gap:10px;padding:6px 0 2px;color:var(--mute);text-align:center;flex:none}
+.cm-join{display:flex;align-items:center;gap:8px;padding:12px 24px;border-radius:999px;background:var(--lagoon);color:#06231f;font-weight:800;font-size:1rem}
+
+@media (max-height:560px){.cm-panel{height:92dvh}.cm-sh{padding:8px 14px}}
+
+/* هواتف ضيقة: نضيّق الفراغ والحشو حتى تتسع أسماء 3-4 لاعبين */
+@media (max-width:400px){.yzc-slot{width:70px}.scorebar .sb{padding-inline:7px}}

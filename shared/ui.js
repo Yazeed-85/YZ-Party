@@ -65,7 +65,13 @@ export const sfx = {
   turn: () => { tone(660, .1); tone(880, .12, "sine", .1); },
   win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .18, "triangle", i * .1)),
   lose: () => [392, 330, 262].forEach((f, i) => tone(f, .2, "sawtooth", i * .12, .05)),
-  error: () => tone(200, .18, "square", 0, .05)
+  error: () => tone(200, .18, "square", 0, .05),
+  // أصوات التواصل
+  msg: () => { tone(740, .07, "sine", 0, .06); tone(988, .1, "sine", .07, .06); },
+  join: () => { tone(494, .09, "triangle", 0, .06); tone(740, .13, "triangle", .08, .06); },
+  leave: () => { tone(740, .09, "triangle", 0, .05); tone(440, .14, "triangle", .08, .05); },
+  mute: () => tone(330, .12, "triangle", 0, .06),
+  unmute: () => tone(660, .12, "triangle", 0, .06)
 };
 
 // ===== حوار تأكيد واحتفال =====
@@ -109,6 +115,8 @@ export function scoreBar(e, players, scores = {}, myUid) {
     d.append(el("span", "", p.name), el("b", "", scores[id] || 0));
     return d;
   });
+  // نحجز فراغاً في منتصف الشريط لأيقونتي الدردشة والمايك (comms.js يضع الشريط فوقه فلا يغطي أسماء اللاعبين)
+  if (document.documentElement.classList.contains("yzc-on")) items.splice(Math.ceil(items.length / 2), 0, el("div", "yzc-slot"));
   if (exitFn) { const b = el("button", "sb-exit", "✕"); b.setAttribute("aria-label", "انسحاب"); b.onclick = () => { sfx.click(); exitFn(); }; items.push(b); }
   e.replaceChildren(...items);
 }

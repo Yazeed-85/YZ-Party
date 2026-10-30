@@ -65,7 +65,7 @@ input:focus-visible{border-color:var(--lagoon);box-shadow:0 0 0 3px rgba(79,209,
 .codebox.show:hover{border-color:rgba(255,180,84,.5)}
 .copyhint{color:var(--mute);font-size:.8rem}
 .joinrow{display:flex;gap:10px;align-items:stretch}.joinrow .codebox{flex:1}.joinrow .btn{width:auto;padding-inline:24px}
-.fab.back{left:112px}.fab.fr{left:62px;display:grid;place-items:center;transition:border-color .3s,box-shadow .3s,color .3s;color:var(--mute)}
+.fab.back{left:162px}.fab.fr{left:62px;display:grid;place-items:center;transition:border-color .3s,box-shadow .3s,color .3s;color:var(--mute)}
 .fab.fr.on{color:#34d399;border-color:#34d399;box-shadow:0 0 0 2px rgba(52,211,153,.25),0 0 16px rgba(52,211,153,.55)}
 .badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:var(--rose);color:#2a0710;font:700 .72rem 'Cairo',sans-serif;display:grid;place-items:center;line-height:1}
 .kick{border:1px solid rgba(255,107,129,.45);background:transparent;color:var(--rose);border-radius:999px;padding:2px 12px;font:inherit;font-size:.75rem;cursor:pointer}

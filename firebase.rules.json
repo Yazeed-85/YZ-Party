@@ -49,6 +49,86 @@
         "secret": {
           ".read": "auth != null && root.child('rooms/' + $code + '/meta/host').val() === auth.uid",
           ".write": "auth != null && root.child('rooms/' + $code + '/meta/host').val() === auth.uid"
+        },
+        "comms": {
+          "chat": {
+            ".read": "auth != null && root.child('rooms/' + $code + '/players/' + auth.uid).exists()",
+            "$id": {
+              ".write": "auth != null && root.child('rooms/' + $code + '/players/' + auth.uid).exists() && !data.exists() && newData.exists()",
+              ".validate": "newData.hasChildren(['u', 'n', 'm', 't']) && newData.child('u').val() === auth.uid && newData.child('n').isString() && newData.child('n').val().length <= 16 && newData.child('m').isString() && newData.child('m').val().length >= 1 && newData.child('m').val().length <= 300 && newData.child('t').val() === now",
+              "u": {
+                ".validate": "newData.isString()"
+              },
+              "n": {
+                ".validate": "newData.isString()"
+              },
+              "m": {
+                ".validate": "newData.isString()"
+              },
+              "t": {
+                ".validate": "newData.isNumber()"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "voice": {
+            ".read": "auth != null && root.child('rooms/' + $code + '/players/' + auth.uid).exists()",
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && (!newData.exists() || root.child('rooms/' + $code + '/players/' + auth.uid).exists())",
+              ".validate": "!newData.exists() || (newData.hasChildren(['s', 'n', 'm', 't']) && newData.child('s').isString() && newData.child('s').val().length <= 16 && newData.child('n').isString() && newData.child('n').val().length <= 16 && (newData.child('m').val() === 0 || newData.child('m').val() === 1))",
+              "s": {
+                ".validate": "newData.isString()"
+              },
+              "n": {
+                ".validate": "newData.isString()"
+              },
+              "m": {
+                ".validate": "newData.isNumber()"
+              },
+              "t": {
+                ".validate": "newData.isNumber()"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          },
+          "sig": {
+            "$to": {
+              ".read": "auth != null && auth.uid === $to",
+              ".write": "auth != null && auth.uid === $to && !newData.exists()",
+              "$id": {
+                ".write": "auth != null && ((auth.uid === $to && !newData.exists()) || (newData.exists() && !data.exists() && newData.child('f').val() === auth.uid && root.child('rooms/' + $code + '/players/' + auth.uid).exists() && root.child('rooms/' + $code + '/players/' + $to).exists()))",
+                ".validate": "!newData.exists() || (newData.hasChildren(['f', 's', 'k', 'g', 't']) && newData.child('f').isString() && newData.child('s').isString() && newData.child('s').val().length <= 16 && (!newData.hasChild('r') || (newData.child('r').isString() && newData.child('r').val().length <= 16)) && newData.child('k').isString() && newData.child('k').val().length <= 8 && newData.child('g').isNumber() && newData.child('t').isNumber() && (!newData.hasChild('d') || (newData.child('d').isString() && newData.child('d').val().length <= 9000)))",
+                "f": {
+                  ".validate": "newData.isString()"
+                },
+                "s": {
+                  ".validate": "newData.isString()"
+                },
+                "r": {
+                  ".validate": "newData.isString()"
+                },
+                "k": {
+                  ".validate": "newData.isString()"
+                },
+                "g": {
+                  ".validate": "newData.isNumber()"
+                },
+                "d": {
+                  ".validate": "newData.isString()"
+                },
+                "t": {
+                  ".validate": "newData.isNumber()"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            }
+          }
         }
       }
     },

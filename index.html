@@ -16,7 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
-<button id="mute" class="fab" aria-label="كتم الصوت">🔊</button>
+<button id="mute" class="fab" aria-label="كتم الصوت"></button>
 <button id="back" class="fab back" aria-label="رجوع إلى القائمة الرئيسية" hidden>
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg>
 </button>
@@ -58,6 +58,8 @@ import { initSocial } from './shared/social-ui.js';
 import { initInstall } from './shared/install-ui.js';
 import { identity, syncProfile, startPresence } from './shared/identity.js';
 import { levelTagFor } from './shared/level.js';
+import { initComms } from './shared/comms.js';
+import { makeSpeaker } from './shared/icons.js';
 import './shared/notify.js';
 
 const $ = s => document.querySelector(s);
@@ -70,12 +72,14 @@ const tryList = urls => new Promise(res => { let i = 0;
   const next = () => { if (i >= urls.length) return res(null); const u = urls[i++], im = new Image(); im.onload = () => res(u); im.onerror = next; im.src = u; }; next(); });
 const probe = id => tryList([...(USE_PHOTOS ? ['jpg', 'png', 'jpeg', 'webp'].map(e => `game-images/${id}.${e}`) : []), `game-covers/${id}.svg`]);
 let verT = null, kickT = null, social = null, inRoom = false;
-// داخل الغرفة: الصوت يصعد لزاوية بطاقة الكود (أعلى اليسار) والأصدقاء بجانب عنوان «اللاعبون»، وتختفي أيقونة التثبيت. وفي الرئيسية تعود كلها لمكانها
+// التواصل (محادثة نصية وصوتية): زر بجانب الصوت والأصدقاء، وداخل الغرفة يصعد لزاوية بطاقة الكود مقابل زر الصوت
+const comms = initComms({ mode: 'lobby' });
+// داخل الغرفة: الصوت يصعد لزاوية بطاقة الكود (أعلى اليسار) والتواصل في الزاوية المقابلة (أعلى اليمين)، والأصدقاء بجانب عنوان «اللاعبون»، وتختفي أيقونة التثبيت. وفي الرئيسية تعود كلها لمكانها
 function place(v) {
   inRoom = v; document.body.classList.toggle('inroom', v);
-  const m = $('#mute'), f = $('#fr');
-  if (v) { $('.codewrap').append(m); m.classList.add('in'); if (f) { $('#plcard').append(f); f.classList.add('in'); } }
-  else { document.body.append(m); m.classList.remove('in'); if (f) { document.body.append(f); f.classList.remove('in'); } }
+  const m = $('#mute'), f = $('#fr'), c = comms.fab;
+  if (v) { $('.codewrap').append(m, c); m.classList.add('in'); c.classList.add('in'); if (f) { $('#plcard').append(f); f.classList.add('in'); } }
+  else { document.body.append(m, c); m.classList.remove('in'); c.classList.remove('in'); if (f) { document.body.append(f); f.classList.remove('in'); } }
 }
 let S = { code: null, uid: null, meta: null, players: {}, scores: {}, joined: false }, stop = null, armed = null, armT = null, known = new Set();
 
@@ -223,6 +227,7 @@ function closed(msg, kind = 'info') {
   $('#code').readOnly = false; $('#code').value = ''; $('#codebox').classList.remove('locked'); code = ''; roomState = 'idle'; busy = false;
   paint($('#codebox'), ''); refresh();
   toast(msg, kind); show('home'); place(false);
+  comms.exit();
 }
 
 async function openLobby(rc) {
@@ -230,7 +235,7 @@ async function openLobby(rc) {
   stop?.();
   S = { code: rc, uid: u.uid, meta: null, players: {}, scores: {}, joined: false }; known = new Set();
   fromLink = false; $('#back').hidden = true; history.replaceState(null, '', location.pathname);
-  show('lobby'); place(true);
+  show('lobby'); place(true); comms.enter(rc).catch(e => console.warn('comms', e));
   const unWatch = watchRoom(rc, {
     meta: m => {
       if (!m) {                                            // اختفاء مفاجئ: لا نغلق قبل التحقق بقراءة مباشرة
@@ -279,10 +284,11 @@ $('#tiles').onclick = () => {                              // لمس الكود 
   sfx.click(); copyText(S.code);
   if (G()) gsap.fromTo('#tiles .cc', { y: 0, scale: 1 }, { y: -6, scale: 1.12, duration: .18, yoyo: true, repeat: 1, stagger: .05, ease: 'power2.out' });
 };
-$('#mute').onclick = () => { $('#mute').textContent = toggleMute() ? '🔇' : '🔊'; };
+const snd = makeSpeaker(20, isMuted());                    // أيقونة الصوت مرسومة بالكود (موجتان تختفيان وعلامة × تُرسم عند الكتم)
+$('#mute').append(snd.el);
+$('#mute').onclick = () => { snd.set(toggleMute()); };
 
 // ===== التشغيل =====
-$('#mute').textContent = isMuted() ? '🔇' : '🔊';
 $('#name').value = savedName(); paint($('#codebox'), ''); refresh();
 const jp = digits(new URLSearchParams(location.search).get('join'));
 enterAnim('#home');
