@@ -222,9 +222,6 @@ function build({ mode = "game" } = {}) {
   const lsGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* التخزين ممنوع */ } };
   let vTop = 0, vLeft = 0, unQ = null, tokQ = 0, pinned = lsGet("yz_cm_pin") === "1", armed = false;
-  const kbProxy = h("input"); kbProxy.type = "text"; kbProxy.tabIndex = -1; kbProxy.setAttribute("aria-hidden", "true"); kbProxy.autocomplete = "off";
-  kbProxy.style.cssText = "position:fixed;top:0;left:0;width:2px;height:2px;opacity:.01;border:0;padding:0;margin:0;font-size:16px;pointer-events:none;background:transparent;color:transparent;caret-color:transparent";
-  document.body.append(kbProxy);
   // على الهاتف: أي إغلاق للكيبورد (زر ✓ فوقه أو لمسة خارجية) يغلق النافذة معه
   chat.onBlur(() => { if (!S.quick || DESK.matches || !armed) return; setTimeout(() => { if (S.quick && armed && document.activeElement !== chat.input) closeQuick(); }, 80); });
   // المكان محفوظ بإحداثيات المنظر المرئي، ونضيف إزاحته (iOS يزيح المنظر مع الكيبورد) فيبقى مكانه على الشاشة ثابتاً
@@ -242,23 +239,12 @@ function build({ mode = "game" } = {}) {
       else { vLeft = (innerWidth - quick.offsetWidth) / 2; vTop = Math.max(dock.getBoundingClientRect().bottom + 8, 8); }
       clampQuick();
     } else {
-      const w = Math.round(Math.min(vw * .88, 360)), H = Math.round(Math.min(Math.max(vh - 24, 140), Math.max(170, Math.min(vh * .72, 330))));
+      // المساحة فوق الكيبورد: الحقيقية إن كان ظاهراً، وإلا نقدّرها (الكيبورد مع شريطه ≈ 43% من الشاشة) لنضع النافذة في مكانها النهائي من أول مرة
+      const av = kbOn() ? vh : Math.round(vh * .57), w = Math.round(Math.min(vw * .88, 360)), H = Math.round(Math.min(Math.max(av - 24, 140), Math.max(170, Math.min(av * .72, 330))));
       quick.style.width = w + "px"; quick.style.maxHeight = "none"; quick.style.height = H + "px";
-      vLeft = (vw - w) / 2; vTop = provisional ? 8 : Math.max(8, (vh - H) / 2);
+      vLeft = (vw - w) / 2; vTop = Math.max(8, Math.min(av - H - 8, Math.max(dock.getBoundingClientRect().bottom + 8, (av - H) / 2)));
     }
     stickQuick();
-  }
-  // ننتظر استقرار الكيبورد (أو غيابه) ثم نستدعي cb مرة واحدة
-  function settleKb(tok, cb) {
-    const t0 = performance.now(); let last = -1, since = t0;
-    const step = now => {
-      if (tok !== tokQ || !S.quick) return;
-      const hgt = window.visualViewport ? window.visualViewport.height : innerHeight; if (hgt !== last) { last = hgt; since = now; }
-      const kb = kbOn();
-      if ((kb && now - since > 140) || (!kb && now - t0 > 450) || now - t0 > 900) return cb();
-      requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
   }
   function openQuick() {
     if (S.quick || !ready_()) return;
@@ -278,20 +264,14 @@ function build({ mode = "game" } = {}) {
       else { chat.focus(); chat.toEnd(); }
       return;
     }
-    // الهاتف: نركّز الحقل فوراً داخل اللمسة (iOS لا يفتح الكيبورد إلا هكذا) والنافذة شفافة في الأعلى حتى لا يزيح iOS الصفحة،
-    // ثم حين يستقر الكيبورد نضعها في مكانها النهائي ونظهرها بحركة واحدة
-    // حقل وسيط مخفي نركّز عليه داخل اللمسة فيبدأ الكيبورد فوراً، ثم ننقل التركيز للحقل الحقيقي حين تستقر النافذة (نقل التركيز بين حقلين لا يغلق الكيبورد)
-    placeQuick(true); quick.style.opacity = "0"; chat.toEnd(); armed = false;
-    kbProxy.focus({ preventScroll: true });
-    settleKb(tok, () => {
-      placeQuick(); chat.toEnd(); chat.focus(); kbProxy.blur();
-      setTimeout(() => { if (tok === tokQ) armed = true; }, 450);
-      if (G()) gsap.fromTo(quick, { scale: .92, opacity: 0, y: 10, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, y: 0, duration: .3, ease: "power2.out", clearProps: "transform,opacity" });
-      else quick.style.opacity = "";
-    });
+    // الهاتف: النافذة تظهر في مكانها النهائي بحركة واحدة، ثم يُركَّز الحقل بعد انتهائها فيخرج الكيبورد وهي ثابتة لا تتحرك
+    placeQuick(); chat.toEnd();
+    const focusIt = () => { if (tok !== tokQ) return; chat.focus(); chat.toEnd(); setTimeout(() => { if (tok === tokQ) armed = true; }, 600); };
+    if (G()) gsap.fromTo(quick, { scale: .92, opacity: 0, y: 10, transformOrigin: "50% 50%" }, { scale: 1, opacity: 1, y: 0, duration: .3, ease: "power2.out", clearProps: "transform,opacity", onComplete: focusIt });
+    else focusIt();
   }
   function closeQuick(instant) {
-    if (!S.quick) return; S.quick = false; tokQ++; armed = false; chat.blur(); kbProxy.blur(); bChat.classList.remove("on"); unQ?.(); unQ = null;
+    if (!S.quick) return; S.quick = false; tokQ++; armed = false; chat.blur(); bChat.classList.remove("on"); unQ?.(); unQ = null;
     const done = () => { quick.hidden = true; quick.style.opacity = ""; window.gsap?.set(quick, { clearProps: "transform,opacity" }); };
     if (!G() || instant) return done();
     if (!DESK.matches) return void gsap.to(quick, { scale: .94, opacity: 0, duration: .2, ease: "power2.in", onComplete: done });
