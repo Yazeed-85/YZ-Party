@@ -145,3 +145,16 @@ body.inroom #lobby{padding-top:44px}
 .cm-quick .cm-in:focus,.cm-quick .cm-in:focus-visible{outline:none;box-shadow:none;border-color:rgba(255,255,255,.28)}
 .cm-quick .cm-send{width:34px;height:34px}
 .cm-quick .cm-qh{padding:6px 10px}
+/* ===== تعديل: حجم ثابت يعرض آخر ~3 رسائل، بلا عنوان، وزر إرسال يظهر عند الكتابة ===== */
+.cm-quick .cm-chat{min-height:0;flex:none}
+.cm-quick .cm-msgs{flex:none;height:150px;padding:8px 12px 4px}
+.cm-quick .cm-qb{flex:none}
+.cm-quick .cm-qt{min-height:0}
+.cm-quick .cm-qh{border-bottom:0;padding:4px 8px 0}
+.cm-quick.cm-attached .cm-qh{display:none}
+.cm-comp{position:relative}
+.cm-comp .cm-in{width:100%;flex:1}
+.cm-comp .cm-send[hidden]{display:none}
+.cm-comp .cm-send{position:absolute;right:14px;top:50%;margin-top:-17px}
+.cm-comp.has .cm-in{padding-right:52px}
+.cm-quick .cm-comp{border-top:0;padding:4px 10px 10px}

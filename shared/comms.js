@@ -145,6 +145,12 @@ function build({ mode = "game" } = {}) {
   // ============================== المحادثة النصية ==============================
   const chat = (() => {
     const root = h("div", "cm-chat"), list = h("div", "cm-msgs"), more = h("button", "cm-more cm-press", "رسائل جديدة"), form = h("form", "cm-comp"), inp = h("input", "cm-in"), send = h("button", "cm-send cm-b");
+    send.hidden = true;                                           // زر الإرسال لا يظهر إلا بعد كتابة أول حرف
+    inp.addEventListener("input", () => {
+      const on = inp.value.trim().length > 0; if (on === !send.hidden) return;
+      form.classList.toggle("has", on); send.hidden = !on;
+      if (on && G()) gsap.fromTo(send, { scale: 0, rotation: -40 }, { scale: 1, rotation: 0, duration: .35, ease: "back.out(2.5)", clearProps: "transform" });
+    });
     const empty = h("div", "cm-empty"); empty.append(makeChat(30).el, h("span", "", "لا رسائل بعد. ابدأ المحادثة!"));
     inp.type = "text"; inp.name = "cm-msg"; inp.setAttribute("autocorrect", "off"); inp.setAttribute("data-lpignore", "true"); inp.maxLength = 300; inp.placeholder = "اكتب رسالة…"; inp.autocomplete = "off"; inp.enterKeyHint = "send"; inp.setAttribute("aria-label", "رسالة");
     send.type = "submit"; send.addEventListener("pointerdown", e => e.preventDefault()); send.setAttribute("aria-label", "إرسال"); send.append(sendIcon(20));
@@ -158,7 +164,7 @@ function build({ mode = "game" } = {}) {
       e.preventDefault();
       const t = inp.value.replace(/\s+/g, " ").trim(); if (!t || !S.code) return;
       const now = Date.now(); if (now - lastSend < 600) return; lastSend = now;
-      inp.value = "";
+      inp.value = ""; form.classList.remove("has"); send.hidden = true;
       push(roomRef(S.code, "comms/chat"), { u: S.uid, n: myName(), m: t.slice(0, 300), t: serverTimestamp() }).catch(rulesHint);
       sfx.click(); inp.focus({ preventScroll: true });
     };
@@ -210,7 +216,7 @@ function build({ mode = "game" } = {}) {
   // الكمبيوتر: نافذة عائمة تُسحب من إطارها وتحفظ مكانها، ولها دبوس تثبيت.
   const quick = h("div", "cm-quick"), qHead = h("div", "cm-qh"), qBody = h("div", "cm-qb");
   quick.hidden = true; let pinned = false;
-  { const t = h("div", "cm-qt"); t.append(h("span", "cm-hash", "#"), h("span", "", "المحادثة النصية"));
+  { const t = h("div", "cm-qt"); t.setAttribute("aria-label", "المحادثة النصية");
     const x = h("button", "cm-b cm-ibtn"); x.type = "button"; x.setAttribute("aria-label", "إغلاق"); x.append(ic("close", 15));
     x.onclick = () => closeQuick();
     const pin = h("button", "cm-b cm-ibtn cm-pin"); pin.type = "button"; pin.setAttribute("aria-label", "تثبيت المحادثة"); pin.append(ic("pin", 15));
@@ -225,11 +231,10 @@ function build({ mode = "game" } = {}) {
     if (phone()) {                                               // مرفقة بالشريط: الإحداثيات نسبة له، فلا تتأثر بأي شيء في الصفحة
       dock.append(quick); quick.classList.add("cm-attached");
       const w = quick.offsetWidth, sl = Math.max(8, Math.min(innerWidth - w - 8, lx + dock.offsetWidth / 2 - w / 2));
-      quick.style.left = sl - lx + "px"; quick.style.top = dock.offsetHeight + 6 + "px"; quick.style.maxHeight = "";
+      quick.style.left = sl - lx + "px"; quick.style.top = dock.offsetHeight + 6 + "px";
       return;
     }
     document.body.append(quick); quick.classList.remove("cm-attached");
-    quick.style.maxHeight = Math.max(170, Math.min(270, innerHeight * .36)) + "px";
     let pos = null; try { pos = JSON.parse(localStorage.getItem(POSK)); } catch { /* لا موضع محفوظ */ }
     const r = dock.getBoundingClientRect(), w = quick.offsetWidth;
     const d = pos && typeof pos.x === "number" ? clampPos(pos.x, pos.y) : clampPos((innerWidth - w) / 2, r.bottom + 8);
@@ -259,7 +264,7 @@ function build({ mode = "game" } = {}) {
     unQ = () => { document.removeEventListener("pointerdown", down, true); document.removeEventListener("keydown", esc); chat.inp.removeEventListener("blur", blur); lockPage(false); };
     // تنسدل من زر الدردشة: تبدأ مطويّة عند حافتها العليا تحت الزر وتتمدد للأسفل
     const cx = bChat.getBoundingClientRect().left + bChat.offsetWidth / 2 - quick.getBoundingClientRect().left;
-    if (G()) gsap.fromTo(quick, { scaleY: .2, scaleX: .55, opacity: 0, transformOrigin: `${cx}px 0px` }, { scaleY: 1, scaleX: 1, opacity: 1, duration: .45, ease: "back.out(1.5)", clearProps: "scale" });
+    if (G()) gsap.fromTo(quick, { scaleY: .2, scaleX: .55, opacity: 0, transformOrigin: `${cx}px 0px` }, { scaleY: 1, scaleX: 1, opacity: 1, duration: .45, ease: "back.out(1.5)", clearProps: "scale", onComplete: () => chat.toEnd() });
     chat.focus();                                                // داخل نفس اللمسة: iOS يفتح الكيبورد فوراً
     sfx.click();
   }
