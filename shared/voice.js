@@ -135,22 +135,13 @@ export class VoiceEngine {
     addEventListener("pointerdown", go, { once: true, capture: true });
   }
 
-  async join({ muted = false, auto = false } = {}) {
-    if (this.on) return;
-    if (this.joining && Date.now() - this._jt < 15000) return;     // محاولة جارية حديثة. أما العالقة (إذن لم يظهر) فنتجاوزها ولا نعلق للأبد
-    this.joining = true; this._jt = Date.now(); const tok = this._jtok = {};
-    let stream, to, late = false;
+  async join({ muted = false } = {}) {
+    if (this.on || this.joining) return; this.joining = true;
+    let stream;
     try {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) throw { name: "unsupported" };
-      const gum = navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
-      if (auto) {                                                  // عودة تلقائية بلا لمسة: iOS قد يعلّق الطلب بصمت، فنكتفي بمهلة ونطلب لمسة
-        const wait = new Promise((_, rj) => { to = setTimeout(() => { late = true; rj({ name: "AbortError" }); }, 9000); });
-        gum.then(s => { if (late) s.getTracks().forEach(t => t.stop()); }, () => {});
-        stream = await Promise.race([gum, wait]);
-      } else stream = await gum;
-    } catch (e) { if (this._jtok === tok) this.joining = false; if (this._jtok !== tok) return; throw e; }
-    finally { clearTimeout(to); }
-    if (this._jtok !== tok || this.on) { stream.getTracks().forEach(t => t.stop()); return; }   // حلّت محلّها محاولة أحدث
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+    } catch (e) { this.joining = false; throw e; }
     this.stream = stream; this.track = stream.getAudioTracks()[0]; this.muted = !!muted; this.track.enabled = !muted;
     this.track.onended = () => { if (this.on) { this.leave(); this.ev.ended?.(); } };
     this.sid = rid(); this.on = true; this.joining = false;
@@ -238,6 +229,7 @@ export class VoiceEngine {
   _loop() {
     if (this.tick) return;
     this.tick = setInterval(() => {
+      if (document.hidden) return;                               // تبويب مخفي: لا قياس ولا رسم
       const now = performance.now();
       for (const [uid, a] of this.an) {
         a.an.getByteTimeDomainData(a.buf);

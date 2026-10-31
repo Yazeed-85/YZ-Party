@@ -41,6 +41,15 @@ function fit(o) {
   return () => { vv.removeEventListener("resize", f); vv.removeEventListener("scroll", f); };
 }
 
+// السبب الجذري لنزول الصفحة: iOS يمرّر المستند نفسه ليكشف الحقل عند ظهور الكيبورد. إن كان المستند غير قابل للتمرير (overflow:hidden) فلا شيء ليتحرك أصلاً،
+// فلا نحتاج لاستعادة الموضع بعد وقوع الحركة. القفل يعمل على الهاتف فقط ما دامت المحادثة أو اللوحة مفتوحة، ويُرفع عند إغلاقها دون أن يتغير موضع التمرير.
+let locks = 0;
+function lockPage(on) {
+  if (!matchMedia("(pointer:coarse)").matches) return;
+  locks = Math.max(0, locks + (on ? 1 : -1));
+  document.documentElement.classList.toggle("cm-lock", locks > 0);
+}
+
 let C = null;
 export function initComms(opts = {}) { return (C ??= build(opts)); }
 
@@ -67,16 +76,23 @@ function build({ mode = "game" } = {}) {
   const probe = h("div"); probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none"; document.body.append(probe);
   let lx = -999, ly = -999;
   // الشريط يتبع «الفراغ» الذي يحجزه scoreBar في الألعاب، وإلا فهو أعلى منتصف الشاشة
-  const follow = () => {
-    if (dock.hidden) return;
-    const w = dock.offsetWidth, hh = dock.offsetHeight, slot = document.querySelector(".yzc-slot"), r = slot?.getBoundingClientRect();
+  let slotEl = null, nf = 0;
+  const follow = (force) => {
+    if (dock.hidden || (force !== true && ++nf % 4)) return;                     // نقيس كل 4 إطارات (القياس يجبر المتصفح على حساب التخطيط)، وفوراً عند أي تغيّر معروف
+    if (!slotEl?.isConnected) slotEl = document.querySelector(".yzc-slot");
+    const w = dock.offsetWidth, hh = dock.offsetHeight, r = slotEl?.getBoundingClientRect();
     let x, y;
     if (r && r.width > 0 && r.bottom > 0) { x = r.left + r.width / 2 - w / 2; y = r.top + r.height / 2 - hh / 2; }
     else { x = innerWidth / 2 - w / 2; y = probe.offsetHeight + 5; }
     const vv = window.visualViewport; if (vv) { x += vv.offsetLeft; y += vv.offsetTop; }     // الكيبورد يزيح المنظر المرئي على iOS: نعوّض فيبقى الشريط (وما يتبعه) في مكانه على الشاشة
     if (Math.abs(x - lx) > .3 || Math.abs(y - ly) > .3) { lx = x; ly = y; dock.style.transform = `translate(${x}px,${y}px)`; }
   };
-  window.gsap ? gsap.ticker.add(follow) : setInterval(follow, 100);
+  const tick = () => follow();
+  let ticking = false;
+  const startFollow = () => { if (ticking) return; ticking = true; window.gsap ? gsap.ticker.add(tick) : (tick.iv = setInterval(tick, 80)); };
+  const stopFollow = () => { if (!ticking) return; ticking = false; window.gsap ? gsap.ticker.remove(tick) : clearInterval(tick.iv); };
+  const now_ = () => follow(true);
+  addEventListener("resize", now_); addEventListener("orientationchange", now_); window.visualViewport?.addEventListener("resize", now_); window.visualViewport?.addEventListener("scroll", now_);
 
   let ringTw = null;
   function ringOn(ring, on) {
@@ -224,14 +240,8 @@ function build({ mode = "game" } = {}) {
     bChat.classList.add("on");
     const out = e => { if (pinned || !quick.contains(e.target) && !dock.contains(e.target) && !e.target.closest?.(".cm-bub")) { if (!pinned) closeQuick(); } };
     setTimeout(() => document.addEventListener("pointerdown", out, true), 0);       // أي لمسة خارج المحادثة تغلقها (إلا إن ثبّتها اللاعب على الكمبيوتر)
-    // الكيبورد على iOS يمرّر الصفحة نفسها تحت المحادثة: نحفظ موضع التمرير ونعيده فوراً أثناء ظهور الكيبورد وإغلاقه، فلا تتحرك الصفحة مهما فتحته وأغلقته
-    let sx = scrollX, sy = scrollY, until = 0, raf = 0;
-    const back = () => { if (scrollX !== sx || scrollY !== sy) scrollTo(sx, sy); if (performance.now() < until) raf = requestAnimationFrame(back); };
-    const guard = ms => { if (!phone()) return; if (performance.now() > until) { sx = scrollX; sy = scrollY; } until = performance.now() + ms; cancelAnimationFrame(raf); back(); };
-    const onScroll = () => { if (performance.now() > until) { sx = scrollX; sy = scrollY; } else if (scrollX !== sx || scrollY !== sy) scrollTo(sx, sy); };
-    const g1 = () => guard(1100), vv = window.visualViewport;
-    chat.inp.addEventListener("focus", g1); chat.inp.addEventListener("blur", g1); vv?.addEventListener("resize", g1); addEventListener("scroll", onScroll, { passive: true });
-    unQ = () => { document.removeEventListener("pointerdown", out, true); chat.inp.removeEventListener("focus", g1); chat.inp.removeEventListener("blur", g1); vv?.removeEventListener("resize", g1); removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); guard(900); };
+    lockPage(true);
+    unQ = () => { document.removeEventListener("pointerdown", out, true); lockPage(false); };
     const r = bChat.getBoundingClientRect(), cx = r.left + r.width / 2 - quick.getBoundingClientRect().left;
     if (G()) { gsap.fromTo(quick, { scale: .15, opacity: 0, y: -16, transformOrigin: `${cx}px 0px` }, { scale: 1, opacity: 1, y: 0, duration: .55, ease: "back.out(1.8)", onComplete: () => chat.focus() }); }
     else chat.focus();
@@ -411,7 +421,7 @@ function build({ mode = "game" } = {}) {
     bigBtn.onclick = () => setMute(!S.eng.muted); lv.onclick = () => leaveVoice(); jb.onclick = () => joinVoice();
     panel.append(top, T.sec, V.sec); sheet.append(panel); document.body.append(sheet);
     const P = S.P = P_ = { sheet, panel, rows, ul, ctl, joinBox, vEmpty, bigMic, bigLbl, bigBtn, tPrev: T.prev, vPrev: V.prev, vCount: V.cnt, unT: T.un, vHead: V.hd, vHeadDot: V.dot, T, V, view: null, off: [] };
-    P.off.push(fit(sheet));
+    P.off.push(fit(sheet)); lockPage(true); P.off.push(() => lockPage(false));
     // النقر على قسم = الدخول لقناته. النقر على القسم المفتوح من عنوانه = العودة للقائمة
     const close = () => closePanel(); x.onclick = close; P.off.push(dismissOutside(sheet, close));
     T.full.append(chat.root);
@@ -464,7 +474,7 @@ function build({ mode = "game" } = {}) {
     S.subs.push(onValue(query(roomRef(code, "comms/chat"), limitToLast(80)), onChat, rulesHint));
     if (fab) { fab.classList.remove("dim"); if (G()) gsap.fromTo(fab, { scale: .75 }, { scale: 1, duration: .6, ease: "back.out(3)", clearProps: "transform" }); }
     paintUnread(); paintMic();
-    dock.hidden = false; follow();
+    dock.hidden = false; startFollow(); follow(true);
     if (G()) gsap.fromTo(pill, { y: -34, opacity: 0, scale: .7 }, { y: 0, opacity: 1, scale: 1, duration: .8, delay: .15, ease: "elastic.out(1,.55)" });
     const f = flagGet(); if (f && f.c === code) joinVoice(true); else if (f) flagSet(null);      // عودة تلقائية للقناة بعد الانتقال بين الصفحات
     return true;
@@ -479,7 +489,7 @@ function build({ mode = "game" } = {}) {
     S.speaking.clear(); ringOn(ringD, false); micD.set("off");
     document.documentElement.classList.remove("yzc-on");
     fab?.classList.add("dim"); fab?.classList.remove("live"); commsIc.active(false); S.unread = 0; paintUnread();
-    const hideDock = () => { dock.hidden = true; lx = ly = -999; };
+    const hideDock = () => { dock.hidden = true; lx = ly = -999; stopFollow(); };
     if (G() && !silent) gsap.to(pill, { y: -30, opacity: 0, scale: .7, duration: .3, ease: "back.in(2)", onComplete: hideDock }); else hideDock();
     await E?.destroy();
   }
