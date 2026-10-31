@@ -224,7 +224,14 @@ function build({ mode = "game" } = {}) {
     bChat.classList.add("on");
     const out = e => { if (pinned || !quick.contains(e.target) && !dock.contains(e.target) && !e.target.closest?.(".cm-bub")) { if (!pinned) closeQuick(); } };
     setTimeout(() => document.addEventListener("pointerdown", out, true), 0);       // أي لمسة خارج المحادثة تغلقها (إلا إن ثبّتها اللاعب على الكمبيوتر)
-    unQ = () => document.removeEventListener("pointerdown", out, true);
+    // الكيبورد على iOS يمرّر الصفحة نفسها تحت المحادثة: نحفظ موضع التمرير ونعيده فوراً أثناء ظهور الكيبورد وإغلاقه، فلا تتحرك الصفحة مهما فتحته وأغلقته
+    let sx = scrollX, sy = scrollY, until = 0, raf = 0;
+    const back = () => { if (scrollX !== sx || scrollY !== sy) scrollTo(sx, sy); if (performance.now() < until) raf = requestAnimationFrame(back); };
+    const guard = ms => { if (!phone()) return; if (performance.now() > until) { sx = scrollX; sy = scrollY; } until = performance.now() + ms; cancelAnimationFrame(raf); back(); };
+    const onScroll = () => { if (performance.now() > until) { sx = scrollX; sy = scrollY; } else if (scrollX !== sx || scrollY !== sy) scrollTo(sx, sy); };
+    const g1 = () => guard(1100), vv = window.visualViewport;
+    chat.inp.addEventListener("focus", g1); chat.inp.addEventListener("blur", g1); vv?.addEventListener("resize", g1); addEventListener("scroll", onScroll, { passive: true });
+    unQ = () => { document.removeEventListener("pointerdown", out, true); chat.inp.removeEventListener("focus", g1); chat.inp.removeEventListener("blur", g1); vv?.removeEventListener("resize", g1); removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); guard(900); };
     const r = bChat.getBoundingClientRect(), cx = r.left + r.width / 2 - quick.getBoundingClientRect().left;
     if (G()) { gsap.fromTo(quick, { scale: .15, opacity: 0, y: -16, transformOrigin: `${cx}px 0px` }, { scale: 1, opacity: 1, y: 0, duration: .55, ease: "back.out(1.8)", onComplete: () => chat.focus() }); }
     else chat.focus();
