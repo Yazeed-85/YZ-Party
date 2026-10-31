@@ -44,9 +44,9 @@ body.inroom #lobby{padding-top:44px}
 .cm-quick .cm-chat{min-height:170px}
 .cm-msgs{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 12px;display:flex;flex-direction:column;touch-action:pan-y}
 .cm-empty{margin:auto;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--mute);font-size:.88rem;opacity:.85;padding:14px}
-.cm-msg{display:flex;flex-direction:column;align-items:flex-end;max-width:88%;margin-top:9px;margin-right:auto;margin-left:0}
+.cm-msg{display:flex;flex-direction:column;align-items:flex-start;max-width:88%;margin-top:9px}
 .cm-msg.grp{margin-top:2px}
-.cm-msg.me{align-items:flex-start;margin-left:auto;margin-right:0}
+.cm-msg.me{align-self:flex-end;align-items:flex-end}
 .cm-mn{font-size:.72rem;font-weight:700;margin:0 8px 2px}
 .cm-mb{display:flex;align-items:flex-end;gap:8px;padding:6px 12px;border-radius:15px 15px 15px 5px;background:rgba(255,255,255,.09);line-height:1.5;font-size:.95rem;overflow-wrap:anywhere}
 .cm-msg.me .cm-mb{background:rgba(79,209,197,.2);border:1px solid rgba(79,209,197,.34);border-radius:15px 15px 5px 15px}
@@ -127,10 +127,15 @@ body.inroom #lobby{padding-top:44px}
 #mute{color:var(--mute);padding:0}
 .cm-chev{display:none!important}
 
-
-/* رسائلك يميناً ورسائل غيرك يساراً (هوامش فيزيائية فلا تتأثر بالاتجاه)، وبلا شريط تمرير ظاهر */
+/* بلا شريط تمرير في أي مكان من النظام (التمرير يعمل باللمس والعجلة) */
 .cm-msgs,.cm-vlist{scrollbar-width:none;-ms-overflow-style:none}
 .cm-msgs::-webkit-scrollbar,.cm-vlist::-webkit-scrollbar{display:none;width:0;height:0}
-/* سحب النافذة ودبوس التثبيت: للكمبيوتر فقط */
-.cm-pinb{color:var(--mute)}.cm-pinb.on{color:var(--lagoon);background:rgba(79,209,197,.18)}
-@media (hover:hover) and (pointer:fine){.cm-qh{cursor:grab;user-select:none;-webkit-user-select:none}.cm-qh.drag{cursor:grabbing}}
+/* أنا على اليمين ومن أكلّمه على اليسار */
+.cm-msg{align-self:flex-end;align-items:flex-end}
+.cm-msg.me{align-self:flex-start;align-items:flex-start}
+.cm-qh{cursor:grab}.cm-qh:active{cursor:grabbing}
+.cm-qt{user-select:none;-webkit-user-select:none}
+.cm-pin{background:transparent;color:var(--mute)}.cm-pin.on{color:var(--lagoon);background:rgba(79,209,197,.16)}
+
+/* الهاتف: النافذة ابنة الشريط (تتبعه) */
+.cm-quick.cm-attached{position:absolute;pointer-events:auto}
