@@ -141,4 +141,7 @@ body.inroom #lobby{padding-top:44px}
 .cm-quick.cm-attached{position:absolute;pointer-events:auto}
 
 /* قفل المستند أثناء المحادثة/اللوحة على الهاتف (انظر lockPage في comms.js) */
-html.cm-lock,html.cm-lock body{overflow:hidden!important;overscroll-behavior:none}
+/* مظهر مُبسّط للمحادثة السريعة: بلا حلقة تركيز ثقيلة */
+.cm-quick .cm-in:focus,.cm-quick .cm-in:focus-visible{outline:none;box-shadow:none;border-color:rgba(255,255,255,.28)}
+.cm-quick .cm-send{width:34px;height:34px}
+.cm-quick .cm-qh{padding:6px 10px}

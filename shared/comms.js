@@ -41,13 +41,21 @@ function fit(o) {
   return () => { vv.removeEventListener("resize", f); vv.removeEventListener("scroll", f); };
 }
 
-// السبب الجذري لنزول الصفحة: iOS يمرّر المستند نفسه ليكشف الحقل عند ظهور الكيبورد. إن كان المستند غير قابل للتمرير (overflow:hidden) فلا شيء ليتحرك أصلاً،
-// فلا نحتاج لاستعادة الموضع بعد وقوع الحركة. القفل يعمل على الهاتف فقط ما دامت المحادثة أو اللوحة مفتوحة، ويُرفع عند إغلاقها دون أن يتغير موضع التمرير.
-let locks = 0;
+// السبب الجذري لتحرّك الصفحة مع الكيبورد على iOS: المستند نفسه قابل للتمرير، فيمرّره iOS ليكشف الحقل (وoverflow:hidden وحده لا يمنعه على iOS).
+// الحل من الجذر: المستند يصبح غير قابل للتمرير أصلاً بجعل body ثابتاً (position:fixed) مع top سالب يساوي موضع التمرير الحالي، فيبقى المحتوى في مكانه على الشاشة تماماً.
+// يُرفع القفل عند إغلاق المحادثة/اللوحة فيعود التمرير لنفس الرقم بالضبط. على الهاتف فقط.
+let locks = 0, lockY = 0, lockStyle = null;
 function lockPage(on) {
   if (!matchMedia("(pointer:coarse)").matches) return;
-  locks = Math.max(0, locks + (on ? 1 : -1));
-  document.documentElement.classList.toggle("cm-lock", locks > 0);
+  const b = document.body;
+  if (on) {
+    if (locks++) return;
+    lockY = scrollY; lockStyle = b.getAttribute("style");
+    b.style.cssText += `;position:fixed;top:${-lockY}px;left:0;right:0;width:100%`;
+  } else if (locks && !--locks) {
+    lockStyle == null ? b.removeAttribute("style") : b.setAttribute("style", lockStyle);
+    scrollTo(0, lockY);
+  }
 }
 
 let C = null;
@@ -139,7 +147,7 @@ function build({ mode = "game" } = {}) {
     const root = h("div", "cm-chat"), list = h("div", "cm-msgs"), more = h("button", "cm-more cm-press", "رسائل جديدة"), form = h("form", "cm-comp"), inp = h("input", "cm-in"), send = h("button", "cm-send cm-b");
     const empty = h("div", "cm-empty"); empty.append(makeChat(30).el, h("span", "", "لا رسائل بعد. ابدأ المحادثة!"));
     inp.type = "text"; inp.name = "cm-msg"; inp.setAttribute("autocorrect", "off"); inp.setAttribute("data-lpignore", "true"); inp.maxLength = 300; inp.placeholder = "اكتب رسالة…"; inp.autocomplete = "off"; inp.enterKeyHint = "send"; inp.setAttribute("aria-label", "رسالة");
-    send.type = "submit"; send.setAttribute("aria-label", "إرسال"); send.append(sendIcon(20));
+    send.type = "submit"; send.addEventListener("pointerdown", e => e.preventDefault()); send.setAttribute("aria-label", "إرسال"); send.append(sendIcon(20));
     more.type = "button"; more.hidden = true; list.append(empty); form.append(inp, send); root.append(list, more, form);
     let prev = null, count = 0, lastSend = 0;
     const near = () => list.scrollHeight - list.scrollTop - list.clientHeight < 70;
@@ -198,29 +206,30 @@ function build({ mode = "game" } = {}) {
   chat._seen = new Set();
 
   // ---- نافذة الكتابة السريعة (أيقونة الدردشة) ----
+  // الهاتف: ابنة الشريط (dock) نفسه تنسدل من أسفل الزر، فتتبعه حيثما كان ولا تؤثر في الصفحة. والكيبورد والمربع يُغلقان معاً.
+  // الكمبيوتر: نافذة عائمة تُسحب من إطارها وتحفظ مكانها، ولها دبوس تثبيت.
   const quick = h("div", "cm-quick"), qHead = h("div", "cm-qh"), qBody = h("div", "cm-qb");
   quick.hidden = true; let pinned = false;
   { const t = h("div", "cm-qt"); t.append(h("span", "cm-hash", "#"), h("span", "", "المحادثة النصية"));
-    const x = h("button", "cm-b cm-ibtn"); x.type = "button"; x.setAttribute("aria-label", "إغلاق"); x.append(ic("close", 16));
+    const x = h("button", "cm-b cm-ibtn"); x.type = "button"; x.setAttribute("aria-label", "إغلاق"); x.append(ic("close", 15));
     x.onclick = () => closeQuick();
-    const pin = h("button", "cm-b cm-ibtn cm-pin"); pin.type = "button"; pin.setAttribute("aria-label", "تثبيت المحادثة"); pin.append(ic("pin", 16));
+    const pin = h("button", "cm-b cm-ibtn cm-pin"); pin.type = "button"; pin.setAttribute("aria-label", "تثبيت المحادثة"); pin.append(ic("pin", 15));
     pin.hidden = !matchMedia("(hover:hover) and (pointer:fine)").matches;            // الدبوس للكمبيوتر فقط
     pin.onclick = () => { pinned = !pinned; try { localStorage.setItem("yz_cm_pin", pinned ? "1" : "0"); } catch { /* التخزين ممنوع */ } pin.classList.toggle("on", pinned); if (G()) gsap.fromTo(pin, { rotation: pinned ? -40 : 40 }, { rotation: 0, duration: .5, ease: "elastic.out(1,.4)" }); };
     try { pinned = localStorage.getItem("yz_cm_pin") === "1"; } catch { /* التخزين ممنوع */ } pin.classList.toggle("on", pinned);
     qHead.append(t, pin, x); quick.append(qHead, qBody); document.body.append(quick); }
-  // النافذة تُسحب من إطارها العلوي وتحفظ مكانها (يبقى حيث وضعها اللاعب في كل مرة). الافتراضي: تحت الشريط
-  let unQ = null;
+  const phone = () => matchMedia("(pointer:coarse)").matches;
   const POSK = "yz_cm_pos";
   const clampPos = (x, y) => ({ x: Math.max(6, Math.min(innerWidth - quick.offsetWidth - 6, x)), y: Math.max(6, Math.min(innerHeight - 120, y)) });
-  const phone = () => matchMedia("(pointer:coarse)").matches;
   function placeQuick() {
-    quick.style.maxHeight = Math.max(170, Math.min(270, innerHeight * .36)) + "px";
-    if (phone()) {                                               // الهاتف: النافذة تابعة للشريط تماماً، تخرج من أسفله وتتحرك معه ولا تتأثر بالكيبورد
+    if (phone()) {                                               // مرفقة بالشريط: الإحداثيات نسبة له، فلا تتأثر بأي شيء في الصفحة
       dock.append(quick); quick.classList.add("cm-attached");
-      const w = quick.offsetWidth, dw = dock.offsetWidth, sl = Math.max(8, Math.min(innerWidth - w - 8, lx + dw / 2 - w / 2));
-      quick.style.left = sl - lx + "px"; quick.style.top = dock.offsetHeight + 8 + "px"; return;
+      const w = quick.offsetWidth, sl = Math.max(8, Math.min(innerWidth - w - 8, lx + dock.offsetWidth / 2 - w / 2));
+      quick.style.left = sl - lx + "px"; quick.style.top = dock.offsetHeight + 6 + "px"; quick.style.maxHeight = "";
+      return;
     }
     document.body.append(quick); quick.classList.remove("cm-attached");
+    quick.style.maxHeight = Math.max(170, Math.min(270, innerHeight * .36)) + "px";
     let pos = null; try { pos = JSON.parse(localStorage.getItem(POSK)); } catch { /* لا موضع محفوظ */ }
     const r = dock.getBoundingClientRect(), w = quick.offsetWidth;
     const d = pos && typeof pos.x === "number" ? clampPos(pos.x, pos.y) : clampPos((innerWidth - w) / 2, r.bottom + 8);
@@ -232,27 +241,34 @@ function build({ mode = "game" } = {}) {
     qHead.addEventListener("pointermove", e => { if (!drag) return; const d = clampPos(ox + e.clientX - sx, oy + e.clientY - sy); quick.style.left = d.x + "px"; quick.style.top = d.y + "px"; });
     const end = () => { if (!drag) return; drag = false; if (G()) gsap.to(quick, { scale: 1, duration: .5, ease: "elastic.out(1,.5)" }); try { localStorage.setItem(POSK, JSON.stringify({ x: quick.offsetLeft, y: quick.offsetTop })); } catch { /* التخزين ممنوع */ } };
     qHead.addEventListener("pointerup", end); qHead.addEventListener("pointercancel", end); }
-  // الكيبورد الأصلي يزيح الصفحة على iOS: نعيدها لمكانها فور ظهوره وبعد إغلاقه فلا يتحرك شيء
+
+  let unQ = null;
   function openQuick() {
     if (S.quick || !ready_()) return;
     if (S.P) closePanel(true);
-    hideBubble(true); S.quick = true; qBody.append(chat.root); quick.hidden = false; placeQuick(); chat.toEnd(); markRead();
-    bChat.classList.add("on");
-    const out = e => { if (pinned || !quick.contains(e.target) && !dock.contains(e.target) && !e.target.closest?.(".cm-bub")) { if (!pinned) closeQuick(); } };
-    setTimeout(() => document.addEventListener("pointerdown", out, true), 0);       // أي لمسة خارج المحادثة تغلقها (إلا إن ثبّتها اللاعب على الكمبيوتر)
-    lockPage(true);
-    unQ = () => { document.removeEventListener("pointerdown", out, true); lockPage(false); };
-    const r = bChat.getBoundingClientRect(), cx = r.left + r.width / 2 - quick.getBoundingClientRect().left;
-    if (G()) { gsap.fromTo(quick, { scale: .15, opacity: 0, y: -16, transformOrigin: `${cx}px 0px` }, { scale: 1, opacity: 1, y: 0, duration: .55, ease: "back.out(1.8)", onComplete: () => chat.focus() }); }
-    else chat.focus();
+    hideBubble(true); S.quick = true; qBody.append(chat.root); lockPage(true);          // القفل قبل أي تركيز: الكيبورد لا يجد شيئاً يمرّره
+    quick.hidden = false; placeQuick(); chat.toEnd(); markRead(); bChat.classList.add("on");
+    // أي لمسة خارج المحادثة والشريط (والكيبورد خارج الصفحة أصلاً) تغلقها وتغلق الكيبورد معها
+    let lastIn = 0;
+    const inside = e => quick.contains(e.target) || dock.contains(e.target) || e.target.closest?.(".cm-bub");
+    const down = e => { if (inside(e)) lastIn = performance.now(); else if (!pinned) closeQuick(); };
+    // زر ✓ في الكيبورد (أو أي إنهاء له) = يفقد الحقل التركيز: نغلق المحادثة أيضاً، إلا إن كانت اللمسة داخل المحادثة نفسها
+    const blur = () => { if (!phone()) return; setTimeout(() => { if (S.quick && document.activeElement !== chat.inp && performance.now() - lastIn > 450) closeQuick(); }, 60); };
+    const esc = e => { if (e.key === "Escape" && !pinned) closeQuick(); };
+    document.addEventListener("pointerdown", down, true); document.addEventListener("keydown", esc); chat.inp.addEventListener("blur", blur);
+    unQ = () => { document.removeEventListener("pointerdown", down, true); document.removeEventListener("keydown", esc); chat.inp.removeEventListener("blur", blur); lockPage(false); };
+    // تنسدل من زر الدردشة: تبدأ مطويّة عند حافتها العليا تحت الزر وتتمدد للأسفل
+    const cx = bChat.getBoundingClientRect().left + bChat.offsetWidth / 2 - quick.getBoundingClientRect().left;
+    if (G()) gsap.fromTo(quick, { scaleY: .2, scaleX: .55, opacity: 0, transformOrigin: `${cx}px 0px` }, { scaleY: 1, scaleX: 1, opacity: 1, duration: .45, ease: "back.out(1.5)", clearProps: "scale" });
+    chat.focus();                                                // داخل نفس اللمسة: iOS يفتح الكيبورد فوراً
     sfx.click();
   }
   function closeQuick(instant) {
     if (!S.quick) return; S.quick = false; chat.blur(); bChat.classList.remove("on"); unQ?.(); unQ = null;
     const done = () => { quick.hidden = true; window.gsap?.set(quick, { clearProps: "transform,opacity" }); };
     if (!G() || instant) return done();
-    const r = bChat.getBoundingClientRect(), cx = r.left + r.width / 2 - quick.getBoundingClientRect().left;
-    gsap.to(quick, { scale: .15, opacity: 0, y: -16, transformOrigin: `${cx}px 0px`, duration: .32, ease: "power3.in", onComplete: done });
+    const cx = bChat.getBoundingClientRect().left + bChat.offsetWidth / 2 - quick.getBoundingClientRect().left;
+    gsap.to(quick, { scaleY: .2, scaleX: .55, opacity: 0, transformOrigin: `${cx}px 0px`, duration: .28, ease: "power3.in", onComplete: done });
   }
 
   // ============================== القناة الصوتية ==============================
