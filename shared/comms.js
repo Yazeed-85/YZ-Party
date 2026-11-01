@@ -9,7 +9,7 @@ import { roomRef } from "./room.js";
 import { toast, sfx, flyFrom, flyTo, dismissOutside } from "./ui.js";
 import { VoiceEngine, micError } from "./voice.js";
 import { report } from "./diag.js";
-import { makeMic, makeChat, makeComms, makeSpeaker, ic, sendIcon } from "./icons.js";
+import { makeMic, makeChat, makeComms, makeVoiceComms, makeSpeaker, ic, sendIcon } from "./icons.js";
 
 // أنماط النظام (تُحمَّل مرة واحدة من أي صفحة تستخدمه)
 { const l = document.createElement("link"); l.rel = "stylesheet"; l.href = new URL("./comms.css", import.meta.url).href; document.head.append(l); }
@@ -109,7 +109,7 @@ function build({ mode = "game" } = {}) {
   }
   function paintUnread() {
     const n = S.unread, t = n > 9 ? "9+" : String(n);
-    for (const b of [badgeD, fabBadge]) {
+    for (const b of [badgeD]) {
       if (!b) continue; const was = !b.hidden; b.hidden = n === 0; b.textContent = t;
       if (n && G()) gsap.fromTo(b, { scale: was ? 1.5 : 0 }, { scale: 1, duration: .5, ease: "back.out(3)" });
     }
@@ -317,14 +317,7 @@ function build({ mode = "game" } = {}) {
     if (!inVoice()) { const t = setTimeout(() => { undo = null; joinVoice(); }, 320); undo = () => clearTimeout(t); }
     else { const was = S.eng.muted; setMute(!was); undo = () => setMute(was, true); }
   };
-  let lastC = 0, undoC = null;                                  // لمسة = فتح/إغلاق الكتابة، لمستان = اللوحة الكاملة
-  bChat.onclick = () => {
-    const now = performance.now();
-    if (now - lastC < 320) { lastC = 0; undoC?.(); undoC = null; return openPanel("list"); }
-    lastC = now; const was = S.quick;
-    was ? closeQuick() : openQuick();
-    undoC = () => { was ? openQuick() : closeQuick(true); };
-  };
+  bChat.onclick = () => (S.quick ? closeQuick() : openQuick());       // لمسة = فتح/إغلاق الكتابة (لا لوحة كاملة للنص)
 
   // ---- ما يظهر في كل مكان عن الصوت (تُستدعى عند أي تغيير) ----
   function renderVoice() { paintMic(); paintFabTalk(); if (S.P) { paintVoicePanel(); paintPreviews(); } }
@@ -423,7 +416,7 @@ function build({ mode = "game" } = {}) {
     if (S.P) return setView(view, o);
     closeQuick(true); hideBubble(true);
     const sheet = h("div", "ovl sheet cm-sheet"), panel = h("div", "glass sheet-card cm-panel"), top = h("div", "cm-top"), rows = new Map();
-    const ttl = h("div", "cm-title"); ttl.append(makeComms(22).el, h("span", "", "التواصل"));
+    const ttl = h("div", "cm-title"); ttl.append(makeVoiceComms(22).el, h("span", "", "التواصل الصوتي"));
     const x = h("button", "cm-b cm-ibtn", ""); x.type = "button"; x.setAttribute("aria-label", "إغلاق"); x.append(ic("close", 18)); top.append(ttl, x);
     const mkSec = (k, label) => {
       const sec = h("section", "cm-sec cm-" + k), hd = h("button", "cm-sh"); hd.type = "button";
@@ -443,12 +436,11 @@ function build({ mode = "game" } = {}) {
     joinBox.append(h("small", "", "أنت خارج القناة. انضم لتسمعهم ويسمعوك"), jb);
     vfull.append(ul, vEmpty, ctl, joinBox);
     bigBtn.onclick = () => setMute(!S.eng.muted); lv.onclick = () => leaveVoice(); jb.onclick = () => joinVoice();
-    panel.append(top, T.sec, V.sec); sheet.append(panel); document.body.append(sheet);
+    panel.append(top, V.sec); sheet.append(panel); document.body.append(sheet);
     const P = S.P = P_ = { sheet, panel, rows, ul, ctl, joinBox, vEmpty, bigMic, bigLbl, bigBtn, tPrev: T.prev, vPrev: V.prev, vCount: V.cnt, unT: T.un, vHead: V.hd, vHeadDot: V.dot, T, V, view: null, off: [] };
     P.off.push(fit(sheet)); lockPage(true); P.off.push(() => lockPage(false));
     // النقر على قسم = الدخول لقناته. النقر على القسم المفتوح من عنوانه = العودة للقائمة
     const close = () => closePanel(); x.onclick = close; P.off.push(dismissOutside(sheet, close));
-    T.full.append(chat.root);
     paintPreviews(); paintVoicePanel(); paintUnread();
     setView(view, { ...o, first: true });
     flyFrom(sheet, panel, o.from || fab || bMic);
@@ -459,9 +451,8 @@ function build({ mode = "game" } = {}) {
     const P = S.P; if (!P) return;
     if (!P.view) {
       P.view = "both";
-      for (const sec of [P.T, P.V]) { sec.sec.classList.add("is-open"); sec.chev.hidden = true; }
-      P.T.full.append(chat.root); chat.toEnd(); markRead();
-      if (G()) gsap.from([P.T.full, P.V.full], { opacity: 0, y: 14, duration: .45, delay: .25, stagger: .08, ease: "power3.out", clearProps: "opacity,transform" });
+      for (const sec of [P.V]) { sec.sec.classList.add("is-open"); sec.chev.hidden = true; }
+      if (G()) gsap.from([P.V.full], { opacity: 0, y: 14, duration: .45, delay: .25, stagger: .08, ease: "power3.out", clearProps: "opacity,transform" });
     }
     paintVoicePanel();
   }
@@ -470,20 +461,19 @@ function build({ mode = "game" } = {}) {
     const P = S.P; if (!P || P._closing) return; P._closing = true;
     P.off.forEach(f => f?.());
     const fin = () => { P.sheet.remove(); if (S.P === P) { S.P = P_ = null; } };
-    chat.root.remove();
     if (!G() || instant) return fin();
     flyTo(P.sheet, P.panel, fab || bMic, fin);
   }
 
   // ============================== زر «التواصل» (الرئيسية والردهة) ==============================
-  let fab = null, fabBadge = null, commsIc = makeComms(22);
+  let fab = null, fabBadge = null, commsIc = makeVoiceComms(22);
   if (mode === "lobby") {
-    fab = h("button", "fab cm-fab dim"); fab.id = "cm"; fab.type = "button"; fab.setAttribute("aria-label", "التواصل: محادثة نصية وصوتية");
+    fab = h("button", "fab cm-fab dim"); fab.id = "cm"; fab.type = "button"; fab.setAttribute("aria-label", "التواصل الصوتي"); fab.hidden = true;                    // يظهر داخل الغرفة فقط
     fabBadge = h("span", "badge"); fabBadge.hidden = true; fab.append(commsIc.el, fabBadge); document.body.append(fab);
-    fab.onclick = () => { sfx.click(); S.code ? openPanel("list", { from: fab }) : hint(); };
+    fab.onclick = () => { sfx.click(); S.code ? openPanel("voice", { from: fab }) : hint(); };
   }
   function hint() {
-    bubble({ icon: makeComms(16).el, title: "التواصل", text: "ادخل غرفة أو أنشئ واحدة لتتحدث مع اللاعبين كتابةً وصوتاً", anchor: fab || dock, ms: 3800 });
+    bubble({ icon: makeVoiceComms(16).el, title: "التواصل الصوتي", text: "ادخل غرفة أو أنشئ واحدة لتتحدث مع اللاعبين صوتياً", anchor: fab || dock, ms: 3800 });
   }
 
   // ============================== الدخول والخروج من الغرفة ==============================
@@ -496,7 +486,7 @@ function build({ mode = "game" } = {}) {
     S.eng = new VoiceEngine(code, u.uid, myName, { members: onMembers, joined: () => renderVoice(), muted: () => renderVoice(), peer: onPeer, level: onLevel, error: rulesHint, blocked: () => bubble({ icon: makeMic(16, "live").el, title: "الصوت", text: "المس الشاشة لتفعيل سماع الصوت" }), ended: () => { flagSet(null); paintMic(); renderVoice(); } });
     S.subs.push(onValue(roomRef(code, "players"), s => { S.players = s.val() || {}; if (S.P) { paintPreviews(); paintVoicePanel(); } }, () => {}));
     S.subs.push(onValue(query(roomRef(code, "comms/chat"), limitToLast(80)), onChat, rulesHint));
-    if (fab) { fab.classList.remove("dim"); if (G()) gsap.fromTo(fab, { scale: .75 }, { scale: 1, duration: .6, ease: "back.out(3)", clearProps: "transform" }); }
+    if (fab) { fab.hidden = false; fab.classList.remove("dim"); if (G()) gsap.fromTo(fab, { scale: .75 }, { scale: 1, duration: .6, ease: "back.out(3)", clearProps: "transform" }); }
     paintUnread(); paintMic();
     dock.hidden = false; startFollow(); follow(true);
     if (G()) gsap.fromTo(pill, { y: -34, opacity: 0, scale: .7 }, { y: 0, opacity: 1, scale: 1, duration: .8, delay: .15, ease: "elastic.out(1,.55)" });
@@ -512,7 +502,7 @@ function build({ mode = "game" } = {}) {
     flagSet(null); try { sessionStorage.removeItem("yz_cr_" + (E?.code || "")); } catch { /* التخزين ممنوع */ }
     S.speaking.clear(); ringOn(ringD, false); micD.set("off");
     document.documentElement.classList.remove("yzc-on");
-    fab?.classList.add("dim"); fab?.classList.remove("live"); commsIc.active(false); S.unread = 0; paintUnread();
+    if (fab) fab.hidden = true; fab?.classList.add("dim"); fab?.classList.remove("live"); commsIc.active(false); S.unread = 0; paintUnread();
     const hideDock = () => { dock.hidden = true; lx = ly = -999; stopFollow(); };
     if (G() && !silent) gsap.to(pill, { y: -30, opacity: 0, scale: .7, duration: .3, ease: "back.in(2)", onComplete: hideDock }); else hideDock();
     await E?.destroy();

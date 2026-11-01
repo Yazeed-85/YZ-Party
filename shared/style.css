@@ -149,5 +149,12 @@ body.homelock main{height:100dvh;min-height:0}
 .frt .fst .dot.sm{width:7px;height:7px;flex:none}
 .frt .fst .frm{color:var(--mute);white-space:nowrap}
 .frrow .frt b{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.frt .fst>span:first-of-type{white-space:nowrap}
-.frt .fst .frm{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.frrow{min-width:0}.frt{min-width:0}
+.frt .fst{flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+.frt .fst>*{flex:none}
+.frt .fst .fon{overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
+.frt .fst .fcnt{display:inline-flex;align-items:center;gap:2px;color:var(--text);margin-inline-start:4px}
+.frt .fst .fcnt svg{width:12px;height:12px}.frt .fst .fcnt b{font-weight:700;font-size:.74rem}
+.frt .fst .fsep,.frt .fst .ftm{color:#34d399;font-weight:700}
+.frt .fst .fsep{opacity:.7}
+.fbody{overflow-x:hidden}.sheet-card{min-width:0;max-width:100%}

@@ -162,3 +162,12 @@ body.inroom #lobby{padding-top:44px}
 .cm-quick .cm-comp{padding:7px 10px}
 .cm-comp .cm-send{right:14px}
 .cm-comp .cm-send svg{transform:translate(-1.2px,-1px)}
+/* التواصل الصوتي: الزر داخل الغرفة فقط، واللوحة للصوت فقط */
+.fab.cm-fab[hidden]{display:none}
+.cm-sec.cm-voice .cm-sh{pointer-events:none}
+.cm-panel{height:auto;max-height:min(80dvh,560px)}
+.cm-panel .cm-vlist{flex:0 1 auto;max-height:46dvh}
+.cm-panel .cm-sec{flex:0 1 auto}
+.cm-panel .cm-sb{flex:0 1 auto;overflow:visible}
+.cm-panel .cm-sec.is-open .cm-full{height:auto}
+.cm-panel .cm-sh{padding-bottom:4px}

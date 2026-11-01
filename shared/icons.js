@@ -136,6 +136,26 @@ export function makeChat(size = 22) {
 }
 
 // ===== زر «التواصل»: فقاعة بداخلها موجة صوت تتحرك حين يتكلم أحد =====
+// أيقونة «التواصل الصوتي»: سماعة رأس بميكروفون، بنفس خط وسماكة بقية الأيقونات. تنبض الأذنان ما دام أحد يتكلم
+export function makeVoiceComms(size = 22) {
+  const s = root(size, "yz-vcomms");
+  s.append(n("path", { d: "M4.6 14.2v-2a7.4 7.4 0 0 1 14.8 0v2", "stroke-width": 1.9 }));
+  const cups = [
+    n("path", { d: "M4.6 13.6h2.1a1.2 1.2 0 0 1 1.2 1.2v3.1a1.2 1.2 0 0 1-1.2 1.2h-.4a1.7 1.7 0 0 1-1.7-1.7z", "stroke-width": 1.9 }),
+    n("path", { d: "M19.4 13.6h-2.1a1.2 1.2 0 0 0-1.2 1.2v3.1a1.2 1.2 0 0 0 1.2 1.2h.4a1.7 1.7 0 0 0 1.7-1.7z", "stroke-width": 1.9 })
+  ];
+  cups.forEach(c => { c.style.transformBox = "fill-box"; c.style.transformOrigin = "50% 50%"; });
+  s.append(...cups, n("path", { d: "M19.4 18.6c0 1.7-1.5 2.6-3.6 2.6H13", "stroke-width": 1.9 }));
+  let tl = null;
+  return {
+    el: s,
+    active(on) {
+      if (!G()) return;
+      if (on && !tl) tl = gsap.timeline({ repeat: -1, yoyo: true }).to(cups, { scale: 1.18, duration: .32, ease: "sine.inOut" });
+      else if (!on && tl) { tl.kill(); tl = null; gsap.to(cups, { scale: 1, duration: .25 }); }
+    }
+  };
+}
 export function makeComms(size = 22) {
   const s = root(size, "yz-comms");
   s.append(n("path", { d: "M6.2 3.8h11.6a3.7 3.7 0 0 1 3.7 3.7v6a3.7 3.7 0 0 1-3.7 3.7h-4.9l-4 3.3a.75.75 0 0 1-1.22-.58v-2.72H6.2a3.7 3.7 0 0 1-3.7-3.7v-6a3.7 3.7 0 0 1 3.7-3.7z", "stroke-width": 1.9 }));

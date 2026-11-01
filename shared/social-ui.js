@@ -5,6 +5,7 @@ import { toast, sfx, confirmDialog, flyFrom, flyTo, dismissOutside } from "./ui.
 import { levelTagFor } from "./level.js";
 import { serverNow } from "./firebase.js";
 import { report } from "./diag.js";
+import { ic } from "./icons.js";
 
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const G = () => window.gsap && !matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -72,14 +73,15 @@ export async function initSocial(h) {
     if (!fr.length) body.append(el("div", "fnote", "لا أصدقاء بعد. أضف صديقاً من قائمة اللاعبين في الغرفة أو بمعرّفه أدناه."));
     for (const [p, v] of fr) {
       const r = row(v.name); r.classList.toggle("onl", v.online); r.querySelector("b")?.append(levelTagFor(p));
-      const st = el("small", "fst"), tx = !v.online ? "غير متصل" : "متصل الآن";
-      st.append(el("i", "dot sm" + (v.online ? "" : " off gray")), el("span", "", tx));
-      if (v.room) {                                              // في غرفة: كم مضى عليه وكم معه (صغيرة ومختصرة)
-        const mins = v.room.since ? Math.max(0, Math.floor((serverNow() - v.room.since) / 60e3)) : 0, others = Math.max(0, v.room.n - 1);
-        st.append(el("span", "frm", `· في غرفة ${mins < 1 ? "للتو" : "منذ " + (mins < 60 ? mins + " د" : Math.floor(mins / 60) + " س")} · ${others ? "معه " + others : "وحده"}`));
+      const st = el("small", "fst");
+      st.append(el("i", "dot sm" + (v.online ? "" : " off gray")), el("span", "fon", v.online ? "متصل الآن" : "غير متصل"));
+      if (v.room) {                                              // في غرفة: رأس صغير + عدد من فيها (1 = وحده)، ثم | والمدة بصيغة 3:00
+        const mins = v.room.since ? Math.max(0, Math.floor((serverNow() - v.room.since) / 60e3)) : 0;
+        const cnt = el("span", "fcnt"); cnt.append(ic("user", 12), el("b", "", String(v.room.n)));
+        st.append(cnt, el("span", "fsep", "|"), el("span", "ftm", mins < 60 ? `${mins}:00` : `${Math.floor(mins / 60)}س`));
       }
       r.querySelector(".frt").append(st);
-      if (h.members?.().has(p)) r.append(el("span", "chip ok", "معك في الغرفة"));     // لا معنى لدعوة من هو في غرفتك أصلاً
+      if (h.members?.().has(p)) r.append(el("span", "chip ok", "معك"));     // لا معنى لدعوة من هو في غرفتك أصلاً
       else { const inv = sb("دعوة", () => invite(p), "ok"); inv.disabled = !v.online; r.append(inv); }
       const rm = sb("إزالة", async () => { if (await confirmDialog(`إزالة ${v.name} من أصدقائك؟`, "إزالة", "إلغاء")) removeFriend(p).then(() => toast("أُزيلت الصداقة")).catch(e => toast(e.message, "error")); }, "bad");
       r.append(rm); body.append(r);
