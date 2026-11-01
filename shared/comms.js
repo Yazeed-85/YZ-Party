@@ -321,7 +321,14 @@ function build({ mode = "game" } = {}) {
 
   // ---- ما يظهر في كل مكان عن الصوت (تُستدعى عند أي تغيير) ----
   function renderVoice() { paintMic(); paintFabTalk(); if (S.P) { paintVoicePanel(); paintPreviews(); } }
-  function paintFabTalk() { const any = S.speaking.size > 0; commsIc.active(any); }
+  // الكلام: السماعة ثابتة، وحولها حلقتان تضيئان وتنبضان مع الصوت ثم تخفتان عند السكوت
+  let talkTl = null;
+  function paintFabTalk() {
+    if (!fab) return; const any = S.speaking.size > 0 && !fab.hidden; fab.classList.toggle("talk", any);
+    if (!G() || !fabRings) return;
+    if (any && !talkTl) talkTl = gsap.timeline({ repeat: -1 }).fromTo(fabRings, { scale: .9, opacity: .85 }, { scale: 1.55, opacity: 0, duration: 1, ease: "power1.out", stagger: .45 });
+    else if (!any && talkTl) { talkTl.kill(); talkTl = null; gsap.to(fabRings, { opacity: 0, duration: .25 }); }
+  }
 
   const leaveT = new Map();
   function onMembers(m) {
@@ -416,7 +423,7 @@ function build({ mode = "game" } = {}) {
     if (S.P) return setView(view, o);
     closeQuick(true); hideBubble(true);
     const sheet = h("div", "ovl sheet cm-sheet"), panel = h("div", "glass sheet-card cm-panel"), top = h("div", "cm-top"), rows = new Map();
-    const ttl = h("div", "cm-title"); ttl.append(makeVoiceComms(22).el, h("span", "", "التواصل الصوتي"));
+    const ttl = h("div", "cm-title"); ttl.append(makeVoiceComms(24).el);
     const x = h("button", "cm-b cm-ibtn", ""); x.type = "button"; x.setAttribute("aria-label", "إغلاق"); x.append(ic("close", 18)); top.append(ttl, x);
     const mkSec = (k, label) => {
       const sec = h("section", "cm-sec cm-" + k), hd = h("button", "cm-sh"); hd.type = "button";
@@ -466,10 +473,10 @@ function build({ mode = "game" } = {}) {
   }
 
   // ============================== زر «التواصل» (الرئيسية والردهة) ==============================
-  let fab = null, fabBadge = null, commsIc = makeVoiceComms(22);
+  let fab = null, fabBadge = null, fabRings = null, commsIc = makeVoiceComms(22);
   if (mode === "lobby") {
     fab = h("button", "fab cm-fab dim"); fab.id = "cm"; fab.type = "button"; fab.setAttribute("aria-label", "التواصل الصوتي"); fab.hidden = true;                    // يظهر داخل الغرفة فقط
-    fabBadge = h("span", "badge"); fabBadge.hidden = true; fab.append(commsIc.el, fabBadge); document.body.append(fab);
+    fabBadge = h("span", "badge"); fabBadge.hidden = true; fabRings = [h("i", "cm-talkring"), h("i", "cm-talkring")]; fab.append(...fabRings, commsIc.el, fabBadge); document.body.append(fab);
     fab.onclick = () => { sfx.click(); S.code ? openPanel("voice", { from: fab }) : hint(); };
   }
   function hint() {
@@ -502,7 +509,7 @@ function build({ mode = "game" } = {}) {
     flagSet(null); try { sessionStorage.removeItem("yz_cr_" + (E?.code || "")); } catch { /* التخزين ممنوع */ }
     S.speaking.clear(); ringOn(ringD, false); micD.set("off");
     document.documentElement.classList.remove("yzc-on");
-    if (fab) fab.hidden = true; fab?.classList.add("dim"); fab?.classList.remove("live"); commsIc.active(false); S.unread = 0; paintUnread();
+    if (fab) fab.hidden = true; fab?.classList.add("dim"); fab?.classList.remove("live", "talk"); paintFabTalk(); S.unread = 0; paintUnread();
     const hideDock = () => { dock.hidden = true; lx = ly = -999; stopFollow(); };
     if (G() && !silent) gsap.to(pill, { y: -30, opacity: 0, scale: .7, duration: .3, ease: "back.in(2)", onComplete: hideDock }); else hideDock();
     await E?.destroy();

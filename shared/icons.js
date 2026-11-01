@@ -37,8 +37,8 @@ export function ic(name, size = 18) {
 // زر الإرسال: طائرة ورقية تشير لليسار (اتجاه القراءة العربي)
 export function sendIcon(size = 20) {
   const s = root(size);
-  s.append(n("path", { d: "M20.6 4.2L3.8 10.4a.8.8 0 0 0-.04 1.5l6.6 2.7 2.7 6.6a.8.8 0 0 0 1.5-.04z", fill: "currentColor", "stroke-width": 1.6, transform: "translate(24 0) scale(-1 1)" }));
-  s.append(n("path", { d: "M10.4 14.6l9-8.6", "stroke-width": 1.6, transform: "translate(24 0) scale(-1 1)", stroke: "var(--yz-cut,#12172a)" }));
+  s.append(n("path", { d: "M20.6 4.2L3.8 10.4a.8.8 0 0 0-.04 1.5l6.6 2.7 2.7 6.6a.8.8 0 0 0 1.5-.04z", fill: "currentColor", "stroke-width": 1.6, }));
+  s.append(n("path", { d: "M10.4 14.6l9-8.6", "stroke-width": 1.6, stroke: "var(--yz-cut,#12172a)" }));
   return s;
 }
 
@@ -146,15 +146,7 @@ export function makeVoiceComms(size = 22) {
   ];
   cups.forEach(c => { c.style.transformBox = "fill-box"; c.style.transformOrigin = "50% 50%"; });
   s.append(...cups, n("path", { d: "M19.4 18.6c0 1.7-1.5 2.6-3.6 2.6H13", "stroke-width": 1.9 }));
-  let tl = null;
-  return {
-    el: s,
-    active(on) {
-      if (!G()) return;
-      if (on && !tl) tl = gsap.timeline({ repeat: -1, yoyo: true }).to(cups, { scale: 1.18, duration: .32, ease: "sine.inOut" });
-      else if (!on && tl) { tl.kill(); tl = null; gsap.to(cups, { scale: 1, duration: .25 }); }
-    }
-  };
+  return { el: s, active() { /* الأيقونة ثابتة: الإضاءة والموجات تُرسم حول الزر (انظر comms.js) */ } };
 }
 export function makeComms(size = 22) {
   const s = root(size, "yz-comms");

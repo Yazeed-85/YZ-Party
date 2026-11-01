@@ -150,7 +150,7 @@ body.homelock main{height:100dvh;min-height:0}
 .frt .fst .frm{color:var(--mute);white-space:nowrap}
 .frrow .frt b{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .frrow{min-width:0}.frt{min-width:0}
-.frt .fst{flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+.frt .fst{flex-wrap:nowrap;white-space:nowrap;overflow:hidden;line-height:1.55;padding-bottom:3px}
 .frt .fst>*{flex:none}
 .frt .fst .fon{overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
 .frt .fst .fcnt{display:inline-flex;align-items:center;gap:2px;color:var(--text);margin-inline-start:4px}

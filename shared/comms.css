@@ -171,3 +171,10 @@ body.inroom #lobby{padding-top:44px}
 .cm-panel .cm-sb{flex:0 1 auto;overflow:visible}
 .cm-panel .cm-sec.is-open .cm-full{height:auto}
 .cm-panel .cm-sh{padding-bottom:4px}
+/* لوحة الصوت: بلا عناوين نصية، السماعة وحدها بالأعلى */
+.cm-panel .cm-sh{display:none}
+.cm-panel .cm-title{color:var(--lagoon)}
+.fab.cm-fab{position:relative}.fab.cm-fab.in{position:absolute}
+.fab.cm-fab .cm-talkring{position:absolute;inset:-1px;border-radius:50%;border:2px solid var(--lagoon);opacity:0;pointer-events:none}
+.fab.cm-fab.talk{color:var(--lagoon);border-color:var(--lagoon);box-shadow:0 0 0 2px rgba(79,209,197,.25),0 0 18px rgba(79,209,197,.6)}
+.cm-comp .cm-send svg{transform:translate(0,-1px)}
