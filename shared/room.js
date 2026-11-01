@@ -142,10 +142,10 @@ export async function joinRoom(code, name) {
   const u = await ready;
   const meta = (await get(roomRef(code, "meta"))).val();
   if (!meta || meta.status === "closed") throw new Error("الغرفة غير موجودة");
-  await exitOld(code, u.uid);
   if ((await get(roomRef(code, `kicked/${u.uid}`))).exists()) throw new Error("تم طردك من هذه الغرفة");
   const mine = (await get(roomRef(code, `players/${u.uid}`))).exists();
   if (!mine && meta.status !== "lobby") throw new Error("اللعبة بدأت بالفعل");
+  await exitOld(code, u.uid);                                // بعد التأكد أن الانضمام ممكن: حتى لا تخسر غرفتك القديمة بلا مقابل
   await addPlayer(code, u.uid, name);
   const n = Object.keys((await get(roomRef(code, "players"))).val() || {}).length;
   if (!mine && n > meta.maxPlayers) { await remove(roomRef(code, `players/${u.uid}`)); stopPresence?.(); throw new Error("الغرفة ممتلئة"); }
