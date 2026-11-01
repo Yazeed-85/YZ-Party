@@ -24,6 +24,7 @@
   <section id="home" class="screen glass">
     <h1 class="mark">YZ Party</h1>
     <p class="sub">🤺</p>
+    <div id="elsewhere" class="notice" hidden><span id="elsewhereT"></span><div class="nbtns"><button id="elsewhereTake" class="sbtn ok" hidden>انقلني لهذا الجهاز</button><button id="elsewhereLeave" class="sbtn bad">غادر تلك الغرفة</button></div></div>
     <input id="name" maxlength="16" placeholder="اسمك" autocomplete="off">
     <button id="create" class="btn primary" disabled>أنشئ غرفة</button>
     <div id="or" class="or">أو انضم بكود الغرفة</div>
@@ -51,7 +52,7 @@
 
 <script type="module">
 import { ready, onValue } from './shared/firebase.js';
-import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveRoom, getCode, savedName, saveName, cleanName, checkRoom, kickPlayer, roomRef, sweepRooms, stopTracking, amIIn, roomOpen } from './shared/room.js';
+import { createRoom, joinRoom, enterRoom, watchRoom, pickGame, startGame, leaveRoom, getCode, savedName, saveName, cleanName, checkRoom, kickPlayer, roomRef, sweepRooms, stopTracking, amIIn, roomOpen, resumeRoom, leaveRemote } from './shared/room.js';
 import { GAMES } from './shared/games-registry.js';
 import { toast, sfx, show, enterAnim, toggleMute, isMuted, initPress } from './shared/ui.js';
 import { initSocial } from './shared/social-ui.js';
@@ -227,7 +228,7 @@ function closed(msg, kind = 'info') {
   $('#code').readOnly = false; $('#code').value = ''; $('#codebox').classList.remove('locked'); code = ''; roomState = 'idle'; busy = false;
   paint($('#codebox'), ''); refresh();
   toast(msg, kind); show('home'); place(false);
-  comms.exit();
+  comms.exit(); social?.refresh();
 }
 
 async function openLobby(rc) {
@@ -235,7 +236,7 @@ async function openLobby(rc) {
   stop?.();
   S = { code: rc, uid: u.uid, meta: null, players: {}, scores: {}, joined: false }; known = new Set();
   fromLink = false; $('#back').hidden = true; history.replaceState(null, '', location.pathname);
-  show('lobby'); place(true); comms.enter(rc).catch(e => console.warn('comms', e));
+  show('lobby'); place(true); social?.refresh(); comms.enter(rc).catch(e => console.warn('comms', e));
   const unWatch = watchRoom(rc, {
     meta: m => {
       if (!m) {                                            // اختفاء مفاجئ: لا نغلق قبل التحقق بقراءة مباشرة
@@ -310,8 +311,29 @@ initSocial({
   createRoom: async () => { const n = myName(); if (!n) throw new Error('اكتب اسمك أولاً'); const c = await createRoom(n); await openLobby(c); return c; },
   join: async c => { const n = myName(); if (!n) throw new Error('اكتب اسمك أولاً'); if (S.code) { const old = S.code; stop?.(); stop = null; await leaveRoom(old); } await openLobby(await joinRoom(c, n)); }
 }).then(s => { social = s; place(inRoom); s.onChange(() => { if (S.meta) render(); }); }).catch(e => console.warn('social', e));                            // تنظيف الغرف المهملة (مرة كل 5 دقائق كحد أقصى)
+// انتقل حسابك لغرفة أخرى على جهاز آخر: نخرج بهدوء
+addEventListener('yz-superseded', e => { e.preventDefault(); if (S.code) { stop?.(); stop = null; closed('فتحتَ حسابك على جهاز آخر فانتقلتَ إليه', 'info'); } });
+// غرفتك على جهاز آخر: بطاقة صغيرة في الرئيسية (نقل إلى هذا الجهاز إن كانت في الردهة، أو مغادرتها)
+function showElsewhere(r) {
+  const box = $('#elsewhere'), a = r.other; box.hidden = false;
+  $('#elsewhereT').textContent = `حسابك داخل الغرفة ${a.c} على جهاز آخر`;
+  const take = $('#elsewhereTake'); take.hidden = r.status !== 'lobby';
+  take.onclick = async () => { const n = myName(); if (!n) return toast('اكتب اسمك أولاً', 'error'); try { sfx.click(); box.hidden = true; await openLobby(await joinRoom(a.c, n)); } catch (e) { toast(e.message, 'error'); box.hidden = false; } };
+  $('#elsewhereLeave').onclick = async () => { sfx.click(); await leaveRemote(a).catch(() => {}); box.hidden = true; };
+  if (G()) gsap.from(box, { y: -10, opacity: 0, duration: .4, ease: 'power2.out' });
+}
+async function boot() {
+  let c = null;
+  if (getCode()) { try { c = (await enterRoom()).code; } catch { sessionStorage.removeItem('yz_room'); } }
+  if (!c) {                                                // بلا غرفة في هذه الجلسة: ربما أغلقتَ المتصفح أو فتحتَ نافذة جديدة وأنت ما زلت في غرفتك
+    const r = await resumeRoom().catch(() => null);
+    if (r?.code) { try { c = (await enterRoom(r.code)).code; } catch { /* لم تعد عضواً */ } }
+    else if (r?.other) showElsewhere(r);
+  }
+  if (c) openLobby(c);
+}
 if (jp.length === 4) enterLinkMode(jp);
-else if (getCode()) enterRoom().then(c => openLobby(c.code)).catch(() => sessionStorage.removeItem('yz_room'));
+else boot();
 </script>
 </body>
 </html>

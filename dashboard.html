@@ -64,8 +64,8 @@ const ago = t => { if (!t) return '—'; const s = Math.max(0, (Date.now() - t) 
 const norm = s => String(s).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\s+/g, ' ').trim();
 const A = (t, v) => { try { if (window.gsap && t && (t.length ?? 1)) gsap.from(t, { duration: .45, ease: 'power2.out', ...v }); } catch { /* الحركة اختيارية */ } };
 const RES = { win: ['فوز', 'ok'], lose: ['خسارة', 'bad'], draw: ['تعادل', ''], 'coop-win': ['فوز جماعي', 'ok'], 'coop-lose': ['خسارة جماعية', 'bad'] };
-const TABS = [['over', 'نظرة عامة'], ['pl', 'اللاعبون'], ['rm', 'الغرف المباشرة'], ['dz', 'منطقة الخطر']];
-const S = { profiles: {}, history: {}, presence: {}, idx: {}, rooms: {}, admins: {}, friends: {}, inbox: {} };
+const TABS = [['over', 'نظرة عامة'], ['pl', 'اللاعبون'], ['rm', 'الغرف المباشرة'], ['dg', 'المشاكل'], ['vc', 'الصوت'], ['dz', 'منطقة الخطر']];
+const S = { profiles: {}, history: {}, presence: {}, idx: {}, rooms: {}, admins: {}, friends: {}, inbox: {}, diag: {}, ice: null };
 let me, tab = 'over', profile = null, q, so, queued = false, fresh = true;
 
 function toast(t) { const x = el('div', 'toast', t); document.body.append(x); A(x, { y: 20, opacity: 0, duration: .25 }); setTimeout(() => x.remove(), 3200); }
@@ -257,6 +257,37 @@ function viewRooms() {
   }
   sec.append(g); if (!codes.length) sec.append(el('div', 'glass empty', 'لا توجد غرف الآن')); return sec;
 }
+// ===== سجل المشاكل: كل خطأ تقني أو إعدادي يقع عند اللاعبين يصلك هنا فقط (لا تظهر لهم) =====
+const KIND = { toast: 'رسالة خطأ', comms: 'التواصل', 'voice-join': 'انضمام الصوت', friends: 'الأصدقاء' };
+function viewDiag() {
+  const sec = el('div', 'sec'), rows = Object.entries(S.diag).sort((a, b) => (b[1].t || 0) - (a[1].t || 0));
+  const hint = rows.some(([, d]) => /permission|denied|rules|قواعد/i.test(d.m));
+  const top = el('div', 'glass box'), bar = el('div', 'tools'), clr = el('button', 'btn sm dg', 'مسح السجل');
+  clr.disabled = !rows.length;
+  clr.onclick = async () => { if (!await ask({ title: 'مسح سجل المشاكل', body: 'سيُحذف كل ما في السجل.', ok: 'مسح' })) return; try { await set(ref(db, 'diag'), null); toast('تم المسح'); } catch (e) { toast('تعذّر المسح: ' + e.message); } };
+  bar.append(el('b', '', `${rows.length} سجل`), clr); top.append(el('h3', '', 'سجل المشاكل'), el('p', 'al', 'أخطاء القواعد والصلاحيات والصوت التي لا يراها اللاعبون. كل خطأ مكرر يُسجَّل مرة كل دقيقة لكل لاعب.'), bar); sec.append(top);
+  if (hint) sec.append(Object.assign(el('div', 'glass box danger'), { innerHTML: '<h3>تنبيه</h3><p class="al">ظهرت أخطاء صلاحيات: غالباً قواعد Firebase غير منشورة. الصق محتوى firebase.rules.json في Realtime Database ← Rules ثم Publish.</p>' }));
+  const tw = el('div', 'glass tw'), t = el('table'), hd = el('tr'); ['الوقت', 'النوع', 'التفاصيل', 'الصفحة', 'اللاعب'].forEach(x => hd.append(el('th', '', x))); t.append(hd);
+  rows.slice(0, 200).forEach(([, d]) => { const r = el('tr'); [ago(d.t), KIND[d.k] || d.k, d.m, d.p || '—', d.u ? fmtPid(d.u) : '—'].forEach((x, i) => { const c = el('td', i === 2 ? 'bad' : '', x); if (i === 2) c.style.direction = 'ltr'; r.append(c); }); t.append(r); });
+  tw.append(t); sec.append(rows.length ? tw : el('div', 'glass empty', 'لا مشاكل مسجّلة 🎉')); return sec;
+}
+// ===== الصوت: خادم TURN =====
+function viewVoice() {
+  const sec = el('div', 'sec'), bx = el('div', 'glass box'), ta = el('textarea'), row = el('div', 'row'), sv = el('button', 'btn sm', 'حفظ'), cl = el('button', 'btn sm ghost', 'إزالة');
+  ta.dir = 'ltr'; ta.placeholder = '[{"urls":"turn:HOST:443?transport=tcp","username":"…","credential":"…"}]  أو رابط HTTPS من المزوّد (مثل Metered) يُرجع المصفوفة'; ta.value = S.ice ? (S.ice.j || S.ice.u || '') : '';
+  const p = el('p', 'al', S.ice ? 'خادم TURN مفعّل: يُستخدم تلقائياً لمن تمنعه شبكته من الاتصال المباشر.' : 'غير مفعّل: الصوت يعمل بين أغلب الشبكات، لكنه قد يفشل على بعض شبكات الجوال والشركات.');
+  bx.append(el('h3', '', 'خادم TURN للمحادثة الصوتية'), p, el('p', 'al', 'أنشئ حساباً مجانياً عند مزوّد TURN (Metered أو Cloudflare Calls)، ثم الصق هنا إما مصفوفة iceServers بصيغة JSON أو رابط API الذي يُرجعها. يُقرأ عند انضمام اللاعب للصوت.'), ta);
+  sv.onclick = async () => {
+    const v = ta.value.trim(); if (!v) return toast('الصق المصفوفة أو الرابط أولاً');
+    try {
+      if (/^https:\/\//.test(v)) await set(ref(db, 'config/ice'), { u: v.slice(0, 600) });
+      else { const a = JSON.parse(v); if (!Array.isArray(a) || !a.every(x => x && x.urls)) throw new Error('الصيغة غير صحيحة: يلزم عناصر فيها urls'); await set(ref(db, 'config/ice'), { j: JSON.stringify(a).slice(0, 4000) }); }
+      toast('حُفظ خادم TURN');
+    } catch (e) { toast('تعذّر الحفظ: ' + e.message); }
+  };
+  cl.disabled = !S.ice; cl.onclick = async () => { await set(ref(db, 'config/ice'), null).catch(e => toast(e.message)); toast('أُزيل'); };
+  row.append(sv, cl); bx.append(row); sec.append(bx); return sec;
+}
 function viewDanger() {
   const sec = el('div', 'sec');
   [['إزالة كل اللاعبين', `حذف كل المسجلين (${removable().length}) بملفاتهم وسجلاتهم وأصدقائهم ورموز استرجاعهم. تتطلب تأكيداً بالكتابة. المشرفون وحسابك محميّون.`, 'إزالة الكل', delAll], ['إغلاق كل الغرف', `حذف كل الغرف الحالية (${Object.keys(S.idx).length}) وإخراج من فيها.`, 'إغلاق الكل', closeAll]].forEach(([h, d, b, f]) => {
@@ -265,7 +296,7 @@ function viewDanger() {
 }
 
 function paint() {
-  if (!me) return; if (profile && tab === 'pl' && /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return; const P = players(), v = { over: viewOver, pl: profile ? viewProfile : viewPlayers, rm: viewRooms, dz: viewDanger }[tab](P);
+  if (!me) return; if (tab === 'vc' && document.activeElement?.tagName === 'TEXTAREA') return; if (profile && tab === 'pl' && /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return; const P = players(), v = { over: viewOver, pl: profile ? viewProfile : viewPlayers, rm: viewRooms, dg: viewDiag, vc: viewVoice, dz: viewDanger }[tab](P);
   const foc = q && document.activeElement === q, pos = foc ? q.selectionStart : 0;
   app.className = ''; app.replaceChildren(v); if (foc) { q.focus(); try { q.setSelectionRange(pos, pos); } catch { /* لا بأس */ } }
   if (fresh) { fresh = false; A(v.children, { y: 16, opacity: 0, stagger: .06 }); A(app.querySelectorAll('.gb i'), { scaleX: 0, duration: .7, stagger: .04 }); A(app.querySelectorAll('.days i'), { scaleY: 0, duration: .6, stagger: .05 }); }
@@ -294,6 +325,7 @@ async function init() {
     }
     const on = (p, f) => onValue(ref(db, p), s => { f(s.val() || {}); queue(); }, e => { app.replaceChildren(el('div', 'error-msg', `تعذّرت قراءة ${p}: ${e.message}. تأكد من نشر قواعد Firebase الجديدة.`)); });
     on('profiles', v => { S.profiles = v; }); on('history', v => { S.history = v; }); on('presence', v => { S.presence = v; }); on('admins', v => { S.admins = v; }); on('friends', v => { S.friends = v; }); on('inbox', v => { S.inbox = v; });
+    on('diag', v => { S.diag = v; }); onValue(ref(db, 'config/ice'), s => { S.ice = s.val(); queue(); }, () => {});
     on('roomIndex', v => { S.idx = v; Object.keys(v).forEach(watchRoom); Object.keys(subs).filter(c => !v[c]).forEach(c => { subs[c].forEach(u => u()); delete subs[c]; delete S.rooms[c]; }); });
     onValue(ref(db, '.info/connected'), s => { const l = $('#live'); l.classList.toggle('on', !!s.val()); l.lastChild.textContent = s.val() ? 'مباشر' : 'غير متصل'; });
     setInterval(queue, 30e3);   // تحديث الأوقات النسبية

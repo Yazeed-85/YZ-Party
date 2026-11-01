@@ -144,6 +144,7 @@ main{max-width:520px;height:calc(100dvh - env(safe-area-inset-top,0px) - env(saf
 </main>
 <div id="enter" class="enter"></div>
 <script type="module">
+import { report } from '../../shared/diag.js';
 import { runTransaction, onValue, get, set, remove, serverNow } from '../../shared/firebase.js';
 import { enterRoom, watchRoom, gameRef, roomRef, goLobby, abortGame, backToLobby } from '../../shared/room.js';
 import { finishGame, makeResult, evBy } from '../../shared/result.js';
@@ -706,9 +707,8 @@ function hostSchedule() {
       }
     } catch (e) {
       console.error(e);
-      const denied = /permission|denied/i.test(String(e?.code || e?.message || e));
-      showOverlay({ icon: denied ? '🔐' : '⚠️', title: denied ? 'قواعد Firebase تحتاج تحديثاً' : 'تعذّر تجهيز الطاولة',
-        sub: denied ? 'افتح Firebase ← Realtime Database ← Rules، والصق محتوى ملف firebase.rules.json الجديد، ثم اضغط Publish وأعد المحاولة.' : 'تحقق من الاتصال وأعد المحاولة بعد لحظات.' });
+      report('liars-bar-setup', e);                       // سبب الفشل (قواعد Firebase مثلاً) يصل للمالك في لوحة التحكم، واللاعب يرى رسالة عامة فقط
+      showOverlay({ icon: '⚠️', title: 'تعذّر تجهيز الطاولة', sub: 'تحقق من الاتصال وأعد المحاولة بعد لحظات.' });
       setTimeout(() => backToLobby(ctx), 10000); return;
     }
   }

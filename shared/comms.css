@@ -158,3 +158,7 @@ body.inroom #lobby{padding-top:44px}
 .cm-comp .cm-send{position:absolute;right:14px;top:50%;margin-top:-17px}
 .cm-comp.has .cm-in{padding-right:52px}
 .cm-quick .cm-comp{border-top:0;padding:4px 10px 10px}
+/* محاذاة سهم الإرسال: تماثل الحشو الرأسي ليتوسّط الحقل تماماً + موازنة بصرية للرمز داخل الدائرة */
+.cm-quick .cm-comp{padding:7px 10px}
+.cm-comp .cm-send{right:14px}
+.cm-comp .cm-send svg{transform:translate(-1.2px,-1px)}

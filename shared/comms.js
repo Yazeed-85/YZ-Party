@@ -8,6 +8,7 @@ import { ready, onValue, push, query, limitToLast, serverTimestamp, serverNow } 
 import { roomRef } from "./room.js";
 import { toast, sfx, flyFrom, flyTo, dismissOutside } from "./ui.js";
 import { VoiceEngine, micError } from "./voice.js";
+import { report } from "./diag.js";
 import { makeMic, makeChat, makeComms, makeSpeaker, ic, sendIcon } from "./icons.js";
 
 // أنماط النظام (تُحمَّل مرة واحدة من أي صفحة تستخدمه)
@@ -68,10 +69,8 @@ function build({ mode = "game" } = {}) {
   const myName = () => S.players[S.uid]?.name || localStorage.getItem("yz_name") || "أنا";
   const nameOf = u => S.players[u]?.name || S.members[u]?.n || "لاعب";
   const inVoice = () => !!S.eng?.on;
-  const rulesHint = e => {
-    const m = String(e?.code || e?.message || "");
-    if (/permission/i.test(m) && !S.noRules) { S.noRules = true; toast("حدّث قواعد Firebase (ملف firebase.rules.json) لتعمل المحادثة", "error"); }
-  };
+  // أخطاء الإعداد (قواعد Firebase…) تخص المالك فقط: تُسجَّل بصمت في لوحة التحكم ولا يراها اللاعب أبداً
+  const rulesHint = e => { S.noRules = true; report("comms", e); };
 
   // ============================== الشريط العلوي ==============================
   const dock = h("div", "cm-dock"), pill = h("div", "cm-pill");
@@ -292,9 +291,13 @@ function build({ mode = "game" } = {}) {
     micD.pulse(true);
     try { await E.join({ muted: auto ? !!flagGet()?.m : false }); persist(); sfx.join(); paintMic(); }
     catch (e) {
-      rulesHint(e);
+      // إلغاء اللاعب أو رفضه للإذن أمر طبيعي تماماً: لا رسالة ولا فشل، ويُطلب الإذن من جديد عند اللمسة التالية.
+      const n = e?.name || e?.message;
+      const quiet = n === "NotAllowedError" || n === "SecurityError" || n === "AbortError" || n === "PermissionDeniedError";
+      if (!quiet) { report("voice-join", e); rulesHint(e); }
       if (auto) bubble({ icon: makeMic(16, "off").el, title: "الصوت", text: "تعذّرت العودة للقناة الصوتية. المس المايك للانضمام" });
-      else if (!S.noRules) toast(micError(e), "error");
+      else if (!quiet && (n === "NotFoundError" || n === "OverconstrainedError" || n === "NotReadableError")) bubble({ icon: makeMic(16, "off").el, title: "المايك", text: micError(e) });
+      try { await S.eng?.leave?.(); } catch { /* ننظف أي بقايا */ }
       flagSet(null);
     } finally { micD.pulse(false); paintMic(); renderVoice(); }
   }
@@ -490,7 +493,7 @@ function build({ mode = "game" } = {}) {
     const u = await ready; S.uid = u.uid;
     S.code = code; S.firstMembers = true; firstChat = true; chat._seen = new Set(); chat.reset(); lastPreview = []; S.lastKey = ""; S.unread = 0; S.members = {}; S.peerSt = {};
     document.documentElement.classList.add("yzc-on");
-    S.eng = new VoiceEngine(code, u.uid, myName, { members: onMembers, joined: () => renderVoice(), muted: () => renderVoice(), peer: onPeer, level: onLevel, error: rulesHint, blocked: () => bubble({ icon: makeMic(16, "live").el, title: "الصوت", text: "المس الشاشة لتفعيل سماع الصوت" }), ended: () => { toast("انقطع المايك", "error"); flagSet(null); renderVoice(); } });
+    S.eng = new VoiceEngine(code, u.uid, myName, { members: onMembers, joined: () => renderVoice(), muted: () => renderVoice(), peer: onPeer, level: onLevel, error: rulesHint, blocked: () => bubble({ icon: makeMic(16, "live").el, title: "الصوت", text: "المس الشاشة لتفعيل سماع الصوت" }), ended: () => { flagSet(null); paintMic(); renderVoice(); } });
     S.subs.push(onValue(roomRef(code, "players"), s => { S.players = s.val() || {}; if (S.P) { paintPreviews(); paintVoicePanel(); } }, () => {}));
     S.subs.push(onValue(query(roomRef(code, "comms/chat"), limitToLast(80)), onChat, rulesHint));
     if (fab) { fab.classList.remove("dim"); if (G()) gsap.fromTo(fab, { scale: .75 }, { scale: 1, duration: .6, ease: "back.out(3)", clearProps: "transform" }); }

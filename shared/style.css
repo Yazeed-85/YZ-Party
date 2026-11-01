@@ -141,3 +141,13 @@ body.inroom .fab.inst{display:none}
 html.homelock,body.homelock{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:none}
 body.homelock main{height:100dvh;min-height:0}
 @media (max-height:560px){html.homelock,body.homelock{overflow:auto;touch-action:pan-y}body.homelock main{height:auto;min-height:100dvh}}   /* هاتف أفقي: نسمح بالتمرير حتى لا يُقصّ المحتوى */
+/* بطاقة «حسابك في غرفة على جهاز آخر» */
+.notice{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(255,193,92,.09);border:1px solid rgba(255,193,92,.35);font-size:.86rem;line-height:1.6;text-align:center}
+.notice .nbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+/* قائمة الأصدقاء: سطر الحالة مدمج (النقطة بجانب نصها تماماً) */
+.frt .fst{display:flex;align-items:center;gap:5px;line-height:1.2;margin-top:2px;font-size:.72rem}
+.frt .fst .dot.sm{width:7px;height:7px;flex:none}
+.frt .fst .frm{color:var(--mute);white-space:nowrap}
+.frrow .frt b{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.frt .fst>span:first-of-type{white-space:nowrap}
+.frt .fst .frm{overflow:hidden;text-overflow:ellipsis;min-width:0}

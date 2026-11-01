@@ -5,6 +5,7 @@
 document.addEventListener("touchmove", e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
 document.addEventListener("wheel", e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });   // قرص لوحة اللمس على الكمبيوتر
 
+import { report, isOwnerOnly, isTechnical } from "./diag.js";
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const anim = () => window.gsap && !reduce;
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -13,6 +14,10 @@ const el = (t, c, x) => { const e = document.createElement(t); if (c) e.classNam
 const TICON = { ok: "✓", error: "!", info: "i" };
 let curToast = null;
 export function toast(msg, kind = "info") {
+  if (kind === "error") {                                  // أخطاء المالك التقنية لا يراها اللاعب: تُسجَّل في لوحة التحكم فقط
+    if (isOwnerOnly(msg)) { report("toast", msg); return; }
+    if (isTechnical(msg)) { report("toast", msg); msg = "حدث خطأ بسيط، حاول مرة أخرى"; }
+  }
   const old = curToast; curToast = null;
   if (old) { window.gsap?.killTweensOf(old); anim() ? gsap.to(old, { y: -30, opacity: 0, scale: .9, duration: .18, onComplete: () => old.remove() }) : old.remove(); }
   const t = el("div", "toast " + kind), i = el("span", "ti", TICON[kind] || "i");

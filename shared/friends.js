@@ -10,7 +10,7 @@ export const INVITE_TTL = 10e3;          // الدعوة صالحة 10 ثوان�
 export async function profileOf(pid) { const v = (await get(R(`profiles/${pid}`))).val(); return v ? { pid, ...v } : null; }
 
 export async function sendRequest(to, myName) {
-  const me = await identity(); if (!me.ok) throw new Error("ميزة الأصدقاء تحتاج تحديث قواعد Firebase");
+  const me = await identity(); if (!me.ok) throw new Error("ميزة الأصدقاء تحتاج تحديث قواعد Firebase");   // رسالة للمالك فقط: لا تُعرض (انظر toast في ui.js)
   if (to === me.pid) throw new Error("هذا معرّفك أنت");
   if ((await get(R(`friends/${me.pid}/${to}`))).exists()) throw new Error("هو صديقك بالفعل");
   if ((await get(R(`requests/${me.pid}/${to}`))).exists()) return acceptRequest(to);    // سبق أن طلب هو صداقتك: نقبلها
@@ -39,8 +39,8 @@ export async function dismissInvite(id) { const me = await identity(); await rem
 export async function watchSocial(cb) {
   const me = await identity(); if (!me.ok) return () => {};
   const subs = [], per = new Map(); let fr = {}, rq = {}, inv = [];
-  const names = {}, online = {};
-  const push = () => cb({ me: me.pid, friends: Object.fromEntries(Object.keys(fr).map(p => [p, { name: names[p] || "…", online: !!online[p] }])), requests: rq, invites: inv });
+  const names = {}, online = {}, rooms = {};
+  const push = () => cb({ me: me.pid, friends: Object.fromEntries(Object.keys(fr).map(p => [p, { name: names[p] || "…", online: !!online[p], room: online[p] ? rooms[p] || null : null }])), requests: rq, invites: inv });
   subs.push(onValue(R(`requests/${me.pid}`), s => { rq = s.val() || {}; push(); }, () => {}));
   subs.push(onValue(R(`invites/${me.pid}`), s => { inv = Object.entries(s.val() || {}).map(([id, v]) => ({ id, ...v })); push(); }, () => {}));
   subs.push(onValue(R(`friends/${me.pid}`), s => {
@@ -48,7 +48,7 @@ export async function watchSocial(cb) {
     for (const p of Object.keys(fr)) if (!per.has(p)) {
       per.set(p, [
         onValue(R(`profiles/${p}/name`), x => { names[p] = x.val() || "لاعب"; push(); }, () => {}),
-        onValue(R(`presence/${p}/on`), x => { online[p] = x.val() === true; push(); }, () => {})
+        onValue(R(`presence/${p}`), x => { const v = x.val() || {}; online[p] = v.on === true; rooms[p] = v.r ? { since: v.rs || 0, n: v.rn || 1 } : null; push(); }, () => {})
       ]);
     }
     for (const [p, u] of [...per]) if (!(p in fr)) { u.forEach(f => f()); per.delete(p); }

@@ -3,7 +3,7 @@
 //   rooms/{code}/comms/sig/{إلى}/{push} = { f: من, s: جلسته, r: جلسة المستلم, k: offer|answer|ice|retry, g: رقم المحاولة, d: بيانات }
 // القاعدة: صاحب الـ uid الأكبر هو من يبدأ العرض دائماً، فلا يحدث تعارض عرضين في آنٍ واحد (glare).
 // كل صفحة (الردهة أو لعبة) تعيد الانضمام تلقائياً بجلسة جديدة، وغياب الطرف أقل من 4 ثوانٍ لا يهدم اتصاله.
-import { set, update, remove, onValue, onChildAdded, push, onDisconnect, serverTimestamp } from "./firebase.js";
+import { db, ref, get, set, update, remove, onValue, onChildAdded, push, onDisconnect, serverTimestamp } from "./firebase.js";
 import { roomRef } from "./room.js";
 
 // خوادم STUN عامة تكفي لأغلب الشبكات. للشبكات المقيِّدة (بعض شبكات الجوال والشركات) يلزم خادم TURN:
@@ -15,6 +15,19 @@ export const ICE_CONFIG = {
   ],
   iceCandidatePoolSize: 2
 };
+
+// خادم TURN يضبطه المالك من لوحة التحكم (تبويب «الصوت»): يُحفظ في config/ice على شكل { j: "JSON لمصفوفة iceServers" } أو { u: "رابط مزوّد مثل Metered يرجع المصفوفة" }.
+// يُحمَّل مرة لكل صفحة قبل الانضمام للصوت (بمهلة 3 ثوانٍ كي لا يتأخر المايك)، وأي فشل يعني العمل بـ STUN فقط بصمت.
+let iceP = null;
+export const loadIce = () => (iceP ??= (async () => {
+  try {
+    const c = (await Promise.race([get(ref(db, "config/ice")), new Promise((_, r) => setTimeout(r, 3000))])).val();
+    let list = null;
+    if (c?.j) list = JSON.parse(c.j);
+    else if (c?.u && /^https:\/\//.test(c.u)) list = await (await fetch(c.u, { cache: "no-store" })).json();
+    if (Array.isArray(list) && list.length) ICE_CONFIG.iceServers = [...ICE_CONFIG.iceServers, ...list.filter(x => x && x.urls)];
+  } catch { /* بلا TURN: STUN فقط */ }
+})());
 
 const rid = () => Math.random().toString(36).slice(2, 10);
 const GRACE_MS = 4000, TRY_MS = 14000, MAX_TRIES = 4;
@@ -115,6 +128,7 @@ export class VoiceEngine {
   // ev = { members(map), joined(bool), muted(bool), peer(uid, state), level(uid, v, speaking), error(e), blocked(), ended() }
   constructor(code, uid, getName, ev) {
     Object.assign(this, { code, uid, getName, ev, on: false, joining: false, sid: null, stream: null, track: null, muted: false, members: {}, peers: new Map(), gone: new Map(), pending: [], muted4: new Set(), an: new Map(), ac: null, subs: [], tick: null, heal: null });
+    loadIce();                                                    // تحميل مبكر بلا انتظار
     this.box = document.createElement("div"); this.box.style.cssText = "position:fixed;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none"; document.body.append(this.box);
     this.vref = roomRef(code, `comms/voice/${uid}`); this.sref = roomRef(code, `comms/sig/${uid}`);
     // نراقب من في القناة دائماً (حتى قبل الانضمام) ليراهم اللاعب في القائمة
@@ -142,6 +156,7 @@ export class VoiceEngine {
       if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) throw { name: "unsupported" };
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
     } catch (e) { this.joining = false; throw e; }
+    await loadIce();                                              // بعد إذن المايك (داخل لمسة اللاعب) وقبل إنشاء أي اتصال
     this.stream = stream; this.track = stream.getAudioTracks()[0]; this.muted = !!muted; this.track.enabled = !muted;
     this.track.onended = () => { if (this.on) { this.leave(); this.ev.ended?.(); } };
     this.sid = rid(); this.on = true; this.joining = false;

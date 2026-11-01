@@ -1,7 +1,7 @@
 // الغرف واللاعبون. هيكل البيانات:
 //   rooms/{code}/{meta, players, kicked, party/scores, game}   +   roomIndex/{code}: {t: آخر نشاط, s: open|closed}
 // roomIndex فهرس خفيف يسمح بتنظيف الغرف المهملة دون قراءة محتوى أي غرفة.
-import { identity, startPresence } from "./identity.js";
+import { identity, startPresence, setRoomInfo } from "./identity.js";
 import { db, ready, ref, get, set, update, remove, onValue, runTransaction, onDisconnect, serverTimestamp, serverNow } from "./firebase.js";
 
 export const STALE_MS = 3 * 3600e3;   // غرفة بلا أي نشاط 3 ساعات تُحذف
@@ -22,6 +22,58 @@ const setCode = c => sessionStorage.setItem("yz_room", c);
 export const lobbyUrl = c => `../../index.html?room=${c}`; // من داخل games/اسم-اللعبة/
 export const goLobby = c => { location.href = lobbyUrl(c); };
 
+// ===== الغرفة الواحدة لكل معرّف: active/{pid} = {c: الغرفة, u: جلسة الجهاز, t} =====
+// الدخول لغرفة جديدة يُخرجك أولاً من غرفتك القديمة (حتى لو كانت على جهاز آخر)، وأحدث جلسة هي الأصل. من فُتحت حسابه على جهاز آخر يخرج هناك بهدوء.
+const actRef = pid => ref(db, `active/${pid}`);
+async function claim(code, uid) {
+  const me = await identity(); if (!me.ok) return;
+  await set(actRef(me.pid), { c: code, u: uid, t: Date.now() }).catch(() => {});
+}
+async function dropActive(code, uid) {
+  try { const me = await identity(); if (!me.ok) return; const a = (await get(actRef(me.pid))).val(); if (a && a.c === code && a.u === uid) await remove(actRef(me.pid)); } catch { /* لا بأس */ }
+}
+// يُخرج اللاعب من غرفته المسجّلة (إن وُجدت وكانت غير الهدف). المضيف الذي يغادر تُغلق غرفته
+export async function exitOld(target, uid) {
+  try {
+    const me = await identity(); if (!me.ok) return;
+    const a = (await get(actRef(me.pid))).val(); if (!a || (a.c === target && a.u === uid)) return;
+    const meta = (await get(roomRef(a.c, "meta"))).val();
+    if (meta && meta.status !== "closed") {
+      if (meta.host === a.u && a.c !== target) { await update(roomRef(a.c, "meta"), { status: "closed" }).catch(() => {}); await update(idxRef(a.c), { s: "closed", t: serverTimestamp() }).catch(() => {}); }
+      await remove(roomRef(a.c, `players/${a.u}`)).catch(() => {});
+    }
+    await remove(actRef(me.pid)).catch(() => {});
+  } catch (e) { console.warn("exitOld", e); }
+}
+// غرفتك المسجّلة: {code} إن كانت لهذا الجهاز وما زلت فيها (للعودة التلقائية بعد إغلاق المتصفح أو من نافذة أخرى)، {other:{c,u}} إن كانت على جهاز آخر، أو null
+export async function resumeRoom() {
+  const me = await identity(); if (!me.ok) return null;
+  const u = await ready, a = (await get(actRef(me.pid))).val(); if (!a) return null;
+  try {
+    const [m, p] = await Promise.all([get(roomRef(a.c, "meta")), get(roomRef(a.c, `players/${a.u}`))]);
+    const meta = m.val();
+    if (!meta || meta.status === "closed" || !p.exists()) { if (a.u === u.uid) await remove(actRef(me.pid)).catch(() => {}); return null; }
+    return a.u === u.uid ? { code: a.c } : { other: a, status: meta.status };
+  } catch { return null; }
+}
+export async function leaveRemote(a) {                      // مغادرة غرفتك على جهاز آخر
+  const me = await identity(); await ready;
+  const meta = (await get(roomRef(a.c, "meta"))).val();
+  if (meta && meta.status !== "closed") {
+    if (meta.host === a.u) { await update(roomRef(a.c, "meta"), { status: "closed" }).catch(() => {}); await update(idxRef(a.c), { s: "closed", t: serverTimestamp() }).catch(() => {}); }
+    await remove(roomRef(a.c, `players/${a.u}`)).catch(() => {});
+  }
+  await remove(actRef(me.pid)).catch(() => {});
+}
+const homeUrl = () => (location.pathname.includes("/games/") ? "../../index.html" : null);
+let quiet = false;                                           // الجلسة المُزاحة لا تلمس الحضور المشترك (الجهاز الجديد هو الأصل)
+function superseded(code, uid) {
+  quiet = true; stopPresence?.(); quiet = false; sessionStorage.removeItem("yz_room");
+  remove(roomRef(code, `players/${uid}`)).catch(() => {});
+  const ev = new CustomEvent("yz-superseded", { cancelable: true, detail: { code } });
+  if (dispatchEvent(ev) && homeUrl()) location.href = homeUrl();
+}
+
 let stopPresence = null;
 function trackPresence(code, uid) {
   stopPresence?.();
@@ -29,6 +81,10 @@ function trackPresence(code, uid) {
   const un = onValue(ref(db, ".info/connected"), s => {
     if (s.val()) { onDisconnect(pr).set(false); set(pr, true).catch(() => {}); }
   });
+  // معلومات الغرفة لأصدقائك (كم مضى وكم معك) + مراقبة أن حسابك لم يُفتح في غرفة أخرى على جهاز آخر
+  const unPl = onValue(roomRef(code, "players"), s => { const p = s.val() || {}; setRoomInfo({ r: code, rs: p[uid]?.joinedAt, rn: Math.max(1, Object.keys(p).length) }); }, () => {});
+  let unAct = () => {};
+  identity().then(me => { if (!me.ok || !stopPresence) return; unAct = onValue(actRef(me.pid), s => { const a = s.val(); if (a && a.u !== uid && stopPresence) superseded(code, uid); }, () => {}); });
   const beat = () => update(idxRef(code), { t: serverTimestamp() }).catch(() => {});
   beat(); const iv = setInterval(beat, BEAT_MS);
   // شفاء المؤشر: onDisconnect القادم من الصفحة السابقة (أو من تعليق الهاتف) قد يصل بعد أن كتبنا true فيبقى false خطأً.
@@ -38,7 +94,7 @@ function trackPresence(code, uid) {
   const vis = () => { if (!document.hidden) assert(); };
   document.addEventListener("visibilitychange", vis); addEventListener("online", assert); addEventListener("pageshow", assert);
   stopPresence = () => {
-    un(); clearInterval(iv); clearInterval(heal); clearTimeout(first);
+    un(); unPl(); unAct(); setRoomInfo(null, quiet); clearInterval(iv); clearInterval(heal); clearTimeout(first);
     document.removeEventListener("visibilitychange", vis); removeEventListener("online", assert); removeEventListener("pageshow", assert);
     onDisconnect(pr).cancel(); stopPresence = null;
   };
@@ -50,6 +106,7 @@ async function addPlayer(code, uid, name) {
   const rec = { name: cleanName(name), joinedAt: Date.now(), connected: true };
   if (me.ok) rec.pid = me.pid;                               // المعرّف الثابت: يربط اللاعب بالأصدقاء والسجل مهما غيّر اسمه
   await set(roomRef(code, `players/${uid}`), rec);
+  await claim(code, uid);
   startPresence();
   setCode(code);
   trackPresence(code, uid);
@@ -58,6 +115,7 @@ async function addPlayer(code, uid, name) {
 // رقم الغرفة فريد: نحجزه بمعاملة على meta فلا تنجح إلا إن كان فارغاً فعلاً (حتى لو تسابق جهازان)
 export async function createRoom(name, mode = "single", maxPlayers = 4) {
   const u = await ready;
+  await exitOld(null, u.uid);
   for (let i = 0; i < 12; i++) {
     const code = String(1000 + Math.floor(Math.random() * 9000));
     const meta = { host: u.uid, mode, maxPlayers, status: "lobby", createdAt: Date.now() };
@@ -84,6 +142,7 @@ export async function joinRoom(code, name) {
   const u = await ready;
   const meta = (await get(roomRef(code, "meta"))).val();
   if (!meta || meta.status === "closed") throw new Error("الغرفة غير موجودة");
+  await exitOld(code, u.uid);
   if ((await get(roomRef(code, `kicked/${u.uid}`))).exists()) throw new Error("تم طردك من هذه الغرفة");
   const mine = (await get(roomRef(code, `players/${u.uid}`))).exists();
   if (!mine && meta.status !== "lobby") throw new Error("اللعبة بدأت بالفعل");
@@ -94,15 +153,16 @@ export async function joinRoom(code, name) {
 }
 
 // تستدعيها كل صفحة لعبة في بدايتها: تتحقق أنك عضو وترجع سياق الغرفة
-export async function enterRoom() {
+export async function enterRoom(forced) {
   const u = await ready;
-  const code = getCode();
+  const code = forced || getCode();
   if (!code) throw new Error("لا توجد غرفة");
   try {
     const [m, p] = await Promise.all([get(roomRef(code, "meta")), get(roomRef(code, "players"))]);
     const meta = m.val(), players = p.val();
     if (!meta || meta.status === "closed" || !players?.[u.uid]) throw 0;
     setCode(code);
+    await claim(code, u.uid);                                // أنا عضو فعلاً: هذه الجلسة هي الأصل
     trackPresence(code, u.uid); startPresence();
     return { code, uid: u.uid, isHost: meta.host === u.uid, meta, players };
   } catch { throw new Error("لست عضواً في هذه الغرفة"); }
@@ -145,6 +205,7 @@ export async function leaveRoom(code) {
     await update(idxRef(code), { s: "closed", t: serverTimestamp() }).catch(() => {});
   }
   await remove(roomRef(code, `players/${u.uid}`)).catch(() => {});
+  await dropActive(code, u.uid);
   sessionStorage.removeItem("yz_room");
 }
 

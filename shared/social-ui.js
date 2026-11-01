@@ -4,6 +4,7 @@ import { watchSocial, sendRequest, acceptRequest, declineRequest, removeFriend, 
 import { toast, sfx, confirmDialog, flyFrom, flyTo, dismissOutside } from "./ui.js";
 import { levelTagFor } from "./level.js";
 import { serverNow } from "./firebase.js";
+import { report } from "./diag.js";
 
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const G = () => window.gsap && !matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -60,7 +61,7 @@ export async function initSocial(h) {
     const body = sheet.querySelector(".fbody"), keep = body.scrollTop;
     const vals = [...body.querySelectorAll("input")].map(i => i.value), fi = [...body.querySelectorAll("input")].indexOf(document.activeElement);   // لا نضيّع ما يكتبه اللاعب عند تحديث الحضور
     body.replaceChildren();
-    if (!me.ok) body.append(el("div", "fnote", "ميزة الأصدقاء تحتاج تحديث قواعد Firebase (الصق ملف firebase.rules.json في Rules ثم Publish)."));
+    if (!me.ok) { report("friends", "identity not ok (rules)"); body.append(el("div", "fnote", "الأصدقاء غير متاحين الآن، حاول لاحقاً.")); }
     const reqs = Object.entries(D.requests);
     if (reqs.length) {
       body.append(el("h3", "", `طلبات الصداقة (${reqs.length})`));
@@ -70,19 +71,32 @@ export async function initSocial(h) {
     body.append(el("h3", "", `الأصدقاء (${fr.length})`));
     if (!fr.length) body.append(el("div", "fnote", "لا أصدقاء بعد. أضف صديقاً من قائمة اللاعبين في الغرفة أو بمعرّفه أدناه."));
     for (const [p, v] of fr) {
-      const r = row(v.name, v.online ? "متصل الآن" : "غير متصل"); r.classList.toggle("onl", v.online);
-      r.prepend(el("i", "dot" + (v.online ? "" : " off gray"))); r.querySelector("b")?.append(levelTagFor(p));
+      const r = row(v.name); r.classList.toggle("onl", v.online); r.querySelector("b")?.append(levelTagFor(p));
+      const st = el("small", "fst"), tx = !v.online ? "غير متصل" : "متصل الآن";
+      st.append(el("i", "dot sm" + (v.online ? "" : " off gray")), el("span", "", tx));
+      if (v.room) {                                              // في غرفة: كم مضى عليه وكم معه (صغيرة ومختصرة)
+        const mins = v.room.since ? Math.max(0, Math.floor((serverNow() - v.room.since) / 60e3)) : 0, others = Math.max(0, v.room.n - 1);
+        st.append(el("span", "frm", `· في غرفة ${mins < 1 ? "للتو" : "منذ " + (mins < 60 ? mins + " د" : Math.floor(mins / 60) + " س")} · ${others ? "معه " + others : "وحده"}`));
+      }
+      r.querySelector(".frt").append(st);
       if (h.members?.().has(p)) r.append(el("span", "chip ok", "معك في الغرفة"));     // لا معنى لدعوة من هو في غرفتك أصلاً
       else { const inv = sb("دعوة", () => invite(p), "ok"); inv.disabled = !v.online; r.append(inv); }
       const rm = sb("إزالة", async () => { if (await confirmDialog(`إزالة ${v.name} من أصدقائك؟`, "إزالة", "إلغاء")) removeFriend(p).then(() => toast("أُزيلت الصداقة")).catch(e => toast(e.message, "error")); }, "bad");
       r.append(rm); body.append(r);
     }
+    if (h.room()) { body.scrollTop = keep; return; }           // داخل الغرفة: الأصدقاء والطلبات فقط (بلا إضافة بالمعرّف ولا «حسابي»)
     body.append(el("h3", "", "إضافة صديق بالمعرّف"));
     const add = el("div", "fadd"), inp = el("input"); inp.placeholder = "YZ-XXXX-XXXX"; inp.dir = "ltr"; inp.autocomplete = "off";
     const go = sb("إرسال", async () => {
       const p = parsePid(inp.value); if (!p) return toast("المعرّف غير صحيح", "error");
+      if (p === me.pid) { inp.value = ""; return thisIsYou(inp); }                       // معرّفك أنت: نفس طرفة «هذا انت ياذكي»
       try { const pr = await profileOf(p); if (!pr) return toast("لا يوجد لاعب بهذا المعرّف", "error"); await add_(p, pr.name); inp.value = ""; } catch (e) { toast(e.message, "error"); }
     }, "ok");
+    inp.addEventListener("input", () => { if (parsePid(inp.value) === me.pid) { inp.value = ""; thisIsYou(inp); } });
+    inp.addEventListener("click", async () => {                // لمس الحقل يلصق معرّفاً صحيحاً من الحافظة (والكتابة اليدوية تبقى ممكنة)
+      if (inp.value || !navigator.clipboard?.readText) return;
+      try { const p = parsePid((await navigator.clipboard.readText()).trim()); if (!p) return; if (p === me.pid) return thisIsYou(inp); inp.value = fmtPid(p); } catch { /* رُفض الإذن */ }
+    });
     add.append(inp, go); body.append(add);
     body.append(el("h3", "", "حسابي"));
     const my = row("معرّفك", fmtPid(me.pid) || "—"); if (me.pid) my.append(sb("نسخ", () => copy(fmtPid(me.pid)))); body.append(my);
@@ -119,8 +133,8 @@ export async function initSocial(h) {
     if (sheet) return; sfx.click();
     sheet = el("div", "ovl sheet"); const c = el("div", "glass sheet-card"), hd = el("div", "fhead"), x = el("button", "sbtn", "✕");
     hd.append(el("h2", "", "الأصدقاء"), x); const body = el("div", "fbody"); c.append(hd, body); sheet.append(c); document.body.append(sheet);
-    let off = null;
-    const close = () => { const s = sheet; if (!s || s._closing) return; s._closing = true; off?.(); flyTo(s, c, btn, () => { s.remove(); if (sheet === s) sheet = null; }); };
+    let off = null; const tick = setInterval(renderSheet, 30e3);        // تحديث «منذ كم» بلا تدخل
+    const close = () => { const s = sheet; if (!s || s._closing) return; s._closing = true; off?.(); clearInterval(tick); flyTo(s, c, btn, () => { s.remove(); if (sheet === s) sheet = null; }); };
     x.onclick = close; off = dismissOutside(sheet, close);
     renderSheet(); flyFrom(sheet, c, btn);
   }

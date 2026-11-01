@@ -69,11 +69,17 @@ export async function syncProfile(name) {
 }
 
 // الحضور: متصل/غير متصل (يظهر لأصدقائك فقط في الواجهة)
-let presenceOn = false;
+// وإن كنت داخل غرفة تُنشر معه معلومات مختصرة لأصدقائك: r=كود الغرفة، rs=وقت انضمامك لها، rn=عدد من فيها (لا يرى الأصدقاء محتواها)
+let presenceOn = false, roomInfo = {}, presPush = null;
+export function setRoomInfo(i, silent) {
+  roomInfo = i && i.r ? { r: i.r, ...(i.rs ? { rs: i.rs } : {}), ...(i.rn ? { rn: i.rn } : {}) } : {};
+  if (!silent) presPush?.();
+}
 export async function startPresence() {
   if (presenceOn) return; presenceOn = true;
   const me = await identity(); if (!me.ok) return;
-  const pr = ref(db, `presence/${me.pid}`), on = () => set(pr, { on: true, t: serverTimestamp() }).catch(() => {});
+  const pr = ref(db, `presence/${me.pid}`), on = () => set(pr, { on: true, t: serverTimestamp(), ...roomInfo }).catch(() => {});
+  presPush = on;
   onValue(ref(db, ".info/connected"), s => { if (s.val()) { onDisconnect(pr).set({ on: false, t: serverTimestamp() }); on(); } });
   setInterval(on, 45e3);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) on(); });
