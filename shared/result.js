@@ -5,7 +5,8 @@
 //   coop-win  كل اللاعبين يفوزون معاً (مثل الكلمة المشتركة)
 //   coop-lose كل اللاعبين يخسرون معاً وتُخصم من كل واحد منهم نقطتان (لا تنزل النقاط عن الصفر)
 //   team-win  فريق فائز: كل من في ranking ينال نقاط الفوز كاملة، والبقية صفر (مثل الكلمات المشفرة 2 ضد 2)
-import { db, ref, runTransaction, update, remove } from "./firebase.js";
+import { db, ref, get, runTransaction, update, remove, serverTimestamp } from "./firebase.js";
+import { report } from "./diag.js";
 import { roomRef, gameRef } from "./room.js";
 import { MAXXP } from "./level.js";
 import { scoreGame } from "./xp-engine.js";
@@ -44,12 +45,15 @@ async function record(ctx, result, players) {
   for (const u of uids) {
     const me = players[u]; if (!me?.pid) continue;
     const r = resOf(u), gain = SC.gain[u] || 0, mvp = SC.mvp === u, withs = uids.filter(x => x !== u).map(x => (players[x].pid ? { p: players[x].pid, n: players[x].name } : { n: players[x].name }));
-    jobs.push(update(ref(db, `history/${me.pid}`), { [id]: { g, t, r, pts: pts[u] || 0, n: me.name, w: withs, room: ctx.code, xp: gain, ...(mvp ? { mvp: true } : {}) } }));
-    jobs.push(runTransaction(ref(db, `profiles/${me.pid}/stats`), cur => {
-      const s = cur || {}, gs = { ...(s.g || {}) }, o = { ...(gs[g] || {}) };
-      o.p = (o.p || 0) + 1; if (mvp) o.m = (o.m || 0) + 1; if (r === "win" || r === "coop-win") o.w = (o.w || 0) + 1; gs[g || "?"] = o;
-      return { ...s, xp: Math.min(MAXXP, (s.xp || 0) + gain), mvp: (s.mvp || 0) + (mvp ? 1 : 0), games: (s.games || 0) + 1, wins: (s.wins || 0) + (r === "win" || r === "coop-win" ? 1 : 0), g: gs, last: t };
-    }));
+    jobs.push(update(ref(db, `history/${me.pid}`), { [id]: { g, t: serverTimestamp(), r, pts: pts[u] || 0, n: me.name, w: withs, room: ctx.code, u, xp: gain, ...(mvp ? { mvp: true } : {}) } }));
+    // الإحصاءات: قراءة ثم تحديث (لا معاملة) كي نضع وقت الخادم، والقواعد تتحقق أن هذه الجولة حقيقية:
+    // أنت (أو مضيف غرفتك) تكتب لعضو في غرفة بدأت لعبتها منذ 20 ثانية على الأقل ولم تنتهِ بعد، وبفاصل 15 ثانية بين كل تسجيلين.
+    jobs.push((async () => {
+      const sref = ref(db, `profiles/${me.pid}/stats`), s = (await get(sref)).val() || {}, o = (s.g || {})[g || "?"] || {}, k = `g/${g || "?"}`;
+      const win1 = r === "win" || r === "coop-win" ? 1 : 0;
+      await update(sref, { xp: Math.min(MAXXP, (s.xp || 0) + gain), mvp: (s.mvp || 0) + (mvp ? 1 : 0), games: (s.games || 0) + 1, wins: (s.wins || 0) + win1,
+        [`${k}/p`]: (o.p || 0) + 1, [`${k}/w`]: (o.w || 0) + win1, ...(mvp ? { [`${k}/m`]: (o.m || 0) + 1 } : {}), last: serverTimestamp(), lr: ctx.code, lu: u });
+    })().catch(e => report("stats", e, g)));
   }
   await Promise.allSettled(jobs);
 }

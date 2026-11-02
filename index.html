@@ -59,6 +59,7 @@ import { initSocial } from './shared/social-ui.js';
 import { initInstall } from './shared/install-ui.js';
 import { identity, syncProfile, startPresence } from './shared/identity.js';
 import { levelTagFor } from './shared/level.js';
+import { initGuard, screen, banned } from './shared/guard.js';
 import { initComms } from './shared/comms.js';
 import { makeSpeaker } from './shared/icons.js';
 import './shared/notify.js';
@@ -128,7 +129,7 @@ $('#code').addEventListener('input', onCode);
 $('#code').addEventListener('focus', () => $('#codebox').classList.add('focus'));
 $('#code').addEventListener('blur', () => $('#codebox').classList.remove('focus'));
 $('#name').addEventListener('input', refresh);
-$('#name').addEventListener('change', () => { const n = cleanName($('#name').value); if (n) { saveName(n); syncProfile(n); } });   // الاسم يظهر لأصدقائك فور كتابته
+$('#name').addEventListener('change', async () => { const n = cleanName($('#name').value); if (n && !banned() && !(await screen(n))) { saveName(n); syncProfile(n); } });   // الاسم يظهر لأصدقائك فور كتابته
 // لمس مربع الكود يلصق ما في الحافظة فقط إن كان 4 أرقام بالضبط (أي نص آخر يُتجاهل ويبقى الإدخال اليدوي)
 $('#codebox').addEventListener('click', async () => {
   if (fromLink || $('#code').readOnly || !navigator.clipboard?.readText) return;
@@ -270,7 +271,10 @@ async function go(fn) {
   if (busy) return;
   const name = cleanName($('#name').value);
   if (!name) { sfx.error(); return toast('اكتب اسمك أولاً', 'error'); }
-  saveName(name); syncProfile(name); busy = true; refresh();
+  if (banned()) return;
+  busy = true; refresh();
+  if (await screen(name)) { busy = false; refresh(); return; }       // اسم يحوي كلمة ممنوعة: حظر تلقائي
+  saveName(name); syncProfile(name);
   try { sfx.click(); await openLobby(await fn(name)); busy = false; }
   catch (e) { busy = false; sfx.error(); toast(e.message, 'error'); onCode(); }
   refresh();
@@ -305,6 +309,7 @@ initPress();
 initInstall();                                             // للهاتف فقط: دليل «أضف للشاشة الرئيسية»
 // الأصدقاء: أيقونة بجانب الصوت + دعوات. الدعوة تُنشئ الغرفة تلقائياً إن لم تكن في غرفة، والقبول ينقلك للغرفة مباشرة
 const myName = () => cleanName($('#name').value) || savedName();
+initGuard();
 identity().then(me => { if (me.ok) { startPresence(); if (savedName()) syncProfile(savedName()); } });
 initSocial({
   name: myName, room: () => S.code, members: () => new Set(Object.values(S.code ? S.players : {}).map(p => p.pid).filter(Boolean)),

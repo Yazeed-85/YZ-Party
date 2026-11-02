@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>قالب لعبة جديدة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+main{justify-content:flex-start;padding-top:14px}
+.status{display:flex;align-items:center;justify-content:center;font:700 1.3rem 'Reem Kufi',sans-serif;min-height:44px;text-align:center}
+.tap{margin:18px auto;width:min(260px,70vw);aspect-ratio:1;border-radius:50%;border:0;font:900 2.6rem 'Reem Kufi',sans-serif;color:#06231f;background:radial-gradient(circle at 35% 30%,#b8fff6,var(--lagoon));cursor:pointer;touch-action:manipulation}
+.bars{display:flex;flex-direction:column;gap:8px;padding:14px}.bar{display:flex;align-items:center;gap:10px}.bar span{width:84px;font-size:.9rem}.bar i{display:block;height:12px;border-radius:6px;background:var(--lagoon);width:0}
+</style>
+</head>
+<body>
+<main>
+  <div id="sb" class="glass scorebar"></div>
+  <div id="status" class="status">جارٍ التحميل…</div>
+  <button id="tap" class="tap" disabled>المس!</button>
+  <div id="bars" class="glass bars"></div>
+</main>
+<script type="module">
+// ===== قالب لعبة جديدة =====  اقرأ games/_template/README.md ثم انسخ هذا المجلد وغيّر ما يلزم (الأقسام المعلَّمة «غيّرها»).
+// الوحدات المشتركة: الغرفة (room.js) · النتيجة والخبرة (result.js) · الواجهة (ui.js) · الانسحاب (leave.js) · الدردشة والصوت (comms-auto.js)
+import { runTransaction, onValue } from '../../shared/firebase.js';
+import { enterRoom, watchRoom, gameRef, goLobby, abortGame } from '../../shared/room.js';
+import { finishGame, makeResult, evBy } from '../../shared/result.js';
+import { toast, sfx, scoreBar } from '../../shared/ui.js';
+import '../../shared/comms-auto.js';                 // شريط الدردشة والمايك: سطر واحد، لا تحذفه
+import { initGameExit } from '../../shared/leave.js'; // للعبة جماعية (3+ لاعبين) استخدم initGroupExit، وللفرق initTeamExit
+
+const GOAL = 10, $ = s => document.querySelector(s);   // غيّرها: ثوابت لعبتك
+let ctx, st = null, players = {}, scores = {}, ended = false;
+
+// ===== حالة اللعبة (تُخزَّن في rooms/{code}/game وتُمسح عند انتهاء الجولة) =====
+// غيّرها: شكل الحالة وقواعدك. اجعل كل تغيير بمعاملة runTransaction حتى لا يتعارض لاعبان في نفس اللحظة.
+const newState = ids => ({ order: ids, taps: Object.fromEntries(ids.map(i => [i, 0])), status: 'playing', winner: null });
+
+async function tap() {
+  if (!st || st.status !== 'playing') return;
+  sfx.click();
+  await runTransaction(gameRef(ctx.code), cur => {
+    if (!cur || cur.status !== 'playing') return;
+    const taps = { ...cur.taps, [ctx.uid]: (cur.taps[ctx.uid] || 0) + 1 };
+    return taps[ctx.uid] >= GOAL ? { ...cur, taps, status: 'done', winner: ctx.uid } : { ...cur, taps };
+  }).catch(() => {});
+}
+
+// ===== العرض =====
+function render() {
+  if (!st) return;
+  const name = u => players[u]?.name || '؟', s = $('#status');
+  $('#tap').disabled = st.status !== 'playing';
+  $('#bars').replaceChildren(...st.order.map(u => {
+    const r = document.createElement('div'), b = document.createElement('i'); r.className = 'bar'; b.style.width = (st.taps[u] / GOAL * 100) + '%';
+    const w = document.createElement('div'); w.style.flex = '1'; w.append(b); r.append(Object.assign(document.createElement('span'), { textContent: name(u) }), w); return r;
+  }));
+  if (st.status === 'done') {
+    s.textContent = st.winner === ctx.uid ? 'فزت! 🎉' : `فاز ${name(st.winner)}`;
+    if (ended) return; ended = true;
+    st.winner === ctx.uid ? sfx.win() : sfx.lose();
+    // المضيف وحده يسجّل النتيجة. ranking[0] = الفائز. details.ev = أحداث اللعبة للخبرة (انظر shared/xp-engine.js)
+    if (ctx.isHost) setTimeout(() => finishGame(ctx, makeResult('win', [st.winner, ...st.order.filter(u => u !== st.winner)], { ev: evBy(st.order, st.order.map(u => st.taps[u]), 'r') })), 3000);
+  } else s.textContent = `أول من يصل ${GOAL} لمسات يفوز`;
+}
+
+// ===== التشغيل (لا تغيّره إلا للضرورة) =====
+try { ctx = await enterRoom(); } catch (e) { toast(e.message, 'error'); setTimeout(() => goLobby(''), 1800); throw e; }
+const ids = Object.keys(ctx.players);
+if (ids.length < 2) { toast('اللعبة تحتاج لاعبين على الأقل', 'error'); abortGame(ctx); }
+else if (ctx.isHost) runTransaction(gameRef(ctx.code), cur => cur || newState(ids));   // المضيف وحده يُنشئ الحالة
+players = ctx.players;
+$('#tap').onclick = tap;
+const ex = initGameExit(ctx, { isOver: () => st?.status === 'done' });                   // الانسحاب واكتشاف انسحاب الخصم
+onValue(gameRef(ctx.code), s => { st = s.val(); render(); });
+watchRoom(ctx.code, {
+  meta: m => { if ((!m || m.status !== 'playing') && !ex.busy()) goLobby(ctx.code); },   // انتهت الجولة: عودة للردهة
+  players: p => { players = p || players; render(); scoreBar($('#sb'), players, scores, ctx.uid); },
+  scores: s => { scores = s || {}; scoreBar($('#sb'), players, scores, ctx.uid); }
+});
+</script>
+</body>
+</html>

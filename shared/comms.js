@@ -9,6 +9,7 @@ import { roomRef } from "./room.js";
 import { toast, sfx, flyFrom, flyTo, dismissOutside } from "./ui.js";
 import { VoiceEngine, micError } from "./voice.js";
 import { report } from "./diag.js";
+import { screen, banned, loadWords } from "./guard.js";
 import { makeMic, makeChat, makeComms, makeVoiceComms, makeSpeaker, ic, sendIcon } from "./icons.js";
 
 // أنماط النظام (تُحمَّل مرة واحدة من أي صفحة تستخدمه)
@@ -159,11 +160,12 @@ function build({ mode = "game" } = {}) {
     const toEnd = () => { list.scrollTop = list.scrollHeight; more.hidden = true; };
     list.addEventListener("scroll", () => { if (near()) more.hidden = true; }, { passive: true });
     more.onclick = () => { toEnd(); };
-    form.onsubmit = e => {
+    form.onsubmit = async e => {
       e.preventDefault();
-      const t = inp.value.replace(/\s+/g, " ").trim(); if (!t || !S.code) return;
+      const t = inp.value.replace(/\s+/g, " ").trim(); if (!t || !S.code || banned()) return;
       const now = Date.now(); if (now - lastSend < 600) return; lastSend = now;
       inp.value = ""; form.classList.remove("has"); send.hidden = true;
+      if (await screen(t)) return;                                 // كلمة ممنوعة: لا تُرسل ويُحظر صاحبها تلقائياً (انظر guard.js)
       push(roomRef(S.code, "comms/chat"), { u: S.uid, n: myName(), m: t.slice(0, 300), t: serverTimestamp() }).catch(rulesHint);
       sfx.click(); inp.focus({ preventScroll: true });
     };
@@ -488,7 +490,7 @@ function build({ mode = "game" } = {}) {
     if (S.code === code && S.eng) return true;
     await exit(true);
     const u = await ready; S.uid = u.uid;
-    S.code = code; S.firstMembers = true; firstChat = true; chat._seen = new Set(); chat.reset(); lastPreview = []; S.lastKey = ""; S.unread = 0; S.members = {}; S.peerSt = {};
+    loadWords(); S.code = code; S.firstMembers = true; firstChat = true; chat._seen = new Set(); chat.reset(); lastPreview = []; S.lastKey = ""; S.unread = 0; S.members = {}; S.peerSt = {};
     document.documentElement.classList.add("yzc-on");
     S.eng = new VoiceEngine(code, u.uid, myName, { members: onMembers, joined: () => renderVoice(), muted: () => renderVoice(), peer: onPeer, level: onLevel, error: rulesHint, blocked: () => bubble({ icon: makeMic(16, "live").el, title: "الصوت", text: "المس الشاشة لتفعيل سماع الصوت" }), ended: () => { flagSet(null); paintMic(); renderVoice(); } });
     S.subs.push(onValue(roomRef(code, "players"), s => { S.players = s.val() || {}; if (S.P) { paintPreviews(); paintVoicePanel(); } }, () => {}));

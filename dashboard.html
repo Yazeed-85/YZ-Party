@@ -64,8 +64,8 @@ const ago = t => { if (!t) return '—'; const s = Math.max(0, (Date.now() - t) 
 const norm = s => String(s).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\s+/g, ' ').trim();
 const A = (t, v) => { try { if (window.gsap && t && (t.length ?? 1)) gsap.from(t, { duration: .45, ease: 'power2.out', ...v }); } catch { /* الحركة اختيارية */ } };
 const RES = { win: ['فوز', 'ok'], lose: ['خسارة', 'bad'], draw: ['تعادل', ''], 'coop-win': ['فوز جماعي', 'ok'], 'coop-lose': ['خسارة جماعية', 'bad'] };
-const TABS = [['over', 'نظرة عامة'], ['pl', 'اللاعبون'], ['rm', 'الغرف المباشرة'], ['dg', 'المشاكل'], ['vc', 'الصوت'], ['dz', 'منطقة الخطر']];
-const S = { profiles: {}, history: {}, presence: {}, idx: {}, rooms: {}, admins: {}, friends: {}, inbox: {}, diag: {}, ice: null };
+const TABS = [['over', 'نظرة عامة'], ['pl', 'اللاعبون'], ['rm', 'الغرف المباشرة'], ['bn', 'الحظر'], ['dg', 'المشاكل'], ['vc', 'الصوت'], ['dz', 'منطقة الخطر']];
+const S = { profiles: {}, history: {}, presence: {}, idx: {}, rooms: {}, admins: {}, friends: {}, inbox: {}, diag: {}, ice: null, bans: {}, words: '' };
 let me, tab = 'over', profile = null, q, so, queued = false, fresh = true;
 
 function toast(t) { const x = el('div', 'toast', t); document.body.append(x); A(x, { y: 20, opacity: 0, duration: .25 }); setTimeout(() => x.remove(), 3200); }
@@ -193,6 +193,7 @@ function viewProfile(P) {
   const rm = roomsOf(p.pid)[0], gp = el('div', 'tools'); gp.style.marginInlineStart = 'auto';
   if (rm) { const b = el('button', 'btn sm', 'طرد من الغرفة ' + rm.code); b.onclick = () => kick(rm.code, rm.uid, p.name); gp.append(b); }
   if (!p.admin && p.pid !== me.pid) { const b = el('button', 'btn sm dg', 'حذف اللاعب'); b.onclick = async () => { await delOne(p); if (!S.profiles[p.pid]) { profile = null; paint(); } }; gp.append(b); }
+  if (!p.admin && p.pid !== me.pid) { const on = active(S.bans[p.pid]), b = el('button', 'btn sm ' + (on ? '' : 'dg'), on ? 'رفع الحظر' : 'حظر أسبوع'); b.onclick = () => on ? unban(p.pid) : banPid(p.pid, p.name); gp.append(b); }
   hd.append(gp);
   // ألعاب مع الآخرين
   const tog = {}; p.hist.forEach(l => Object.values(l.w || {}).forEach(w => { const k = w.p || 'n:' + w.n, o = (tog[k] ||= { n: w.n, c: 0, t: 0 }); o.c++; o.t = Math.max(o.t, l.t); }));
@@ -257,6 +258,34 @@ function viewRooms() {
   }
   sec.append(g); if (!codes.length) sec.append(el('div', 'glass empty', 'لا توجد غرف الآن')); return sec;
 }
+// ===== الحظر: كلمات ممنوعة (حظر تلقائي) + حظر يدوي + طلبات رفع الحظر =====
+const WEEK = 7 * 864e5, active = b => b && b.u > Date.now();
+async function banPid(pid, name) {
+  if (S.admins[pid] === true || pid === me.pid) return toast('لا يمكن حظر مشرف');
+  if (!await ask({ title: 'حظر لاعب', body: `سيُحظر «${name || fmtPid(pid)}» أسبوعاً: لا يدخل غرفاً ولا يكتب، وتظهر له نافذة «تم حظرك» مع زر طلب رفع.`, ok: 'حظر أسبوع' })) return;
+  try { await update(ref(db), { [`bans/${pid}`]: { k: 'admin', u: Date.now() + WEEK, t: serverTimestamp() } }); for (const r of roomsOf(pid)) await update(ref(db), kickU(r.code, r.uid)).catch(() => {}); toast('تم الحظر'); } catch (e) { toast('تعذّر الحظر: ' + e.message); }
+}
+async function unban(pid) { try { await set(ref(db, `bans/${pid}`), null); toast('رُفع الحظر'); } catch (e) { toast('تعذّر الرفع: ' + e.message); } }
+function viewBans() {
+  const sec = el('div', 'sec'), wb = el('div', 'glass box'), ta = el('textarea'), sv = el('button', 'btn sm', 'حفظ الكلمات');
+  ta.placeholder = 'كلمة في كل سطر (أو افصل بفاصلة)'; ta.value = S.words.split(/[\n,،]+/).map(x => x.trim()).filter(Boolean).join('\n'); ta.style.minHeight = '120px';
+  sv.onclick = async () => { const v = [...new Set(ta.value.split(/[\n,،]+/).map(x => x.trim()).filter(Boolean))].join('\n').slice(0, 4000); try { await set(ref(db, 'config/banwords'), v ? { j: v } : null); toast('حُفظت الكلمات'); } catch (e) { toast('تعذّر الحفظ: ' + e.message); } };
+  wb.append(el('h3', '', 'الكلمات الممنوعة'), el('p', 'al', 'من يكتبها في المحادثة أو في اسمه يُحظر تلقائياً أسبوعاً وتظهر له «حسابك تحت التحقق الأمني». المطابقة تتجاوز التشكيل واختلاف الألف والياء والمسافات بين الحروف. احذر من الكلمات القصيرة لأنها قد تطابق كلمات بريئة.'), ta, sv);
+  const mb = el('div', 'glass box'), mi = el('input'), mbtn = el('button', 'btn sm dg', 'حظر أسبوع');
+  mi.placeholder = 'YZ-XXXX-XXXX'; mi.dir = 'ltr'; mi.autocomplete = 'off';
+  mbtn.onclick = () => { const t = String(mi.value).toUpperCase().replace(/^YZ/, '').replace(/[^A-Z0-9]/g, ''); if (!/^[A-Z0-9]{8}$/.test(t) || !S.profiles[t]) return toast('معرّف غير صحيح أو غير موجود'); banPid(t, S.profiles[t].name); };
+  const mr = el('div', 'tools'); mr.append(mi, mbtn); mb.append(el('h3', '', 'حظر يدوي'), mr);
+  const lb = el('div', 'glass box'), rows = Object.entries(S.bans).sort((a, b) => (!!b[1].rq - !!a[1].rq) || b[1].t - a[1].t);
+  lb.append(el('h3', '', `المحظورون (${rows.filter(([, b]) => active(b)).length})`));
+  if (!rows.length) lb.append(el('div', 'empty', 'لا أحد محظور'));
+  rows.forEach(([pid, b]) => {
+    const r = el('div', 'pr'), on = active(b), nm = S.profiles[pid]?.name || fmtPid(pid), left = Math.max(0, Math.ceil((b.u - Date.now()) / 864e5));
+    r.append(el('i', 'dot' + (on ? ' off' : '')), el('b', '', nm), el('small', 'al', `${b.k === 'auto' ? 'تلقائي' + (b.w ? ` («${b.w}»)` : '') : 'من المالك'} · ${on ? `باقٍ ${left} ي` : 'منتهٍ'}`));
+    if (b.rq && on) r.append(el('span', 'chip bad', 'طلب رفع ' + ago(b.rq)));
+    const u = el('button', 'btn sm ' + (b.rq && on ? '' : 'ghost'), on ? 'رفع الحظر' : 'إزالة'); u.onclick = () => unban(pid); r.append(u); lb.append(r);
+  });
+  sec.append(wb, mb, lb); return sec;
+}
 // ===== سجل المشاكل: كل خطأ تقني أو إعدادي يقع عند اللاعبين يصلك هنا فقط (لا تظهر لهم) =====
 const KIND = { toast: 'رسالة خطأ', comms: 'التواصل', 'voice-join': 'انضمام الصوت', friends: 'الأصدقاء' };
 function viewDiag() {
@@ -296,7 +325,7 @@ function viewDanger() {
 }
 
 function paint() {
-  if (!me) return; if (tab === 'vc' && document.activeElement?.tagName === 'TEXTAREA') return; if (profile && tab === 'pl' && /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return; const P = players(), v = { over: viewOver, pl: profile ? viewProfile : viewPlayers, rm: viewRooms, dg: viewDiag, vc: viewVoice, dz: viewDanger }[tab](P);
+  if (!me) return; if ((tab === 'vc' || tab === 'bn') && /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')) return; if (profile && tab === 'pl' && /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return; const P = players(), v = { over: viewOver, pl: profile ? viewProfile : viewPlayers, rm: viewRooms, bn: viewBans, dg: viewDiag, vc: viewVoice, dz: viewDanger }[tab](P);
   const foc = q && document.activeElement === q, pos = foc ? q.selectionStart : 0;
   app.className = ''; app.replaceChildren(v); if (foc) { q.focus(); try { q.setSelectionRange(pos, pos); } catch { /* لا بأس */ } }
   if (fresh) { fresh = false; A(v.children, { y: 16, opacity: 0, stagger: .06 }); A(app.querySelectorAll('.gb i'), { scaleX: 0, duration: .7, stagger: .04 }); A(app.querySelectorAll('.days i'), { scaleY: 0, duration: .6, stagger: .05 }); }
@@ -304,7 +333,8 @@ function paint() {
 const queue = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; paint(); }); } };
 function nav() {
   const n = $('#tabs'); n.hidden = false; n.replaceChildren();
-  TABS.forEach(([id, t]) => { const b = el('button', (id === tab ? 'on ' : '') + (id === 'dz' ? 'red' : ''), t); b.onclick = () => { if (tab === id && !profile) return; tab = id; profile = null; fresh = true; nav(); paint(); }; n.append(b); });
+  const pend = Object.values(S.bans).filter(b => b.rq && b.u > Date.now()).length;
+  TABS.forEach(([id, t]) => { const b = el('button', (id === tab ? 'on ' : '') + (id === 'dz' ? 'red' : ''), id === 'bn' && pend ? `${t} (${pend})` : t); b.onclick = () => { if (tab === id && !profile) return; tab = id; profile = null; fresh = true; nav(); paint(); }; n.append(b); });
 }
 
 // ===== التشغيل =====
@@ -325,7 +355,7 @@ async function init() {
     }
     const on = (p, f) => onValue(ref(db, p), s => { f(s.val() || {}); queue(); }, e => { app.replaceChildren(el('div', 'error-msg', `تعذّرت قراءة ${p}: ${e.message}. تأكد من نشر قواعد Firebase الجديدة.`)); });
     on('profiles', v => { S.profiles = v; }); on('history', v => { S.history = v; }); on('presence', v => { S.presence = v; }); on('admins', v => { S.admins = v; }); on('friends', v => { S.friends = v; }); on('inbox', v => { S.inbox = v; });
-    on('diag', v => { S.diag = v; }); onValue(ref(db, 'config/ice'), s => { S.ice = s.val(); queue(); }, () => {});
+    on('diag', v => { S.diag = v; }); on('bans', v => { S.bans = v; nav(); }); onValue(ref(db, 'config/banwords/j'), x => { S.words = x.val() || ''; queue(); }, () => {}); onValue(ref(db, 'config/ice'), s => { S.ice = s.val(); queue(); }, () => {});
     on('roomIndex', v => { S.idx = v; Object.keys(v).forEach(watchRoom); Object.keys(subs).filter(c => !v[c]).forEach(c => { subs[c].forEach(u => u()); delete subs[c]; delete S.rooms[c]; }); });
     onValue(ref(db, '.info/connected'), s => { const l = $('#live'); l.classList.toggle('on', !!s.val()); l.lastChild.textContent = s.val() ? 'مباشر' : 'غير متصل'; });
     setInterval(queue, 30e3);   // تحديث الأوقات النسبية

@@ -2,6 +2,8 @@
 // الصنف yzc-on يُضبط فوراً (قبل أول رسم لـ scoreBar) ليحجز فراغ الشريط وسط شريط النقاط.
 import { getCode } from "./room.js";
 import { initComms } from "./comms.js";
+import { initGuard } from "./guard.js";
+initGuard();                                       // نافذة الحظر في كل صفحة لعبة
 
 const code = getCode();
 if (code) {
