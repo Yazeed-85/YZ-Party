@@ -50,6 +50,7 @@ import { finishGame, makeResult } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import '../../shared/comms-auto.js';
+import { voiceGate } from '../../shared/voice-gate.js';
 import { initGameExit } from '../../shared/leave.js';
 import { WORDS } from './words.js';
 
@@ -158,6 +159,7 @@ function renderStage() {
 
 function render() {
   if (!st) return;
+  voiceGate(st.phase === 'write', 'اللعبة «دون كلام»: الصوت موقوف حتى تكشفا الكلمتين');
   const col = `hsl(${st.bar * 1.25},72%,52%)`;
   $('#fill').style.width = st.bar + '%'; $('#fill').style.background = col; $('#pct').textContent = st.bar + '%';
   if (st.seq !== lastSeq) {

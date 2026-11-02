@@ -88,6 +88,7 @@ import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import '../../shared/comms-auto.js';
+import { voiceGate } from '../../shared/voice-gate.js';
 import { initGameExit } from '../../shared/leave.js';
 import { analyze } from './judge.js';
 
@@ -485,6 +486,7 @@ async function onChoose(music, fl, ch) {
 
 function render() {
   if (!st) return;
+  voiceGate(['say', 'listen', 'mimic'].includes(st.phase), 'الصوت موقوف حتى لا يسمع أحدكما الآخر أثناء التسجيل');
   if (st.round !== lastRound) { lastRound = st.round; recState = 'idle'; holding = false; stopPlay(); }
   const done = st.phase === 'done';
   $('#dots').replaceChildren(...Array.from({ length: ROUNDS }, (_, i) => h('i', (i + 1 < st.round || done ? 'on' : '') + (i + 1 === st.round && !done ? ' cur' : ''))));

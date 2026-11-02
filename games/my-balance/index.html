@@ -40,6 +40,7 @@ import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import '../../shared/comms-auto.js';
+import { voiceGate } from '../../shared/voice-gate.js';
 import { initGameExit } from '../../shared/leave.js';
 
 // إعدادات قابلة للتعديل (10 أسئلة و15 ثانية للسؤال)
@@ -186,6 +187,7 @@ function renderLog() {
 let lastSeq = -1;
 function render() {
   if (!st) return;
+  voiceGate(['ask', 'answer', 'final'].includes(st.phase), 'الصوت موقوف أثناء الأسئلة حتى لا يُكشف الرصيد');
   if (st.seq !== lastSeq) { lastSeq = st.seq; if (st.phase === 'ask' && st.turn === me && st.seq > 0) sfx.turn(); }
   $('#qm').textContent = st.q[me]; $('#qo').textContent = st.q[1 - me];
   renderPanel(); renderLog();

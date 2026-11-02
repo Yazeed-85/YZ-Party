@@ -279,7 +279,7 @@ function build({ mode = "game" } = {}) {
 
   // ============================== القناة الصوتية ==============================
   function persist() { const E = S.eng; flagSet(E?.on ? { c: S.code, m: E.muted } : null); }
-  const micState = () => (!inVoice() ? "off" : S.eng.muted ? "muted" : "live");
+  const micState = () => (!inVoice() ? "off" : S.eng.muted || S.gate?.mic ? "muted" : "live");
   function paintMic() {
     const st = micState(); micD.set(st);
     bMic.classList.toggle("live", st === "live"); bMic.classList.toggle("muted", st === "muted");
@@ -304,8 +304,16 @@ function build({ mode = "game" } = {}) {
     } finally { micD.pulse(false); paintMic(); renderVoice(); }
   }
   async function leaveVoice() { const E = S.eng; if (!E?.on) return; await E.leave(); flagSet(null); sfx.leave(); paintMic(); renderVoice(); }
+  // بوابة اللعبة: تطلب اللعبة إغلاق المايك/السماع مؤقتاً (تسجيل صوتي، أو لعبة «دون كلام»). تُمرَّر بلا تخزين: تعيدها اللعبة عند كل رسم، وتزول بمغادرة الصفحة
+  function gate(g) {
+    const was = S.gate; S.gate = g && (g.mic || g.ear) ? g : null; S.eng?.setGate(S.gate);
+    if (S.gate && !was && inVoice()) bubble({ icon: makeMic(16, "muted").el, title: "الصوت موقوف مؤقتاً", text: S.gate.why || "اللعبة أغلقت القناة الصوتية في هذه المرحلة" });
+    else if (!S.gate && was && inVoice()) bubble({ icon: makeMic(16, "live").el, title: "عاد الصوت", text: "فُتحت القناة الصوتية من جديد" });
+    paintMic(); if (S.P) renderVoice();
+  }
   function setMute(m, quiet) {
     const E = S.eng; if (!E?.on) return;
+    if (S.gate?.mic) { bubble({ icon: makeMic(16, "muted").el, title: "الصوت موقوف مؤقتاً", text: S.gate.why || "اللعبة أغلقت القناة الصوتية في هذه المرحلة" }); return; }
     E.setMuted(m, true); persist(); paintMic(); renderVoice();
     if (!quiet) m ? sfx.mute() : sfx.unmute();
   }
@@ -496,7 +504,7 @@ function build({ mode = "game" } = {}) {
     S.subs.push(onValue(roomRef(code, "players"), s => { S.players = s.val() || {}; if (S.P) { paintPreviews(); paintVoicePanel(); } }, () => {}));
     S.subs.push(onValue(query(roomRef(code, "comms/chat"), limitToLast(80)), onChat, rulesHint));
     if (fab) { fab.hidden = false; fab.classList.remove("dim"); if (G()) gsap.fromTo(fab, { scale: .75 }, { scale: 1, duration: .6, ease: "back.out(3)", clearProps: "transform" }); }
-    paintUnread(); paintMic();
+    S.eng.setGate(S.gate); paintUnread(); paintMic();
     dock.hidden = false; startFollow(); follow(true);
     if (G()) gsap.fromTo(pill, { y: -34, opacity: 0, scale: .7 }, { y: 0, opacity: 1, scale: 1, duration: .8, delay: .15, ease: "elastic.out(1,.55)" });
     const f = flagGet(); if (f && f.c === code) joinVoice(true); else if (f) flagSet(null);      // عودة تلقائية للقناة بعد الانتقال بين الصفحات
@@ -519,9 +527,9 @@ function build({ mode = "game" } = {}) {
   addEventListener("pagehide", () => { /* onDisconnect ينظّف الخادم؛ الجلسة تعيد الانضمام في الصفحة التالية */ });
 
   return {
-    fab, enter, exit, openPanel, openQuick, closeQuick, hint,
+    fab, enter, exit, gate, openPanel, openQuick, closeQuick, hint,
     get micTrack() { return S.eng?.micTrack() || null; },
     get code() { return S.code; }
   };
 }
-window.YZComms = { micTrack: () => C?.micTrack || null };
+window.YZComms = { micTrack: () => C?.micTrack || null, gate: g => C?.gate(g) };

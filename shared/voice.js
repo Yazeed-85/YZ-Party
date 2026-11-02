@@ -106,7 +106,7 @@ class Peer {
   }
   _attach(stream) {
     if (!this.audio) {
-      const a = document.createElement("audio"); a.autoplay = true; a.setAttribute("playsinline", ""); a.muted = this.e.muted4.has(this.uid);
+      const a = document.createElement("audio"); a.autoplay = true; a.setAttribute("playsinline", ""); a.muted = this.e.muted4.has(this.uid) || !!this.e.gate?.ear;
       this.e.box.append(a); this.audio = a;
     }
     this.audio.srcObject = stream;
@@ -127,7 +127,7 @@ class Peer {
 export class VoiceEngine {
   // ev = { members(map), joined(bool), muted(bool), peer(uid, state), level(uid, v, speaking), error(e), blocked(), ended() }
   constructor(code, uid, getName, ev) {
-    Object.assign(this, { code, uid, getName, ev, on: false, joining: false, sid: null, stream: null, track: null, muted: false, members: {}, peers: new Map(), gone: new Map(), pending: [], muted4: new Set(), an: new Map(), ac: null, subs: [], tick: null, heal: null });
+    Object.assign(this, { code, uid, getName, ev, on: false, joining: false, sid: null, stream: null, track: null, muted: false, members: {}, peers: new Map(), gone: new Map(), pending: [], muted4: new Set(), gate: null, an: new Map(), ac: null, subs: [], tick: null, heal: null });
     loadIce();                                                    // تحميل مبكر بلا انتظار
     this.box = document.createElement("div"); this.box.style.cssText = "position:fixed;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none"; document.body.append(this.box);
     this.vref = roomRef(code, `comms/voice/${uid}`); this.sref = roomRef(code, `comms/sig/${uid}`);
@@ -157,7 +157,7 @@ export class VoiceEngine {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
     } catch (e) { this.joining = false; throw e; }
     await loadIce();                                              // بعد إذن المايك (داخل لمسة اللاعب) وقبل إنشاء أي اتصال
-    this.stream = stream; this.track = stream.getAudioTracks()[0]; this.muted = !!muted; this.track.enabled = !muted;
+    this.stream = stream; this.track = stream.getAudioTracks()[0]; this.muted = !!muted; this._apply();
     this.track.onended = () => { if (this.on) { this.leave(); this.ev.ended?.(); } };
     this.sid = rid(); this.on = true; this.joining = false;
     try { this.ac ??= new (window.AudioContext || window.webkitAudioContext)(); this.ac.resume?.().catch(() => {}); } catch { /* بلا مؤشر صوت */ }
@@ -175,13 +175,23 @@ export class VoiceEngine {
     return set(this.vref, { s: this.sid, n: this.getName(), m: this.muted ? 1 : 0, t: serverTimestamp() }).catch(e => { if (first) throw e; this.ev.error?.(e); });
   }
   setMuted(m, quiet) {
-    if (!this.on) return; this.muted = !!m; this.track.enabled = !m;
+    if (!this.on) return; this.muted = !!m; this._apply();
     update(this.vref, { m: m ? 1 : 0 }).catch(() => {});
     if (!quiet) this.ev.muted?.(this.muted);
   }
+  // بوابة اللعبة: تغلق المايك و/أو السماع مؤقتاً (g = {mic, ear, why} أو null لفتحها). لا تغيّر اختيار اللاعب (الكتم) ولا تكتبه في الخادم
+  setGate(g) {
+    g = g && (g.mic || g.ear) ? { mic: !!g.mic, ear: !!g.ear, why: g.why || "" } : null;
+    if (JSON.stringify(g) === JSON.stringify(this.gate)) return;
+    this.gate = g; this._apply(); this.ev.gate?.(g);
+  }
+  _apply() {
+    if (this.track) this.track.enabled = !this.muted && !this.gate?.mic;
+    this.peers.forEach((p, uid) => { if (p.audio) p.audio.muted = this.muted4.has(uid) || !!this.gate?.ear; });
+  }
   setPeerMuted(uid, m) {                                         // كتم شخص عندي أنا فقط
     m ? this.muted4.add(uid) : this.muted4.delete(uid);
-    const p = this.peers.get(uid); if (p?.audio) p.audio.muted = m;
+    this._apply();
   }
   async leave() {
     if (!this.on) return; this.on = false;
