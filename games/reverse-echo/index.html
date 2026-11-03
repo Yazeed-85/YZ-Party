@@ -116,7 +116,7 @@ const AC = window.AudioContext || window.webkitAudioContext; let ac, stream = nu
 const actx = () => (ac ??= new AC());
 const decode = ab => new Promise((res, rej) => { const p = actx().decodeAudioData(ab, res, rej); p?.then?.(res, rej); });
 // التقاط خام بلا معالجة: كتم الضجيج وضبط الشدة التلقائي وإلغاء الصدى تقصّ بداية الكلام ونهايته وتشوّه الحروف الخافتة (س، ف، ث) فيضيع وضوحها عند العكس
-const RAW = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, VOICE = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+const RAW = { echoCancellation: true, noiseSuppression: true, autoGainControl: false }, VOICE = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 let chTrack = null;                                      // مسار القناة الصوتية إن استعرناه: نعيد له إعداداته بعد التسجيل
 async function mic() {
   if (stream && stream.active) return stream;
