@@ -2,4 +2,5 @@
 // الاستخدام: استدعِ voiceGate(true, "السبب") عند كل رسم لمرحلة مغلقة، وvoiceGate(false) في غيرها. آمنة للتكرار، ولا تخزّن شيئاً:
 // تزول بمغادرة الصفحة، ولا تغيّر اختيار اللاعب (كتمه/فتحه) فيعود كما كان عند فتحها.
 // سياسة كل لعبة: انظر حقل voice في games-registry.js (free = صوت حر دائماً، phase = تغلقه اللعبة في مراحل معيّنة).
-export const voiceGate = (closed, why = "") => { try { window.YZComms?.gate?.(closed ? { mic: true, ear: true, why } : null); } catch { /* لا قناة صوتية */ } };
+// الافتراضي إغلاق المايك فقط (يظهر أحمر مشطوباً عند اللاعب)؛ مرّر { ear: true } لإغلاق السماع أيضاً.
+export const voiceGate = (closed, why = "", { ear = false } = {}) => { try { window.YZComms?.gate?.(closed ? { mic: true, ear, why } : null); } catch { /* لا قناة صوتية */ } };

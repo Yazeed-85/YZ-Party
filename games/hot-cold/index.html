@@ -154,7 +154,6 @@ import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import '../../shared/comms-auto.js';
-import { voiceGate } from '../../shared/voice-gate.js';
 import { initGameExit } from '../../shared/leave.js';
 import { CATEGORY_LABELS, pickWordsPair } from './words.js';
 
@@ -623,7 +622,6 @@ function renderPanel() {
 
 function render() {
   if (!st) return;
-  voiceGate(['ask', 'react', 'reroll'].includes(st.phase), 'الصوت موقوف أثناء الأسئلة حتى لا تُكشف الكلمة السرية');
   const done = st.phase === 'done';
 
   // نقاط الجولات

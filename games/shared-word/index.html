@@ -159,7 +159,7 @@ function renderStage() {
 
 function render() {
   if (!st) return;
-  voiceGate(st.phase === 'write', 'اللعبة «دون كلام»: الصوت موقوف حتى تكشفا الكلمتين');
+  voiceGate(st.phase === 'write', 'اللعبة «دون كلام»: أُغلق مايكك حتى تكشفا الكلمتين');
   const col = `hsl(${st.bar * 1.25},72%,52%)`;
   $('#fill').style.width = st.bar + '%'; $('#fill').style.background = col; $('#pct').textContent = st.bar + '%';
   if (st.seq !== lastSeq) {

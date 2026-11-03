@@ -307,13 +307,13 @@ function build({ mode = "game" } = {}) {
   // بوابة اللعبة: تطلب اللعبة إغلاق المايك/السماع مؤقتاً (تسجيل صوتي، أو لعبة «دون كلام»). تُمرَّر بلا تخزين: تعيدها اللعبة عند كل رسم، وتزول بمغادرة الصفحة
   function gate(g) {
     const was = S.gate; S.gate = g && (g.mic || g.ear) ? g : null; S.eng?.setGate(S.gate);
-    if (S.gate && !was && inVoice()) bubble({ icon: makeMic(16, "muted").el, title: "الصوت موقوف مؤقتاً", text: S.gate.why || "اللعبة أغلقت القناة الصوتية في هذه المرحلة" });
-    else if (!S.gate && was && inVoice()) bubble({ icon: makeMic(16, "live").el, title: "عاد الصوت", text: "فُتحت القناة الصوتية من جديد" });
+    if (S.gate && !was && inVoice()) bubble({ icon: makeMic(16, "muted").el, title: "المايك مغلق مؤقتاً", text: S.gate.why || "أغلقته اللعبة في هذه المرحلة" });
+    else if (!S.gate && was && inVoice()) bubble({ icon: makeMic(16, "live").el, title: "عاد المايك", text: "يمكنك الكلام الآن" });
     paintMic(); if (S.P) renderVoice();
   }
   function setMute(m, quiet) {
     const E = S.eng; if (!E?.on) return;
-    if (S.gate?.mic) { bubble({ icon: makeMic(16, "muted").el, title: "الصوت موقوف مؤقتاً", text: S.gate.why || "اللعبة أغلقت القناة الصوتية في هذه المرحلة" }); return; }
+    if (S.gate?.mic) { bubble({ icon: makeMic(16, "muted").el, title: "المايك مغلق مؤقتاً", text: S.gate.why || "أغلقته اللعبة في هذه المرحلة" }); return; }
     E.setMuted(m, true); persist(); paintMic(); renderVoice();
     if (!quiet) m ? sfx.mute() : sfx.unmute();
   }

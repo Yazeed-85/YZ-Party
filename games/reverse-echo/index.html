@@ -486,7 +486,7 @@ async function onChoose(music, fl, ch) {
 
 function render() {
   if (!st) return;
-  voiceGate(['say', 'listen', 'mimic'].includes(st.phase), 'الصوت موقوف حتى لا يسمع أحدكما الآخر أثناء التسجيل');
+  voiceGate(['say', 'listen', 'mimic'].includes(st.phase), 'أُغلق مايكك مؤقتاً حتى لا يسمعك الآخر أثناء التسجيل');
   if (st.round !== lastRound) { lastRound = st.round; recState = 'idle'; holding = false; stopPlay(); }
   const done = st.phase === 'done';
   $('#dots').replaceChildren(...Array.from({ length: ROUNDS }, (_, i) => h('i', (i + 1 < st.round || done ? 'on' : '') + (i + 1 === st.round && !done ? ' cur' : ''))));
