@@ -91,9 +91,10 @@ import '../../shared/comms-auto.js';
 import { voiceGate, voiceSettled } from '../../shared/voice-gate.js';
 import { initGameExit } from '../../shared/leave.js';
 import { analyze } from './judge.js';
+import { SR, SR_HI, resample, prepare, enhance, toB64, fromB64 } from './audio.js';
 
 // ===== إعدادات قابلة للتعديل =====
-const ROUNDS = 6, EASY = 3, PREP_S = 4, SAY_S = 25, LISTEN_S = 45, MIMIC_S = 30, JUDGE_S = 20, REVEAL_S = 45, NEXT_S = 10, SAY_MAX = 7, SAY_WORD = 4, MIN_REC = 0.6, SR = 16000, SR_HI = 24000, PRE = 0.5, POST = 0.5;   // SR للحَكَم فقط، وSR_HI لما يُرسَل ويُسمَع، وPRE/POST هامش التقاط قبل الضغط وبعد الرفع (ثوانٍ)
+const ROUNDS = 6, EASY = 3, PREP_S = 4, SAY_S = 25, LISTEN_S = 45, MIMIC_S = 30, JUDGE_S = 20, REVEAL_S = 45, NEXT_S = 10, SAY_MAX = 7, SAY_WORD = 4, MIN_REC = 0.6, PRE = 0.5, POST = 0.5, LISTEN_FX = 1;   // SR للحَكَم فقط، وSR_HI لما يُرسَل ويُسمَع، وPRE/POST هامش التقاط قبل الضغط وبعد الرفع (ثوانٍ)
 const CAT = {                                            // التصنيف ونقاط المقلِّد
   exact: { e: '🎯', t: 'مطابق تماماً', pts: 2, c: 'ok' }, close: { e: '⚠️', t: 'قريب جداً', pts: 1, c: 'am' },
   bad: { e: '❌', t: 'سيء جداً', pts: 0, c: 'no2' }, none: { e: '🤷', t: 'تعذّر التحليل', pts: 0, c: 'mu' }, skip: { e: '⏭️', t: 'جولة ملغاة', pts: 0, c: 'mu' }
@@ -186,42 +187,6 @@ function record(maxS) {                                  // يبدأ من نصف
   return { result, stop: rec.stop };
 }
 
-// تغيير معدّل العينة بمرشّح sinc مُنَعَّم (Hann): بلا تشويه ولا تعرّج، ويعمل فوراً بلا سياق صوت
-function resample(x, from, to) {
-  if (from === to) return x;
-  const r = from / to, n = Math.floor(x.length / r), y = new Float32Array(n), fc = Math.min(1, to / from) * 0.97, Wd = 12 / fc;
-  for (let i = 0; i < n; i++) {
-    const c = i * r; let acc = 0;
-    for (let k = Math.max(0, Math.ceil(c - Wd)), e = Math.min(x.length - 1, Math.floor(c + Wd)); k <= e; k++) {
-      const u = k - c, z = Math.PI * fc * u, sn = Math.abs(z) < 1e-9 ? 1 : Math.sin(z) / z;
-      acc += x[k] * fc * sn * (0.5 + 0.5 * Math.cos(Math.PI * u / Wd));
-    }
-    y[i] = acc;
-  }
-  return y;
-}
-// تجهيز التسجيل: تحويل لـ24kHz، إزالة الإزاحة، قصّ الصمت بتساهل (حدّ منخفض + هامش 120ms قبل و250ms بعد)، تطبيع الشدة، وتلاشٍ قصير عند الطرفين. بلا ضاغط ولا بوابة ضجيج.
-function prepare(raw, sr) {
-  const x = resample(raw, sr, SR_HI); let mean = 0; for (let i = 0; i < x.length; i++) mean += x[i]; mean /= x.length || 1; for (let i = 0; i < x.length; i++) x[i] -= mean;
-  const fr = SR_HI / 100, n = Math.floor(x.length / fr), rms = new Float32Array(n);
-  for (let i = 0; i < n; i++) { let q = 0; for (let k = 0; k < fr; k++) q += x[i * fr + k] ** 2; rms[i] = Math.sqrt(q / fr); }
-  const so = [...rms].sort((p, q) => p - q), floor = so[Math.floor(n * 0.1)] || 0, peak = so[n - 1] || 0, thr = Math.max(floor * 2.5, peak * 0.012, 0.002);
-  let a = 0, b = n - 1; while (a < b && rms[a] < thr) a++; while (b > a && rms[b] < thr) b--;
-  const y = x.slice(Math.max(0, (a - 12) * fr), Math.min(x.length, (b + 26) * fr)); let m = 0; for (let i = 0; i < y.length; i++) m = Math.max(m, Math.abs(y[i]));
-  const g = m ? 0.9 / m : 1, fd = Math.round(SR_HI * 0.006);
-  for (let i = 0; i < y.length; i++) { let v = y[i] * g; if (i < fd) v *= i / fd; else if (i > y.length - fd) v *= (y.length - i) / fd; y[i] = v; }
-  y.sr = SR_HI; return y;
-}
-function toB64(f) {
-  const i16 = new Int16Array(f.length); for (let i = 0; i < f.length; i++) i16[i] = Math.max(-1, Math.min(1, f[i])) * 32767;
-  const u8 = new Uint8Array(i16.buffer); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
-  return btoa(s);
-}
-function fromB64(b, sr = SR) {
-  const s = atob(b), u8 = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i);
-  const i16 = new Int16Array(u8.buffer), f = new Float32Array(i16.length); for (let i = 0; i < i16.length; i++) f[i] = i16[i] / 32767;
-  f.sr = sr; return f;
-}
 let playing = null;
 function stopPlay() { try { playing?.stop(); } catch {} playing = null; }
 // سياق تشغيل مستقل (بعد إغلاق المايك)، ونحوّل العيّنات بأنفسنا إلى معدّله بمرشّح عالي الجودة بدل ترك المتصفح يستبدلها بتقريب خطي
@@ -442,7 +407,7 @@ async function startListen() {                           // المستقبِل: 
   releaseMic(); await voiceSettled(); await new Promise(r => setTimeout(r, 250));   // لا مايك مفتوح أثناء التشغيل: يخرج الصوت بجودته الكاملة
   if ($('#capM')) $('#capM').textContent = '🔊 يُشغَّل مقلوباً…';
   $('#card').insertBefore(waveCv(), $('#card').querySelector('.tb'));
-  await play(A, true);
+  await play(LISTEN_FX ? enhance(A, LISTEN_FX) : A, true);   // نسخة معادَلة الشدة للاستماع فقط (الحَكَم والعرض يستعملان الأصل)
   if (st.phase === 'listen' && st.round === r) toMimic(r);
 }
 
