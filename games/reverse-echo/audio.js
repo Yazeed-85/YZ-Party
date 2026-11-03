@@ -20,11 +20,25 @@ export function prepare(raw, sr) {
   const x = resample(raw, sr, SR_HI); let mean = 0; for (let i = 0; i < x.length; i++) mean += x[i]; mean /= x.length || 1; for (let i = 0; i < x.length; i++) x[i] -= mean;
   const fr = SR_HI / 100, n = Math.floor(x.length / fr), rms = new Float32Array(n);
   for (let i = 0; i < n; i++) { let q = 0; for (let k = 0; k < fr; k++) q += x[i * fr + k] ** 2; rms[i] = Math.sqrt(q / fr); }
-  const so = [...rms].sort((p, q) => p - q), floor = so[Math.floor(n * 0.1)] || 0, peak = so[n - 1] || 0, thr = Math.max(floor * 2.5, peak * 0.012, 0.002);
+  const so = [...rms].sort((p, q) => p - q), floor = so[Math.floor(n * 0.1)] || 0, peak = so[n - 1] || 0;
+  
+  // تعديل 1: تقليل العتبة (Threshold) لتصبح أكثر تساهلاً مع الأصوات الخافتة
+  const thr = Math.max(floor * 1.5, peak * 0.005, 0.001); 
+  
   let a = 0, b = n - 1; while (a < b && rms[a] < thr) a++; while (b > a && rms[b] < thr) b--;
-  const y = x.slice(Math.max(0, (a - 12) * fr), Math.min(x.length, (b + 26) * fr)); let m = 0; for (let i = 0; i < y.length; i++) m = Math.max(m, Math.abs(y[i]));
-  const g = m ? 0.9 / m : 1, fd = Math.round(SR_HI * 0.006);
-  for (let i = 0; i < y.length; i++) { let v = y[i] * g; if (i < fd) v *= i / fd; else if (i > y.length - fd) v *= (y.length - i) / fd; y[i] = v; }
+  
+  // تعديل 2: زيادة الهامش الزمني المتروك قبل (30) وبعد (50) الكلام لضمان عدم بتر الحروف
+  const y = x.slice(Math.max(0, (a - 30) * fr), Math.min(x.length, (b + 50) * fr)); 
+  
+  let m = 0; for (let i = 0; i < y.length; i++) m = Math.max(m, Math.abs(y[i]));
+  const g = m ? 0.9 / m : 1, fd = Math.round(SR_HI * 0.015); // زيادة وقت التلاشي لتجنب الطقطقة
+  
+  for (let i = 0; i < y.length; i++) { 
+    let v = y[i] * g; 
+    if (i < fd) v *= i / fd; 
+    else if (i > y.length - fd) v *= (y.length - i) / fd; 
+    y[i] = v; 
+  }
   y.sr = SR_HI; return y;
 }
 
@@ -45,16 +59,27 @@ export function enhance(x, strength = 1) {
   const sr = x.sr || SR_HI, n = x.length, y = new Float32Array(n), win = Math.round(sr * 0.02), env = new Float32Array(n);
   let acc = 0; const sq = new Float32Array(n); for (let i = 0; i < n; i++) sq[i] = x[i] * x[i];
   for (let i = 0; i < n; i++) { acc += sq[i]; if (i >= win) acc -= sq[i - win]; env[i] = Math.sqrt(Math.max(0, acc) / win); }
+  
   const sorted = Float32Array.from(env).sort(), floor = sorted[Math.floor(n * 0.1)] || 0, top = sorted[Math.floor(n * 0.9)] || 1e-3, target = top * 0.7;
-  let g = 1; const atk = Math.exp(-1 / (sr * 0.01)), rel = Math.exp(-1 / (sr * 0.06));
+  let g = 1; const atk = Math.exp(-1 / (sr * 0.01)), rel = Math.exp(-1 / (sr * 0.08)); // إبطاء الـ Release قليلاً
+  
   for (let i = 0; i < n; i++) {
-    const e = Math.max(env[i], 1e-5), want = e < floor * 2 ? 1 : Math.min(5, Math.max(0.6, Math.pow(target / e, 0.7)));
+    const e = Math.max(env[i], 1e-5);
+    // تعديل 1: تقليل أقصى حد للرفع من 5 إلى 2.5، وتقليل الأس من 0.7 إلى 0.5 لضغط أنعم
+    const want = e < floor * 2 ? 1 : Math.min(2.5, Math.max(0.5, Math.pow(target / e, 0.5)));
     g = want < g ? atk * g + (1 - atk) * want : rel * g + (1 - rel) * want;
     y[i] = x[i] * (1 + (g - 1) * strength);
   }
-  const k = 0.55 * strength; let prev = 0, m = 0;
+  
+  // تعديل 2: تقليل إبراز الحروف الاحتكاكية (High-pass filter) لأنه يسبب صفيراً مزعجاً
+  const k = 0.35 * strength; let prev = 0, m = 0;
   for (let i = 0; i < n; i++) { const v = y[i]; y[i] = v - k * prev; prev = v; }
-  for (let i = 0; i < n; i++) y[i] = Math.tanh(y[i] * 1.2); for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(y[i]));
-  const sc = m ? 0.9 / m : 1; for (let i = 0; i < n; i++) y[i] *= sc;
+  
+  // تعديل 3: تقليل حدة التشويه (Soft Clipping) من 1.2 إلى 0.85
+  for (let i = 0; i < n; i++) y[i] = Math.tanh(y[i] * 0.85); 
+  
+  for (let i = 0; i < n; i++) m = Math.max(m, Math.abs(y[i]));
+  const sc = m ? 0.95 / m : 1; for (let i = 0; i < n; i++) y[i] *= sc;
+  
   y.sr = sr; return y;
 }
