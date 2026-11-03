@@ -3,4 +3,6 @@
 // تزول بمغادرة الصفحة، ولا تغيّر اختيار اللاعب (كتمه/فتحه) فيعود كما كان عند فتحها.
 // سياسة كل لعبة: انظر حقل voice في games-registry.js (free = صوت حر دائماً، phase = تغلقه اللعبة في مراحل معيّنة).
 // الافتراضي إغلاق المايك فقط (يظهر أحمر مشطوباً عند اللاعب)؛ مرّر { ear: true } لإغلاق السماع أيضاً.
-export const voiceGate = (closed, why = "", { ear = false } = {}) => { try { window.YZComms?.gate?.(closed ? { mic: true, ear, why } : null); } catch { /* لا قناة صوتية */ } };
+// free: يفرّغ المايك فعلياً (لا يكتمه فقط) كي لا يتحول مخرج الجوال لوضع المكالمة أثناء تشغيل اللعبة لصوت. استدعِ await voiceSettled() قبل طلب المايك بعدها.
+export const voiceSettled = () => window.YZComms?.settled?.() || Promise.resolve();
+export const voiceGate = (closed, why = "", { ear = false, free = false } = {}) => { try { window.YZComms?.gate?.(closed ? { mic: true, ear, free, why } : null); } catch { /* لا قناة صوتية */ } };

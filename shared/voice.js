@@ -180,10 +180,29 @@ export class VoiceEngine {
     if (!quiet) this.ev.muted?.(this.muted);
   }
   // بوابة اللعبة: تغلق المايك و/أو السماع مؤقتاً (g = {mic, ear, why} أو null لفتحها). لا تغيّر اختيار اللاعب (الكتم) ولا تكتبه في الخادم
+  // free: يُفرَّغ التقاط المايك فعلياً (لا مجرد كتمه)، لأن الجوال يحوّل المخرج لوضع «مكالمة» رديء وهو مفتوح، فيتقطع أي صوت تشغّله اللعبة. يُعاد فتحه تلقائياً عند رفع البوابة
   setGate(g) {
-    g = g && (g.mic || g.ear) ? { mic: !!g.mic, ear: !!g.ear, why: g.why || "" } : null;
-    if (JSON.stringify(g) === JSON.stringify(this.gate)) return;
+    g = g && (g.mic || g.ear) ? { mic: !!g.mic, ear: !!g.ear, free: !!g.free, why: g.why || "" } : null;
+    if (JSON.stringify(g) === JSON.stringify(this.gate)) return this._gp || Promise.resolve();
     this.gate = g; this._apply(); this.ev.gate?.(g);
+    const want = !!g?.free;
+    return (this._gp = (this._gp || Promise.resolve()).then(() => (want ? this.suspend() : this.resume())).catch(() => {}));
+  }
+  suspend() {
+    if (!this.on || this.susp || !this.track) return; this.susp = true;
+    this.track.onended = null; this.stream?.getTracks().forEach(t => { try { t.stop(); } catch { /* مغلق */ } });
+    this.unanalyse(this.uid);
+  }
+  async resume() {
+    if (!this.on || !this.susp) return;
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+      if (!this.on) { st.getTracks().forEach(t => t.stop()); return; }
+      this.stream = st; this.track = st.getAudioTracks()[0]; this.susp = false; this._apply();
+      this.track.onended = () => { if (this.on) { this.leave(); this.ev.ended?.(); } };
+      this.peers.forEach(p => { try { p.pc?.getSenders().find(s => !s.track || s.track.kind === "audio")?.replaceTrack(this.track); } catch { /* يُعاد عند إعادة الاتصال */ } });
+      this.analyse(this.uid, st);
+    } catch (e) { this.susp = false; if (this.on) { this.leave(); this.ev.ended?.(); } }                     // تعذّر إعادة المايك: نخرج من القناة بدل أن نبقى صامتين
   }
   _apply() {
     if (this.track) this.track.enabled = !this.muted && !this.gate?.mic;

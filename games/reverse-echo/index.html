@@ -88,7 +88,7 @@ import { finishGame, makeResult, evBy } from '../../shared/result.js';
 import { countdown, deadline } from '../../shared/timer.js';
 import { toast, sfx, scoreBar } from '../../shared/ui.js';
 import '../../shared/comms-auto.js';
-import { voiceGate } from '../../shared/voice-gate.js';
+import { voiceGate, voiceSettled } from '../../shared/voice-gate.js';
 import { initGameExit } from '../../shared/leave.js';
 import { analyze } from './judge.js';
 
@@ -130,25 +130,45 @@ function releaseMic() {                                  // عند الانته�
 }
 
 // ===== التقاط مستمر بذاكرة دوّارة: نحتفظ بآخر نصف ثانية قبل الضغط، ونكمل نصف ثانية بعد الرفع، فلا يُقصّ أول حرف ولا آخره =====
-const cap = { node: null, src: null, an: null, chunks: [], total: 0, sr: 0, rec: null };
+const cap = { node: null, src: null, an: null, chunks: [], total: 0, sr: 0, rec: null, t0: 0, ready: null };
+// المعالج يعمل على خيط الصوت نفسه (AudioWorklet) فلا يضيع منه شيء حين تنشغل الشاشة بالحركة، بخلاف ScriptProcessor الذي يسقط أجزاء على الجوال فيخرج الكلام مقطّعاً
+const WORKLET = `class C extends AudioWorkletProcessor{constructor(){super();this.b=new Float32Array(1024);this.n=0}process(i){const c=i[0]&&i[0][0];if(!c)return true;for(let k=0;k<c.length;k++){this.b[this.n++]=c[k];if(this.n===1024){this.port.postMessage(this.b.slice(0));this.n=0}}return true}}registerProcessor('yzcap',C)`;
+function push(d) {
+  cap.chunks.push({ s: cap.total, d }); cap.total += d.length;
+  if (!cap.rec) { const keep = cap.total - Math.round(cap.sr * PRE * 2); while (cap.chunks.length > 1 && cap.chunks[0].s + cap.chunks[0].d.length < keep) cap.chunks.shift(); }
+  else if (cap.rec.endAt != null && cap.total >= cap.rec.endAt) cap.rec.finish();
+}
+async function mkNode(a) {
+  if (a.audioWorklet && window.AudioWorkletNode) {
+    try {
+      cap.ready ??= a.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' })));
+      await cap.ready; const w = new AudioWorkletNode(a, 'yzcap', { numberOfInputs: 1, numberOfOutputs: 0, channelCount: 1, channelCountMode: 'explicit' });
+      w.port.onmessage = e => push(e.data); return { node: w, z: null };
+    } catch (e) { console.warn('worklet', e); }
+  }
+  const sp = a.createScriptProcessor(4096, 1, 1), z = a.createGain(); z.gain.value = 0; sp.connect(z); z.connect(a.destination);
+  sp.onaudioprocess = e => push(new Float32Array(e.inputBuffer.getChannelData(0))); return { node: sp, z };
+}
+let arming = null;
 function arm() {
-  if (cap.node || !stream || !stream.active) return !!cap.node;
-  const a = actx(); a.resume?.().catch?.(() => {}); cap.sr = a.sampleRate; cap.chunks = []; cap.total = 0;
-  cap.src = a.createMediaStreamSource(stream); cap.an = a.createAnalyser(); cap.an.fftSize = 256; cap.src.connect(cap.an);
-  const sp = a.createScriptProcessor(2048, 1, 1), z = a.createGain(); z.gain.value = 0; cap.src.connect(sp); sp.connect(z); z.connect(a.destination);
-  sp.onaudioprocess = e => {
-    const d = new Float32Array(e.inputBuffer.getChannelData(0)); cap.chunks.push({ s: cap.total, d }); cap.total += d.length;
-    if (!cap.rec) { const keep = cap.total - Math.round(cap.sr * PRE * 2); while (cap.chunks.length > 1 && cap.chunks[0].s + cap.chunks[0].d.length < keep) cap.chunks.shift(); }
-    else if (cap.rec.endAt != null && cap.total >= cap.rec.endAt) cap.rec.finish();
-  };
-  cap.node = sp; cap.z = z; return true;
+  if (cap.node) return Promise.resolve(true); if (arming) return arming;
+  if (!stream || !stream.active) return Promise.resolve(false);
+  arming = (async () => {
+    const a = actx(); try { await a.resume(); } catch {} cap.sr = a.sampleRate; cap.chunks = []; cap.total = 0;
+    const src = a.createMediaStreamSource(stream), an = a.createAnalyser(); an.fftSize = 256; src.connect(an);
+    const { node, z } = await mkNode(a); src.connect(node);
+    cap.src = src; cap.an = an; cap.node = node; cap.z = z; cap.t0 = a.currentTime; return true;
+  })().catch(e => { console.error(e); return false; }).finally(() => { arming = null; });
+  return arming;
 }
 function disarm() {
   cap.rec?.finish?.();
-  try { if (cap.node) { cap.node.onaudioprocess = null; cap.node.disconnect(); } cap.src?.disconnect(); cap.z?.disconnect(); } catch {}
+  try { if (cap.node) { if (cap.node.port) cap.node.port.onmessage = null; else cap.node.onaudioprocess = null; cap.node.disconnect(); } cap.src?.disconnect(); cap.z?.disconnect(); } catch {}
   if (curAnalyser === cap.an) curAnalyser = null;
   cap.node = cap.src = cap.an = cap.z = null; cap.chunks = []; cap.total = 0;
 }
+// سلامة الالتقاط: ما وصلنا من عيّنات يجب أن يوافق الزمن الفعلي، وإلا فهناك فجوات (كلام مقطّع) فيُرفض التسجيل بدل أن يُرسَل تالفاً
+const captureOk = () => { const exp = (actx().currentTime - cap.t0) * cap.sr, got = cap.total; return exp < cap.sr * 2 || exp - got <= cap.sr * 0.35 + exp * 0.02; };
 function extract(a, b) {
   const out = new Float32Array(Math.max(0, b - a));
   for (const c of cap.chunks) { const s0 = Math.max(a, c.s), e0 = Math.min(b, c.s + c.d.length); if (e0 > s0) out.set(c.d.subarray(s0 - c.s, e0 - c.s), s0 - a); }
@@ -159,7 +179,7 @@ function record(maxS) {                                  // يبدأ من نصف
   const result = new Promise(r => (done = r)); curAnalyser = cap.an;
   const rec = {
     endAt: null,
-    finish() { if (rec.fin) return; rec.fin = true; clearTimeout(rec.tm); clearTimeout(rec.fb); if (cap.rec === rec) cap.rec = null; if (curAnalyser === cap.an) curAnalyser = null; done({ pcm: extract(start, Math.min(end ?? cap.total, cap.total)), sr, secs: held }); },
+    finish() { if (rec.fin) return; rec.fin = true; clearTimeout(rec.tm); clearTimeout(rec.fb); if (cap.rec === rec) cap.rec = null; if (curAnalyser === cap.an) curAnalyser = null; done({ pcm: extract(start, Math.min(end ?? cap.total, cap.total)), sr, secs: held, ok: captureOk() }); },
     stop() { if (end != null) return; held = (performance.now() - t0) / 1000; end = cap.total + Math.round(POST * sr); rec.endAt = end; rec.fb = setTimeout(rec.finish, POST * 1000 + 500); }
   };
   rec.tm = setTimeout(rec.stop, maxS * 1000); cap.rec = rec;
@@ -204,9 +224,11 @@ function fromB64(b, sr = SR) {
 }
 let playing = null;
 function stopPlay() { try { playing?.stop(); } catch {} playing = null; }
+// سياق تشغيل مستقل (بعد إغلاق المايك)، ونحوّل العيّنات بأنفسنا إلى معدّله بمرشّح عالي الجودة بدل ترك المتصفح يستبدلها بتقريب خطي
+let pctx = null; const pactx = () => (pctx ??= new AC({ latencyHint: 'playback' }));
 function play(pcm, reversed) {                           // يرجع وعداً يُحَل عند انتهاء التشغيل
-  stopPlay();
-  const f = reversed ? Float32Array.from(pcm).reverse() : pcm, a = actx(), b = a.createBuffer(1, f.length, pcm.sr || SR), an = a.createAnalyser();
+  stopPlay(); const a = pactx(); a.resume?.().catch?.(() => {});
+  const f0 = reversed ? Float32Array.from(pcm).reverse() : pcm, f = resample(f0, pcm.sr || SR, a.sampleRate), b = a.createBuffer(1, f.length, a.sampleRate), an = a.createAnalyser();
   an.fftSize = 256; b.copyToChannel(f, 0);
   const s = a.createBufferSource(); s.buffer = b; s.connect(an); an.connect(a.destination); playing = s; curAnalyser = an;
   return new Promise(r => { s.onended = () => { if (playing === s) playing = null; if (curAnalyser === an) curAnalyser = null; r(); }; s.start(); });
@@ -331,17 +353,19 @@ function runJudge(r) {
 // ===== التسجيل بالضغط المطوّل =====
 async function holdStart(kind) {
   if (holding || recObj || recState === 'proc') return; holding = true;
-  try { await mic(); } catch { holding = false; return toast('اسمح باستخدام الميكروفون من إعدادات المتصفح', 'error'); }
+  try { await voiceSettled(); await mic(); } catch { holding = false; return toast('اسمح باستخدام الميكروفون من إعدادات المتصفح', 'error'); }
   if (!holding) return;                                  // أفلت اللاعب قبل أن يبدأ التسجيل
-  if (!arm()) { holding = false; return toast('تعذّر تشغيل الميكروفون', 'error'); }   // عادةً مفتوح مسبقاً منذ ظهور الزر (فتُلتقط آخر نصف ثانية قبل الضغط)
+  if (!(await arm())) { holding = false; return toast('تعذّر تشغيل الميكروفون', 'error'); }
+  if (!holding) return;   // عادةً مفتوح مسبقاً منذ ظهور الزر (فتُلتقط آخر نصف ثانية قبل الضغط)
   const r = st.round, maxS = kind === 'A' ? (r <= EASY ? SAY_WORD : SAY_MAX) : Math.min(12, Math.max(5, (((pcmA(r)?.length || SR * 3) / (pcmA(r)?.sr || SR))) * 1.7 + 2));
   try { recObj = record(maxS); } catch (e) { console.error(e); holding = false; return toast('تعذّر تشغيل الميكروفون', 'error'); }
   recState = 'rec'; setRecUI(true); sfx.turn();
-  recObj.result.then(async ({ pcm: raw, sr, secs }) => {
+  recObj.result.then(async ({ pcm: raw, sr, secs, ok }) => {
     holding = false; recObj = null; recState = 'proc'; panelKey = ''; renderPanel();
     try {
       if (st.round !== r || st.phase !== (kind === 'A' ? 'say' : 'mimic')) throw 'late';
       if (secs < MIN_REC) throw 'short';
+      if (ok === false) throw 'glitch';
       let pcm = prepare(raw, sr);
       if (pcm.length < SR_HI * MIN_REC) throw 'short';
       if (kind === 'B') { const rv = Float32Array.from(pcm).reverse(); rv.sr = SR_HI; pcm = rv; }   // تُعكس برمجياً لتعود طبيعية
@@ -349,7 +373,7 @@ async function holdStart(kind) {
       if (kind === 'A') { localA = { r, pcm }; await set(gameRef(ctx.code, 'clipA'), { r, d, sr: SR_HI }); recState = 'sent'; disarm(); panelKey = ''; renderPanel(); await toListen(r); }
       else { localB = { r, pcm }; await set(gameRef(ctx.code, 'clipB'), { r, d, sr: SR_HI }); recState = 'sent'; disarm(); panelKey = ''; renderPanel(); await toJudge(r); }
     } catch (e) {
-      if (e === 'short') { toast('اضغط مطولاً وتكلّم، ثم اترك الزر', 'error'); sfx.error(); } else if (e !== 'late') { console.error(e); toast('تعذّر إرسال التسجيل، أعد المحاولة', 'error'); }
+      if (e === 'glitch') { toast('انقطع التقاط الصوت، أعد التسجيل', 'error'); sfx.error(); } else if (e === 'short') { toast('اضغط مطولاً وتكلّم، ثم اترك الزر', 'error'); sfx.error(); } else if (e !== 'late') { console.error(e); toast('تعذّر إرسال التسجيل، أعد المحاولة', 'error'); }
       recState = 'idle'; panelKey = ''; renderPanel();
     }
   });
@@ -385,7 +409,7 @@ function recordView(c, kind, title, alertTxt) {
   if (recState === 'proc') return c.append(...wait('جارٍ العكس والإرسال…'));
   if (recState === 'sent') return c.append(h('div', 'badge', '✔'), h('div', 'sub', 'أُرسل'));
   if (alertTxt) { const a = h('div', 'alert', alertTxt); c.append(a); if (!reduce) gsap.fromTo(a, { scale: .7, opacity: 0 }, { scale: 1, opacity: 1, duration: .6, ease: 'elastic.out(1,.5)' }); }
-  mic().then(arm).catch(() => {});                       // نفتح الالتقاط مسبقاً ليتوفر نصف ثانية قبل الضغط
+  voiceSettled().then(mic).then(arm).catch(() => {});                       // نفتح الالتقاط مسبقاً ليتوفر نصف ثانية قبل الضغط
   c.append(h('div', 'ttl', title), waveCv(), holdBtn(kind)); const hn = h('div', 'sub', 'اضغط مطولاً وتكلّم'); hn.id = 'hint'; c.append(hn);
 }
 
@@ -414,7 +438,8 @@ async function startListen() {                           // المستقبِل: 
   go.remove();
   if (st.phase !== 'listen' || st.round !== r) return;
   try { sessionStorage.setItem(used, '1'); } catch {}
-  try { await actx().resume(); } catch {}
+  pactx().resume?.().catch?.(() => {});                  // داخل لمسة اللاعب (زر ▶)
+  releaseMic(); await voiceSettled(); await new Promise(r => setTimeout(r, 250));   // لا مايك مفتوح أثناء التشغيل: يخرج الصوت بجودته الكاملة
   if ($('#capM')) $('#capM').textContent = '🔊 يُشغَّل مقلوباً…';
   $('#card').insertBefore(waveCv(), $('#card').querySelector('.tb'));
   await play(A, true);
@@ -539,12 +564,13 @@ async function onChoose(music, fl, ch) {
     toast('الميكروفون مطلوب للعبة، اسمح به ثم اختر من جديد', 'error'); sfx.error();
     if (!reduce) gsap.to(orb, { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, duration: .5 }); [...ch.children].forEach(b => (b.disabled = false)); return;
   }
+  releaseMic();                                          // الإذن مُنح: نغلق الالتقاط حتى وقت التسجيل، فلا يبقى مفتوحاً أثناء تشغيل الأصوات
   setTimeout(imReady, reduce ? 0 : 750);
 }
 
 function render() {
   if (!st) return;
-  voiceGate(['say', 'listen', 'mimic'].includes(st.phase), 'أُغلق مايكك مؤقتاً حتى لا يسمعك الآخر أثناء التسجيل');
+  voiceGate(['say', 'listen', 'mimic'].includes(st.phase), 'أُغلق مايكك مؤقتاً حتى لا يسمعك الآخر أثناء التسجيل', { free: st.phase === 'listen' });
   if (st.round !== lastRound) { lastRound = st.round; recState = 'idle'; holding = false; stopPlay(); }
   const done = st.phase === 'done';
   $('#dots').replaceChildren(...Array.from({ length: ROUNDS }, (_, i) => h('i', (i + 1 < st.round || done ? 'on' : '') + (i + 1 === st.round && !done ? ' cur' : ''))));
@@ -556,7 +582,7 @@ function render() {
   prevPts = [...st.pts];
   (st.phase === 'say' && me === mimOf(st.round) && musicOn && serverNow() >= st.goAt) ? startMusic() : stopMusic();   // عند المقلِّد طوال تسجيل صاحب الجملة، إن سمح بها
   if (recObj && !((st.phase === 'say' && me === spkOf(st.round)) || (st.phase === 'mimic' && me === mimOf(st.round)))) recObj.stop();
-  if (!cap.rec && cap.node && !((st.phase === 'say' && me === spkOf(st.round) && serverNow() >= st.goAt) || (st.phase === 'mimic' && me === mimOf(st.round)))) disarm();   // لا التقاط خارج مرحلة تسجيلك
+  if (!recObj && !holding && !cap.rec && (cap.node || stream) && !((st.phase === 'say' && me === spkOf(st.round) && serverNow() >= st.goAt) || (st.phase === 'mimic' && me === mimOf(st.round)))) releaseMic();   // لا التقاط خارج مرحلة تسجيلك
   if (st.phase === 'judge' && me === spkOf(st.round) && !judging[st.round] && pcmA(st.round) && pcmB(st.round)) {
     judging[st.round] = true; setTimeout(() => finishJudge(st.round, runJudge(st.round)), 900);
   }

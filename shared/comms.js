@@ -306,7 +306,7 @@ function build({ mode = "game" } = {}) {
   async function leaveVoice() { const E = S.eng; if (!E?.on) return; await E.leave(); flagSet(null); sfx.leave(); paintMic(); renderVoice(); }
   // بوابة اللعبة: تطلب اللعبة إغلاق المايك/السماع مؤقتاً (تسجيل صوتي، أو لعبة «دون كلام»). تُمرَّر بلا تخزين: تعيدها اللعبة عند كل رسم، وتزول بمغادرة الصفحة
   function gate(g) {
-    const was = S.gate; S.gate = g && (g.mic || g.ear) ? g : null; S.eng?.setGate(S.gate);
+    const was = S.gate; S.gate = g && (g.mic || g.ear) ? g : null; S.gateP = S.eng?.setGate(S.gate);
     if (S.gate && !was && inVoice()) bubble({ icon: makeMic(16, "muted").el, title: "المايك مغلق مؤقتاً", text: S.gate.why || "أغلقته اللعبة في هذه المرحلة" });
     else if (!S.gate && was && inVoice()) bubble({ icon: makeMic(16, "live").el, title: "عاد المايك", text: "يمكنك الكلام الآن" });
     paintMic(); if (S.P) renderVoice();
@@ -527,9 +527,9 @@ function build({ mode = "game" } = {}) {
   addEventListener("pagehide", () => { /* onDisconnect ينظّف الخادم؛ الجلسة تعيد الانضمام في الصفحة التالية */ });
 
   return {
-    fab, enter, exit, gate, openPanel, openQuick, closeQuick, hint,
+    fab, enter, exit, gate, settled: () => S.gateP || Promise.resolve(), openPanel, openQuick, closeQuick, hint,
     get micTrack() { return S.eng?.micTrack() || null; },
     get code() { return S.code; }
   };
 }
-window.YZComms = { micTrack: () => C?.micTrack || null, gate: g => C?.gate(g) };
+window.YZComms = { micTrack: () => C?.micTrack || null, gate: g => C?.gate(g), settled: () => C?.settled() || Promise.resolve() };
