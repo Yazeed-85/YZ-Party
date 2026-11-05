@@ -12,7 +12,8 @@ export const fmtKey = k => (k || "").match(/.{1,4}/g)?.join("-") || "";
 export const parseKey = s => { const t = (s || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); return /^[A-Z0-9]{24}$/.test(t) ? t : null; };
 
 const load = () => { try { const v = JSON.parse(localStorage.getItem(LS)); return v?.pid && v?.key ? v : null; } catch { return null; } };
-const save = v => { try { localStorage.setItem(LS, JSON.stringify({ pid: v.pid, key: v.key })); } catch { /* التخزين ممنوع */ } };
+const drop = () => { try { localStorage.removeItem(LS); } catch { /* ممنوع */ } };
+const save = v => { try { localStorage.setItem(LS, JSON.stringify({ pid: v.pid, key: v.key, ...(v.u ? { u: v.u } : {}) })); } catch { /* التخزين ممنوع */ } };   // u = آخر uid تأكّد ربطه: يتيح الإقلاع الفوري بلا رحلة شبكة
 try { navigator.storage?.persist?.(); } catch { /* طلب إبقاء البيانات: اختياري */ }
 
 async function linkNow(uid, s) {
@@ -36,14 +37,21 @@ let P = null;
 // ترجع { pid, key, ok } — ok=false إن لم تكن قواعد Firebase محدَّثة (تعمل اللعبة بلا ميزات الأصدقاء)
 export const identity = () => (P ??= (async () => {
   const u = await ready; let s = load();
-  try { if (s) await linkNow(u.uid, s); else s = await createNew(u.uid); return { ...s, ok: true }; }
+  // مسار سريع: الجلسة نفسها ارتبطت بهذه الهوية سابقاً، فنعيدها فوراً (تظهر الأصدقاء والواجهة بلا انتظار) ونتحقق في الخلفية
+  if (s && s.u === u.uid) {
+    linkNow(u.uid, s).catch(async () => {
+      try { if ((await get(ref(db, `keys/${s.key}`))).val() === null) { drop(); location.reload(); } else save({ pid: s.pid, key: s.key }); } catch { /* انقطاع: نُبقي كما هي */ }
+    });
+    return { pid: s.pid, key: s.key, ok: true };
+  }
+  try { if (s) await linkNow(u.uid, s); else s = await createNew(u.uid); save({ pid: s.pid, key: s.key, u: u.uid }); return { pid: s.pid, key: s.key, ok: true }; }
   catch (e) {
     console.warn("identity", e);
     // الحساب حُذف من لوحة التحكم (الرمز لم يعد موجوداً): نبدأ هوية جديدة بدل البقاء بهوية ميتة. أي فشل اتصال لا يمسح شيئاً
     try {
       if (s && (await get(ref(db, `keys/${s.key}`))).val() === null) {
-        try { localStorage.removeItem(LS); } catch { /* ممنوع */ }
-        return { ...(await createNew(u.uid)), ok: true };
+        drop();
+        const n = await createNew(u.uid); save({ ...n, u: u.uid }); return { ...n, ok: true };
       }
     } catch { /* نكمل للرد الاحتياطي */ }
     return { ...(s || {}), ok: false };
@@ -57,7 +65,7 @@ export async function restoreIdentity(input) {
   let pid; try { pid = (await get(ref(db, `keys/${key}`))).val(); } catch { throw new Error("تعذّر الاتصال"); }
   if (!pid) throw new Error("لا يوجد حساب بهذا الرمز");
   await linkNow(u.uid, { pid, key });
-  save({ pid, key }); P = null;
+  save({ pid, key, u: u.uid }); P = null;
   return identity();
 }
 

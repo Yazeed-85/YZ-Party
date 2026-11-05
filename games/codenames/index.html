@@ -4,9 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>الكلمات المشفرة</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<!-- أداء: اتصالات مسبقة وتحميل متوازٍ لسلسلة الوحدات (بدل تحميلها واحدة بعد أخرى) -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://yz-party-default-rtdb.europe-west1.firebasedatabase.app" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet" media="print" onload="this.media=\'all\'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="../../shared/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js">
+<link rel="modulepreload" href="../../shared/firebase.js">
+<link rel="modulepreload" href="../../shared/room.js">
+<link rel="modulepreload" href="../../shared/ui.js">
+<link rel="modulepreload" href="../../shared/identity.js">
+<link rel="modulepreload" href="../../shared/comms.js">
+<link rel="modulepreload" href="../../shared/voice.js">
+<link rel="modulepreload" href="../../shared/result.js">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
 <style>
 :root{--red:#d9552e;--red-d:#a63a1c;--red-l:#f08a62;--blue:#2d8fb3;--blue-d:#1d6a88;--blue-l:#69c4de;--paper:#f0e4c8;--paper-d:#cfc09a;--gold:#ffd54a}
 html,body{height:100%;overflow:hidden}

@@ -4,9 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>التحدي العكسي</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<!-- أداء: اتصالات مسبقة وتحميل متوازٍ لسلسلة الوحدات (بدل تحميلها واحدة بعد أخرى) -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://yz-party-default-rtdb.europe-west1.firebasedatabase.app" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet" media="print" onload="this.media=\'all\'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="../../shared/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js">
+<link rel="modulepreload" href="../../shared/firebase.js">
+<link rel="modulepreload" href="../../shared/room.js">
+<link rel="modulepreload" href="../../shared/ui.js">
+<link rel="modulepreload" href="../../shared/identity.js">
+<link rel="modulepreload" href="../../shared/comms.js">
+<link rel="modulepreload" href="../../shared/voice.js">
+<link rel="modulepreload" href="../../shared/result.js">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
 <style>
 html,body{height:100%;overflow:hidden}
 main{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:0;justify-content:flex-start;gap:8px;padding:10px 14px 14px}
@@ -116,7 +133,7 @@ const AC = window.AudioContext || window.webkitAudioContext; let ac, stream = nu
 const actx = () => (ac ??= new AC());
 const decode = ab => new Promise((res, rej) => { const p = actx().decodeAudioData(ab, res, rej); p?.then?.(res, rej); });
 // التقاط خام بلا معالجة: كتم الضجيج وضبط الشدة التلقائي وإلغاء الصدى تقصّ بداية الكلام ونهايته وتشوّه الحروف الخافتة (س، ف، ث) فيضيع وضوحها عند العكس
-const RAW = { echoCancellation: true, noiseSuppression: true, autoGainControl: false }, VOICE = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+const RAW = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, VOICE = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 let chTrack = null;                                      // مسار القناة الصوتية إن استعرناه: نعيد له إعداداته بعد التسجيل
 async function mic() {
   if (stream && stream.active) return stream;

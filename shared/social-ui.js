@@ -36,9 +36,11 @@ async function thisIsYou(inp) {
 
 // h = { members(): مجموعة pid لمن معك في الغرفة، name(): الاسم الحالي، room(): كود الغرفة أو null، createRoom(): ينشئ غرفة ويفتح ردهتها ويرجع الكود، join(code): ينضم لغرفة }
 export async function initSocial(h) {
+  // الأيقونة تظهر فوراً (لا ننتظر الشبكة)، ويتصل ما بعدها حين تجهز الهوية
+  let btn = document.getElementById("fr"), badge = btn?.querySelector(".badge");           // الزر موجود في index.html ليُرسم مع أول إطار
+  if (!btn) { btn = el("button", "fab fr"); btn.id = "fr"; btn.setAttribute("aria-label", "الأصدقاء"); btn.innerHTML = ICON; document.body.append(btn); }
+  if (!badge) { badge = el("span", "badge"); btn.append(badge); } badge.hidden = true;
   const me = await identity();
-  const btn = el("button", "fab fr"); btn.id = "fr"; btn.setAttribute("aria-label", "الأصدقاء"); btn.innerHTML = ICON;
-  const badge = el("span", "badge"); badge.hidden = true; btn.append(badge); document.body.append(btn);
   let D = { friends: {}, requests: {}, invites: [] }, sheet = null; const sent = new Set(), shown = new Set();
   const status = pid => (D.friends[pid] ? "friend" : D.requests[pid] ? "incoming" : sent.has(pid) ? "sent" : "none");
   const listeners = new Set(); const emit = () => listeners.forEach(f => f());

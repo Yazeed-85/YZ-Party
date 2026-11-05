@@ -224,11 +224,11 @@ export async function sweepRooms() {
     localStorage.setItem("yz_sweep", String(Date.now()));
     await ready;
     const idx = (await get(ref(db, "roomIndex"))).val() || {}, now = serverNow();
-    for (const [code, v] of Object.entries(idx)) {
+    await Promise.all(Object.entries(idx).map(async ([code, v]) => {
       const age = now - (v?.t || 0);
       if (age > STALE_MS || (v?.s === "closed" && age > CLOSED_MS)) {
         try { await remove(roomRef(code)); await remove(idxRef(code)); } catch { /* ليست لدينا صلاحية: نتركها */ }
       }
-    }
+    }));
   } catch (e) { console.warn("sweep", e); }
 }
